@@ -1,0 +1,305 @@
+import { getServiceSupabase, isLiveMode } from "@/lib/supabase/server";
+import { fetchFixtures, fetchResults, fetchOdds, type ProviderOdd } from "./providers";
+import { buildPredictions, buildEdges, MODEL_VERSION } from "@/lib/model/engine";
+import * as mock from "./mock";
+
+export type SyncJob = "fixtures" | "results" | "odds" | "predictions";
+
+export interface SyncResult {
+  job: SyncJob;
+  status: "success" | "error";
+  records: number;
+  message: string;
+  source: string;
+}
+
+const FIX_SRC = () => (isLiveMode() ? (process.env.FIXTURES_PROVIDER ?? "football-data") : mock.MOCK_SOURCE);
+const ODDS_SRC = () => (isLiveMode() ? (process.env.ODDS_PROVIDER ?? "the-odds-api") : mock.MOCK_SOURCE);
+
+// ─── sync_logs ───────────────────────────────────────────────
+async function logStart(job: SyncJob, source: string): Promise<string | null> {
+  if (!isLiveMode()) return null;
+  const sb = getServiceSupabase()!;
+  const { data } = await sb.from("sync_logs")
+    .insert({ job, status: "running", source, started_at: new Date().toISOString() })
+    .select("id").single();
+  return data?.id ?? null;
+}
+async function logEnd(id: string | null, status: "success" | "error", records: number, message: string) {
+  if (!isLiveMode() || !id) return;
+  const sb = getServiceSupabase()!;
+  await sb.from("sync_logs").update({
+    status, records_affected: records, message: message.slice(0, 500), finished_at: new Date().toISOString(),
+  }).eq("id", id);
+}
+
+async function upsertRows(
+  table: string,
+  rows: any[],
+  options: { onConflict: string },
+  chunkSize = 500
+) {
+  if (!rows.length) return;
+  const sb = getServiceSupabase()!;
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize);
+    const { error } = await sb.from(table).upsert(chunk, options);
+    if (error) {
+      throw new Error(`${table} upsert failed: ${error.message}`);
+    }
+  }
+}
+
+function dedupeBy<T>(rows: T[], keyOf: (row: T) => string): T[] {
+  const byKey = new Map<string, T>();
+  for (const row of rows) byKey.set(keyOf(row), row);
+  return Array.from(byKey.values());
+}
+
+async function teamIdMap(): Promise<Map<string, string>> {
+  const sb = getServiceSupabase()!;
+  const { data } = await sb.from("teams").select("id, external_id");
+  return new Map((data ?? []).filter((t: any) => t.external_id).map((t: any) => [t.external_id, t.id]));
+}
+
+// ─── Estadísticas calculadas desde los resultados reales ─────
+// football-data.org no entrega stats; las derivamos de los partidos
+// finalizados. Genera una fila por CADA equipo (0 partidos => prior neutro).
+async function recomputeStats(): Promise<number> {
+  const sb = getServiceSupabase()!;
+  const { data: teams } = await sb.from("teams").select("id");
+  const { data: finished } = await sb.from("matches")
+    .select("home_team_id, away_team_id, home_score, away_score, kickoff")
+    .eq("status", "finished");
+
+  type Acc = { mp: number; gf: number; ga: number; form: { d: string; r: "W" | "D" | "L" }[] };
+  const acc = new Map<string, Acc>();
+  const ensure = (id: string) => acc.get(id) ?? acc.set(id, { mp: 0, gf: 0, ga: 0, form: [] }).get(id)!;
+
+  for (const m of finished ?? []) {
+    if (m.home_score == null || m.away_score == null) continue;
+    const h = ensure(m.home_team_id), a = ensure(m.away_team_id);
+    h.mp++; a.mp++;
+    h.gf += m.home_score; h.ga += m.away_score;
+    a.gf += m.away_score; a.ga += m.home_score;
+    const hr: "W" | "D" | "L" = m.home_score > m.away_score ? "W" : m.home_score < m.away_score ? "L" : "D";
+    const ar: "W" | "D" | "L" = hr === "W" ? "L" : hr === "L" ? "W" : "D";
+    h.form.push({ d: m.kickoff, r: hr });
+    a.form.push({ d: m.kickoff, r: ar });
+  }
+
+  const rows = (teams ?? []).map((t: any) => {
+    const s = acc.get(t.id) ?? { mp: 0, gf: 0, ga: 0, form: [] };
+    const form = s.form.sort((x, y) => y.d.localeCompare(x.d)).slice(0, 5).map((f) => f.r);
+    return {
+      team_id: t.id,
+      matches_played: s.mp,
+      goals_for: s.gf,
+      goals_against: s.ga,
+      gf_per_game: s.mp ? +(s.gf / s.mp).toFixed(3) : 0,
+      ga_per_game: s.mp ? +(s.ga / s.mp).toFixed(3) : 0,
+      recent_form: form,
+      updated_at: new Date().toISOString(),
+    };
+  });
+  await upsertRows("team_stats", rows, { onConflict: "team_id" });
+  return rows.length;
+}
+
+// ─── Jobs ────────────────────────────────────────────────────
+export async function syncFixtures(): Promise<SyncResult> {
+  const source = FIX_SRC();
+  const logId = await logStart("fixtures", source);
+  try {
+    if (!isLiveMode()) return done("fixtures", source, logId, mock.matches.length, "Mock: fixtures en memoria.");
+    const sb = getServiceSupabase()!;
+    const { teams, fixtures } = await fetchFixtures();
+
+    if (teams.length)
+      await upsertRows(
+        "teams",
+        teams.map((t) => ({ external_id: t.external_id, name: t.name, code: t.code, flag: t.flag })),
+        { onConflict: "external_id" });
+
+    const tMap = await teamIdMap();
+    const matchRows = fixtures.map((f) => {
+      const home_team_id = tMap.get(f.home_external_id);
+      const away_team_id = tMap.get(f.away_external_id);
+      if (!home_team_id || !away_team_id) return null;
+      return {
+        external_id: f.external_id, home_team_id, away_team_id,
+        stage: f.stage, kickoff: f.kickoff, venue: f.venue,
+        status: f.status, home_score: f.home_score, away_score: f.away_score,
+        updated_at: new Date().toISOString(),
+      };
+    }).filter(Boolean);
+    await upsertRows("matches", matchRows as any[], { onConflict: "external_id" });
+
+    const nStats = await recomputeStats();
+    return done("fixtures", source, logId, matchRows.length,
+      `Equipos: ${teams.length}, partidos: ${matchRows.length}, stats: ${nStats}.`);
+  } catch (e) {
+    return fail("fixtures", source, logId, e);
+  }
+}
+
+export async function syncResults(): Promise<SyncResult> {
+  const source = FIX_SRC();
+  const logId = await logStart("results", source);
+  try {
+    if (!isLiveMode()) return done("results", source, logId, 0, "Mock: sin resultados nuevos.");
+    const sb = getServiceSupabase()!;
+    const results = await fetchResults();
+    let n = 0;
+    for (const r of results) {
+      const { error } = await sb.from("matches").update({
+        status: r.status, home_score: r.home_score, away_score: r.away_score,
+        updated_at: new Date().toISOString(),
+      }).eq("external_id", r.external_id);
+      if (!error) n++;
+    }
+    await recomputeStats(); // refresca stats con los nuevos resultados
+    return done("results", source, logId, n, "Resultados actualizados.");
+  } catch (e) {
+    return fail("results", source, logId, e);
+  }
+}
+
+// Normaliza nombres de equipo para emparejar entre proveedores.
+const TEAM_ALIASES: Record<string, string> = {
+  southkorea: "korearepublic", korearepublic: "korearepublic",
+  iran: "iran", iriran: "iran", iranislamicrepublic: "iran",
+  usa: "unitedstates", unitedstates: "unitedstates", unitedstatesofamerica: "unitedstates",
+  czechia: "czechrepublic", czechrepublic: "czechrepublic",
+  ivorycoast: "cotedivoire", cotedivoire: "cotedivoire",
+  capeverde: "caboverde", caboverde: "caboverde",
+};
+function normTeam(name: string): string {
+  const s = (name ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z]/g, "");
+  return TEAM_ALIASES[s] ?? s;
+}
+// Cuando una cuota viene en orden invertido (visita como local), hay que
+// intercambiar los outcomes de 1x2; btts y over/under son simétricos.
+function swapOutcome(o: ProviderOdd): ProviderOdd {
+  if (o.market !== "1x2") return o;
+  const flip = o.outcome === "home" ? "away" : o.outcome === "away" ? "home" : o.outcome;
+  return { ...o, outcome: flip };
+}
+
+export async function syncOdds(): Promise<SyncResult> {
+  const source = ODDS_SRC();
+  const logId = await logStart("odds", source);
+  try {
+    if (!isLiveMode()) return done("odds", source, logId, mock.odds.length, "Mock: cuotas en memoria.");
+    const sb = getServiceSupabase()!;
+    const providerOdds = await fetchOdds();
+    const now = new Date().toISOString();
+
+    // Mapas de emparejamiento
+    const { data: matches } = await sb.from("matches")
+      .select("id, external_id, home_team_id, away_team_id");
+    const { data: teams } = await sb.from("teams").select("id, name");
+    const teamName = new Map((teams ?? []).map((t: any) => [t.id, normTeam(t.name)]));
+    const byExternal = new Map((matches ?? []).filter((m: any) => m.external_id).map((m: any) => [m.external_id, m.id]));
+    const byPair = new Map<string, string>();   // "home|away" -> match_id
+    for (const m of matches ?? []) {
+      const h = teamName.get(m.home_team_id), a = teamName.get(m.away_team_id);
+      if (h && a) byPair.set(`${h}|${a}`, m.id);
+    }
+
+    let matched = 0, unmatched = 0;
+    const rows = providerOdds.map((o) => {
+      let match_id: string | undefined;
+      let odd = o;
+      if (o.fixture_external_id) match_id = byExternal.get(o.fixture_external_id);
+      if (!match_id && o.home_name && o.away_name) {
+        const key = `${normTeam(o.home_name)}|${normTeam(o.away_name)}`;
+        match_id = byPair.get(key);
+        if (!match_id) {
+          const rev = `${normTeam(o.away_name)}|${normTeam(o.home_name)}`;
+          if (byPair.has(rev)) { match_id = byPair.get(rev); odd = swapOutcome(o); }
+        }
+      }
+      if (!match_id) { unmatched++; return null; }
+      matched++;
+      return {
+        match_id, bookmaker: odd.bookmaker, market: odd.market, outcome: odd.outcome,
+        decimal_odds: odd.decimal_odds, source, fetched_at: now,
+      };
+    }).filter(Boolean);
+
+    const uniqueRows = dedupeBy(rows as any[], (r) =>
+      `${r.match_id}|${r.bookmaker}|${r.market}|${r.outcome}`
+    );
+    const duplicates = rows.length - uniqueRows.length;
+
+    await upsertRows("odds", uniqueRows, { onConflict: "match_id,bookmaker,market,outcome" });
+    return done("odds", source, logId, uniqueRows.length,
+      `Cuotas emparejadas: ${matched}, sin partido: ${unmatched}, duplicadas descartadas: ${duplicates}.`);
+  } catch (e) {
+    return fail("odds", source, logId, e);
+  }
+}
+
+export async function syncPredictions(): Promise<SyncResult> {
+  const source = MODEL_VERSION;
+  const logId = await logStart("predictions", source);
+  try {
+    if (!isLiveMode()) {
+      let n = 0;
+      for (const m of mock.matches) {
+        const hs = mock.teamStats.find((s) => s.team_id === m.home_team_id)!;
+        const as = mock.teamStats.find((s) => s.team_id === m.away_team_id)!;
+        const preds = buildPredictions(m, hs, as);
+        n += buildEdges(m, preds, mock.odds.filter((x) => x.match_id === m.id)).length;
+      }
+      return done("predictions", source, logId, n, "Mock: predicciones/edges al vuelo.");
+    }
+
+    const sb = getServiceSupabase()!;
+    const { data: matches } = await sb.from("matches").select("*").in("status", ["scheduled", "live"]);
+    const { data: stats } = await sb.from("team_stats").select("*");
+    const { data: allOdds } = await sb.from("odds").select("*");
+    const statMap = new Map((stats ?? []).map((s: any) => [s.team_id, s]));
+
+    const predRows: any[] = [], edgeRows: any[] = [];
+    for (const m of matches ?? []) {
+      const hs = statMap.get(m.home_team_id), as = statMap.get(m.away_team_id);
+      if (!hs || !as) continue;
+      const preds = buildPredictions(m as any, hs as any, as as any);
+      const o = (allOdds ?? []).filter((x: any) => x.match_id === m.id);
+      predRows.push(...preds);
+      edgeRows.push(...buildEdges(m as any, preds, o as any));
+    }
+    const dbPredRows = predRows.map(({ id, ...row }) => row);
+    const dbEdgeRows = edgeRows.map(({ id, ...row }) => row);
+
+    await upsertRows("predictions", dbPredRows, { onConflict: "match_id,market,outcome,model_version" });
+    await upsertRows("edges", dbEdgeRows, { onConflict: "match_id,market,outcome" });
+    return done("predictions", source, logId, edgeRows.length, "Predicciones y edges recalculados.");
+  } catch (e) {
+    return fail("predictions", source, logId, e);
+  }
+}
+
+export async function runJob(job: SyncJob): Promise<SyncResult> {
+  switch (job) {
+    case "fixtures": return syncFixtures();
+    case "results": return syncResults();
+    case "odds": return syncOdds();
+    case "predictions": return syncPredictions();
+  }
+}
+export async function runAll(): Promise<SyncResult[]> {
+  return [await syncFixtures(), await syncResults(), await syncOdds(), await syncPredictions()];
+}
+
+async function done(job: SyncJob, source: string, logId: string | null, records: number, message: string): Promise<SyncResult> {
+  await logEnd(logId, "success", records, message);
+  return { job, status: "success", records, message, source };
+}
+async function fail(job: SyncJob, source: string, logId: string | null, e: unknown): Promise<SyncResult> {
+  const message = e instanceof Error ? e.message : String(e);
+  await logEnd(logId, "error", 0, message);
+  return { job, status: "error", records: 0, message, source };
+}

@@ -1,0 +1,22 @@
+# Cron GRATIS con GitHub Actions (no requiere plan Pro de Vercel).
+# Llama a /api/cron periódicamente con el CRON_SECRET.
+#
+# Configura en GitHub: Settings → Secrets and variables → Actions:
+#   APP_URL       = https://TU-APP.vercel.app
+#   CRON_SECRET   = el mismo valor que pusiste en Vercel/.env
+name: Sync Mundial Edge
+
+on:
+  schedule:
+    - cron: "0 */2 * * *"   # cada 2 horas (UTC)
+  workflow_dispatch: {}      # permite dispararlo a mano
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger /api/cron
+        run: |
+          curl -fsS -X GET \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/cron" | head -c 2000

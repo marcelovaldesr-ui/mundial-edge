@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Tema oscuro tipo dashboard financiero/deportivo */
+  --background: 222 30% 7%;
+  --foreground: 210 20% 96%;
+  --card: 222 28% 10%;
+  --card-foreground: 210 20% 96%;
+  --primary: 199 89% 52%;          /* cian eléctrico */
+  --primary-foreground: 222 47% 8%;
+  --secondary: 217 24% 18%;
+  --secondary-foreground: 210 20% 96%;
+  --muted: 217 20% 16%;
+  --muted-foreground: 215 16% 60%;
+  --accent: 217 24% 18%;
+  --accent-foreground: 210 20% 96%;
+  --border: 217 22% 18%;
+  --input: 217 22% 18%;
+  --ring: 199 89% 52%;
+  --success: 152 62% 45%;
+  --success-foreground: 152 60% 12%;
+  --warning: 38 92% 55%;
+  --warning-foreground: 38 80% 12%;
+  --danger: 0 72% 55%;
+  --danger-foreground: 0 60% 12%;
+  --radius: 0.6rem;
+}
+
+* { border-color: hsl(var(--border)); }
+body {
+  background:
+    radial-gradient(1200px 600px at 80% -10%, hsl(199 89% 52% / 0.08), transparent),
+    hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-feature-settings: "cv02","cv03","cv04","cv11";
+}

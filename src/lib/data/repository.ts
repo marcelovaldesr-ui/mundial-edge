@@ -104,6 +104,19 @@ export async function getOddsForMatch(matchId: string): Promise<Odd[]> {
   return mock.odds.filter((o) => o.match_id === matchId);
 }
 
+export async function getTeamStats(): Promise<TeamStats[]> {
+  if (isLiveMode()) {
+    const sb = getServiceSupabase()!;
+    const { data, error } = await sb.from("team_stats").select("*");
+    if (error) {
+      console.error("[getTeamStats] error:", error.message);
+      return [];
+    }
+    return (data as TeamStats[]) ?? [];
+  }
+  return mock.teamStats;
+}
+
 export async function getLastSync(): Promise<{ at: string | null; source: string }> {
   if (isLiveMode()) {
     const sb = getServiceSupabase()!;

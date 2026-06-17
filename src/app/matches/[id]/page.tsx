@@ -1,21 +1,31 @@
 import { notFound } from "next/navigation";
-import { getMatch, getEdgesForMatch, getOddsForMatch, getLastSync, dataMode } from "@/lib/data/repository";
+import { getMatch, getEdgesForMatch, getOddsForMatch, getLastSync, dataMode, getTeamStats } from "@/lib/data/repository";
 import { EdgeTable } from "@/components/edge-table";
 import { ProbabilityChart } from "@/components/probability-chart";
 import { LastUpdated } from "@/components/last-updated";
 import { Disclaimer } from "@/components/disclaimer";
+import { PoissonModelCard } from "@/components/poisson-model-card";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { fmtKickoff } from "@/lib/utils";
+import { buildScoreMatrixForMatch } from "@/lib/stat-model";
+import { TeamMark } from "@/components/team-mark";
 
 export const dynamic = "force-dynamic";
 
 export default async function MatchDetail({ params }: { params: { id: string } }) {
   const match = await getMatch(params.id);
   if (!match) notFound();
-  const [edges, odds, sync] = await Promise.all([
-    getEdgesForMatch(params.id), getOddsForMatch(params.id), getLastSync(),
+  const [edges, odds, sync, teamStats] = await Promise.all([
+    getEdgesForMatch(params.id), getOddsForMatch(params.id), getLastSync(), getTeamStats(),
   ]);
+  const statMap = new Map(teamStats.map((stats) => [stats.team_id, stats]));
+  const modelResult = buildScoreMatrixForMatch(
+    match,
+    statMap.get(match.home_team_id),
+    statMap.get(match.away_team_id)
+  );
+  const modelPrediction = "scoreMatrix" in modelResult ? modelResult : null;
 
   // Datos del gráfico: 1X2 (modelo vs implícita)
   const x12 = edges.filter((e) => e.market === "1x2");
@@ -39,9 +49,9 @@ export default async function MatchDetail({ params }: { params: { id: string } }
             <span className="text-sm text-muted-foreground">{fmtKickoff(match.kickoff)}</span>
           </div>
           <CardTitle className="text-2xl">
-            <span className="mr-2">{match.home_team?.flag}</span>{match.home_team?.name}
+            <span className="mr-2 inline-flex align-middle"><TeamMark team={match.home_team} className="h-6 w-6" /></span>{match.home_team?.name}
             <span className="mx-3 text-muted-foreground">vs</span>
-            {match.away_team?.name}<span className="ml-2">{match.away_team?.flag}</span>
+            {match.away_team?.name}<span className="ml-2 inline-flex align-middle"><TeamMark team={match.away_team} className="h-6 w-6" /></span>
           </CardTitle>
           <CardDescription>
             {match.venue ?? "Sede por confirmar"} · Casas: {bookmakers.join(", ") || "—"}
@@ -64,6 +74,19 @@ export default async function MatchDetail({ params }: { params: { id: string } }
           </CardContent>
         </Card>
       </div>
+
+      {modelPrediction && (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold">Contexto Poisson del partido</h2>
+            <p className="text-sm text-muted-foreground">
+              Matriz de marcadores para leer xG, 1X2, goles y doble oportunidad. Es modelo estadístico,
+              no edge apostable sin cuota.
+            </p>
+          </div>
+          <PoissonModelCard prediction={modelPrediction} compact />
+        </section>
+      )}
 
       <Card>
         <CardHeader><CardTitle className="text-base">Análisis por selección</CardTitle></CardHeader>

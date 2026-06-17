@@ -1,4 +1,5 @@
 import { anchorProbability } from "../src/lib/stat-model/calibration";
+import { buildScoreMatricesByMatchId, buildScoreMatrixForMatch } from "../src/lib/stat-model/match-prediction";
 import {
   deriveMarketProbabilities,
   jointProbabilityForSelections,
@@ -6,6 +7,7 @@ import {
   selectionToScorePredicate,
 } from "../src/lib/stat-model/market-probabilities";
 import { createScoreMatrix, poissonProbability, scoreMatrixTotalProbability } from "../src/lib/stat-model/score-matrix";
+import type { Match, TeamStats } from "../src/lib/types";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -72,9 +74,63 @@ function calibration() {
   near(anchored.anchoredProb, 0.478);
 }
 
+function matchPrediction() {
+  const match: Match = {
+    id: "m1",
+    home_team_id: "home",
+    away_team_id: "away",
+    stage: "Group",
+    kickoff: "2026-06-20T20:00:00Z",
+    venue: null,
+    status: "scheduled",
+    home_score: null,
+    away_score: null,
+    home_team: { id: "home", name: "Home", code: "HOM", group: null },
+    away_team: { id: "away", name: "Away", code: "AWY", group: null },
+  };
+  const homeStats: TeamStats = {
+    team_id: "home",
+    matches_played: 3,
+    goals_for: 5,
+    goals_against: 2,
+    goal_diff: 3,
+    recent_form: ["W", "W", "D"],
+    gf_per_game: 1.667,
+    ga_per_game: 0.667,
+  };
+  const awayStats: TeamStats = {
+    team_id: "away",
+    matches_played: 3,
+    goals_for: 4,
+    goals_against: 3,
+    goal_diff: 1,
+    recent_form: ["W", "L", "D"],
+    gf_per_game: 1.333,
+    ga_per_game: 1,
+  };
+  const prediction = buildScoreMatrixForMatch(match, homeStats, awayStats, { generatedAt: "2026-06-17T00:00:00Z" });
+  assert("scoreMatrix" in prediction, "Expected prediction with complete stats");
+  assert(prediction.matchId === "m1", "Expected match id to be preserved");
+  assert(prediction.marketProbabilities.length > 10, "Expected market probabilities");
+  assert(prediction.confidence === "medium", "Expected medium confidence for 3-match sample");
+  assert(!("anchoredProb" in prediction), "Stat-model prediction must not apply market anchoring");
+
+  const low = buildScoreMatrixForMatch(match, { ...homeStats, matches_played: 0, recent_form: [] }, awayStats);
+  assert("scoreMatrix" in low && low.confidence === "low", "Expected low confidence with missing sample");
+  assert("scoreMatrix" in low && low.warnings.some((warning) => warning.includes("Baja confianza")), "Expected low-confidence warning");
+
+  const missing = buildScoreMatrixForMatch(match, undefined, awayStats);
+  assert(!("scoreMatrix" in missing), "Expected controlled issue for missing stats");
+
+  const matrices = buildScoreMatricesByMatchId([match], [homeStats, awayStats]);
+  assert(matrices.scoreMatricesByMatchId.m1, "Expected score matrix keyed by match id");
+  assert(matrices.coverage.totalPreMatch === 1 && matrices.coverage.withScoreMatrix === 1, "Expected coverage counts");
+}
+
 poisson();
 matrixAndMarkets();
 predicatesAndJoint();
 calibration();
+matchPrediction();
 
 console.log("Stat model verification passed");

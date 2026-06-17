@@ -6,6 +6,7 @@ const links = [
   { href: "/matches", label: "Partidos" },
   { href: "/edges", label: "Ranking de Edges" },
   { href: "/parlays", label: "Combinadas" },
+  { href: "/stat-model", label: "Modelo" },
   { href: "/admin", label: "Admin" },
 ];
 

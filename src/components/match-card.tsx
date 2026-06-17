@@ -5,6 +5,7 @@ import { RiskBadge } from "./risk-badge";
 import { marketLabel, outcomeLabel } from "./outcome-label";
 import { fmtKickoff, fmtEv } from "@/lib/utils";
 import { ChevronRight } from "lucide-react";
+import { TeamMark } from "@/components/team-mark";
 
 export function MatchCard({ match, best }: { match: Match; best?: Edge }) {
   return (
@@ -18,11 +19,11 @@ export function MatchCard({ match, best }: { match: Match; best?: Edge }) {
           <div className="flex items-center justify-between gap-2">
             <div className="flex flex-1 flex-col gap-1.5 text-sm font-medium">
               <span className="flex items-center gap-2">
-                <span className="text-lg">{match.home_team?.flag}</span>
+                <TeamMark team={match.home_team} />
                 {match.home_team?.name}
               </span>
               <span className="flex items-center gap-2">
-                <span className="text-lg">{match.away_team?.flag}</span>
+                <TeamMark team={match.away_team} />
                 {match.away_team?.name}
               </span>
             </div>

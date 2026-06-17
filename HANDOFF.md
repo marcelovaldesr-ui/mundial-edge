@@ -465,3 +465,115 @@ Con lambdas `home=1.5`, `away=1.1`, `maxGoals=12`:
 - `npm run verify:parlays` pasa.
 - `npm run verify:stat-model` pasa.
 - Smoke UI OK en `/parlays?profile=aggressive&debug=1` y `/`.
+
+---
+
+## ACTUALIZACIÓN — sesión 9
+
+### Estado: matrices Poisson conectadas a partidos reales
+- Auditoría de datos:
+  - Disponibles: `matches`, `teams`, `team_stats`, resultados finalizados,
+    goles a favor/en contra, `gf_per_game`, `ga_per_game`, `recent_form`.
+  - `fifa_rank` existe en schema/tipos, pero no está poblado por el sync live.
+  - No hay xG externo, Elo, SPI ni ratings de fuerza confiables todavía.
+  - `team_stats` se calcula desde resultados; si una selección aún no jugó,
+    queda con 0 partidos y priors neutrales. El modelo marca baja confianza.
+- Nuevo `src/lib/stat-model/match-prediction.ts`:
+  - `buildScoreMatrixForMatch(match, homeStats, awayStats, options)`
+  - `buildScoreMatricesByMatchId(matches, teamStats, options)`
+  - `MatchStatModelPrediction`
+  - `StatModelCoverage`
+- `src/lib/data/repository.ts` agrega `getTeamStats()`.
+- Nueva página `/stat-model`:
+  muestra xG local/visitante, 1X2, over/under 2.5, BTTS, doble oportunidad,
+  confidence y warnings. Etiqueta claramente "Probabilidad modelo, no edge
+  apostable todavía."
+- `/parlays` ahora genera `scoreMatricesByMatchId` desde datos reales y lo pasa
+  a `ParlayWorkspace`. Si una combinada tiene varios picks del mismo partido y
+  existe matriz, usa correlación por matriz; si no, fallback heurístico.
+- Diagnóstico de `/parlays` muestra cobertura:
+  pre-partido, con matriz, stats suficientes, sin matriz, combinadas con matriz
+  y combinadas con heurística.
+
+### Cobertura real observada
+- Partidos pre-partido: 53.
+- Partidos con score matrix: 53.
+- Partidos sin matriz: 0.
+- Partidos con stats suficientes: 0.
+- Conclusión: la cobertura técnica es completa, pero la confianza estadística
+  actual es baja porque muchos equipos no tienen partidos finalizados en
+  `team_stats` para esos cruces.
+
+### Ejemplos reales del modelo
+Con datos actuales, varios partidos usan priors similares por baja muestra:
+- `AUT-JOR`: xG 1.44 - 1.35, Home 39.51%, Draw 25.28%, Away 35.22%,
+  Over 2.5 52.92%, Under 2.5 47.08%, BTTS sí 56.60%, confidence low.
+- `POR-COD`: xG 1.44 - 1.35, Home 39.51%, Draw 25.28%, Away 35.22%,
+  Over 2.5 52.92%, Under 2.5 47.08%, BTTS sí 56.60%, confidence low.
+- `ENG-CRO`: xG 1.44 - 1.35, Home 39.51%, Draw 25.28%, Away 35.22%,
+  Over 2.5 52.92%, Under 2.5 47.08%, BTTS sí 56.60%, confidence low.
+
+### Verificación
+- `npm run typecheck` pasa.
+- `npm run verify:parlays` pasa.
+- `npm run verify:stat-model` pasa.
+- Smoke UI OK en `/stat-model` y `/parlays?profile=aggressive&debug=1`.
+
+---
+
+## ACTUALIZACIÓN — sesión 10
+
+### Estado: fase UI/UX premium sobre modelo y combinadas
+- Dashboard principal rediseñado como mesa pre-partido:
+  - hero con modo tipster, Poisson + mercado y avisos de muestra baja;
+  - KPIs de partidos, edges, picks de calidad y matrices Poisson;
+  - oportunidades destacadas con cuota, probabilidad anclada, EV, edge score,
+    confianza del modelo y explicación;
+  - picks individuales en tarjetas rápidas;
+  - preview de combinadas balanceadas usando matrices Poisson para correlación.
+- `/parlays` mantiene motor y filtros, pero mejora presentación:
+  - encabezado con perfil activo;
+  - `ParlayCard` muestra desglose de legs, mercado, partido, cuota, EV,
+    probabilidad anclada, stake, retorno potencial, riesgo, correlación y método
+    `Matriz Poisson` vs `Fallback heurístico`;
+  - explicaciones y warnings aparecen en bloques auditable/legibles.
+- `/stat-model` ahora usa `PoissonModelCard`:
+  - xG local/visitante, score probable, probabilidad del score, 1X2, O/U 2.5,
+    BTTS, doble oportunidad, confianza y warnings;
+  - cobertura técnica y advertencia explícita de que el modelo no es edge
+    apostable sin cuota comparable.
+- Detalle de partido integra bloque Poisson compacto con score probable y
+  contexto de modelo.
+- Nuevo `TeamMark` evita mostrar URLs de crest como texto cuando `team.flag`
+  viene desde football-data.org.
+
+### Componentes agregados/mejorados
+- Nuevos:
+  `DashboardStats`, `OpportunityCard`, `PickCard`, `ExpectedValueIndicator`,
+  `PoissonModelCard`, `ProbabilityBar`, `ConfidenceBadge`, `EdgeScoreBadge`,
+  `StakeRecommendation`, `ExplanationBox`, `ParlayBreakdown`,
+  `CorrelationWarning`, `TeamMark`.
+- Mejorados:
+  `ParlayCard`, `MatchCard`, dashboard `/`, `/parlays`, `/stat-model` y
+  `/matches/[id]`.
+
+### Verificación
+- `npm run typecheck` pasa.
+- `npm run lint` pasa sin warnings.
+- `npm run verify:parlays` pasa.
+- `npm run verify:stat-model` pasa.
+- Smoke UI OK en:
+  - `/`
+  - `/parlays?profile=conservative`
+  - `/parlays?profile=balanced`
+  - `/parlays?profile=aggressive`
+  - `/stat-model`
+  - primer detalle real `/matches/[id]`
+
+### Límites pendientes
+- La confianza estadística sigue baja por falta de muestra en `team_stats`.
+- No hay ratings FIFA/Elo poblados todavía.
+- No se agregaron mercados apostables nuevos ni cambios de schema.
+- `TeamMark` usa `<img>` para crests remotos con excepción ESLint localizada;
+  si se quiere optimización de imágenes, configurar `next/image` con dominios
+  remotos más adelante.

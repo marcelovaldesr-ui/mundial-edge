@@ -16,6 +16,7 @@ import {
   type ParlaySortKey,
   type RejectedParlayCandidate,
 } from "@/lib/parlays";
+import type { ScoreMatrix, StatModelCoverage } from "@/lib/stat-model";
 import { fmtEv, pct } from "@/lib/utils";
 
 const profiles: ParlayProfile[] = ["conservative", "balanced", "aggressive"];
@@ -54,10 +55,14 @@ export function ParlayWorkspace({
   picks,
   initialProfile,
   initialDebug,
+  scoreMatricesByMatchId,
+  coverage,
 }: {
   picks: ParlayPick[];
   initialProfile: ParlayProfile;
   initialDebug?: boolean;
+  scoreMatricesByMatchId?: Record<string, ScoreMatrix>;
+  coverage?: StatModelCoverage;
 }) {
   const [profile, setProfile] = useState<ParlayProfile>(initialProfile);
   const [bankrollInput, setBankrollInput] = useState("");
@@ -76,8 +81,8 @@ export function ParlayWorkspace({
   const rules = PARLAY_PROFILE_RULES[profile];
 
   const generated = useMemo(
-    () => generateParlaysWithDebug(picks, { profile, maxResults: 80, bankroll }),
-    [picks, profile, bankroll]
+    () => generateParlaysWithDebug(picks, { profile, maxResults: 80, bankroll, scoreMatricesByMatchId }),
+    [picks, profile, bankroll, scoreMatricesByMatchId]
   );
   const activeFilters = useMemo(() => parseFilters(filters), [filters]);
   const parlays = useMemo(
@@ -85,6 +90,8 @@ export function ParlayWorkspace({
     [generated.parlays, activeFilters, sortKey]
   );
   const summary = summarize(parlays);
+  const matrixCount = generated.parlays.filter((parlay) => parlay.correlationMethod === "score_matrix").length;
+  const heuristicCount = generated.parlays.filter((parlay) => parlay.correlationMethod === "heuristic").length;
 
   return (
     <div className="space-y-5">
@@ -198,6 +205,19 @@ export function ParlayWorkspace({
         <SummaryCard label="Riesgo predominante" value={summary.risk ? riskText[summary.risk] : "—"} />
       </div>
 
+      {coverage && (
+        <Card>
+          <CardContent className="grid gap-3 p-4 text-sm sm:grid-cols-6">
+            <CoverageMetric label="Pre-partido" value={coverage.totalPreMatch} />
+            <CoverageMetric label="Con matriz" value={coverage.withScoreMatrix} />
+            <CoverageMetric label="Stats suficientes" value={coverage.withSufficientTeamStats} />
+            <CoverageMetric label="Sin matriz" value={coverage.withoutScoreMatrix} />
+            <CoverageMetric label="Comb. matriz" value={matrixCount} />
+            <CoverageMetric label="Comb. heurística" value={heuristicCount} />
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-4">
         {parlays.map((parlay, index) => (
           <ParlayCard key={parlay.id} parlay={parlay} index={index} />
@@ -211,6 +231,15 @@ export function ParlayWorkspace({
       </div>
 
       {showDebug && <RejectedCandidates rejected={generated.rejected.slice(0, 30)} />}
+    </div>
+  );
+}
+
+function CoverageMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="font-semibold tabular-nums">{value}</p>
     </div>
   );
 }

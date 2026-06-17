@@ -2,6 +2,11 @@ import type { Match, Edge, TeamStats, Odd, SyncLog } from "@/lib/types";
 import { getServiceSupabase, isLiveMode } from "@/lib/supabase/server";
 import * as mock from "./mock";
 import { buildPredictions, buildEdges } from "@/lib/model/engine";
+import { isQualityPick } from "@/lib/model/edge";
+
+/** Marca cada edge con `qualifies` (filtros de calidad estilo tipster). */
+const annotate = (edges: Edge[]): Edge[] =>
+  edges.map((e) => ({ ...e, qualifies: isQualityPick(e) }));
 
 // ============================================================
 //  Capa de lectura. Páginas/Server Components la consumen.
@@ -60,10 +65,27 @@ export async function getMatch(id: string): Promise<Match | null> {
 export async function getEdges(): Promise<Edge[]> {
   if (isLiveMode()) {
     const sb = getServiceSupabase()!;
-    const { data } = await sb.from("v_top_edges").select("*");
-    return (data as unknown as Edge[]) ?? [];
+    // Leemos la tabla `edges` directamente (no la vista v_top_edges) para no
+    // depender de la caché de esquema de PostgREST, y traemos el partido +
+    // equipos anidados para mostrar nombres en la tabla.
+    const { data, error } = await sb
+      .from("edges")
+      .select(
+        "*, match:matches!inner(*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*))"
+      )
+      .order("expected_value", { ascending: false });
+    if (error) {
+      console.error("[getEdges] error:", error.message);
+      return [];
+    }
+    const rows = (data as unknown as Edge[]) ?? [];
+    // Solo partidos próximos o en juego (no finalizados) para el dashboard/ranking.
+    const upcoming = rows.filter(
+      (e) => e.match && (e.match.status === "scheduled" || e.match.status === "live")
+    );
+    return annotate(upcoming);
   }
-  return mockEdges().sort((a, b) => b.expected_value - a.expected_value);
+  return annotate(mockEdges().sort((a, b) => b.expected_value - a.expected_value));
 }
 
 export async function getEdgesForMatch(matchId: string): Promise<Edge[]> {

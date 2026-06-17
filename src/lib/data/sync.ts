@@ -50,6 +50,18 @@ async function upsertRows(
   }
 }
 
+async function deleteRowsByMatchIds(table: string, matchIds: string[], chunkSize = 200) {
+  if (!matchIds.length) return;
+  const sb = getServiceSupabase()!;
+  for (let i = 0; i < matchIds.length; i += chunkSize) {
+    const chunk = matchIds.slice(i, i + chunkSize);
+    const { error } = await sb.from(table).delete().in("match_id", chunk);
+    if (error) {
+      throw new Error(`${table} delete failed: ${error.message}`);
+    }
+  }
+}
+
 function dedupeBy<T>(rows: T[], keyOf: (row: T) => string): T[] {
   const byKey = new Map<string, T>();
   for (const row of rows) byKey.set(keyOf(row), row);
@@ -273,10 +285,12 @@ export async function syncPredictions(): Promise<SyncResult> {
     }
     const dbPredRows = predRows.map(({ id, ...row }) => row);
     const dbEdgeRows = edgeRows.map(({ id, ...row }) => row);
+    const matchIds = (matches ?? []).map((m: any) => m.id).filter(Boolean);
 
+    await deleteRowsByMatchIds("edges", matchIds);
     await upsertRows("predictions", dbPredRows, { onConflict: "match_id,market,outcome,model_version" });
     await upsertRows("edges", dbEdgeRows, { onConflict: "match_id,market,outcome" });
-    return done("predictions", source, logId, edgeRows.length, "Predicciones y edges recalculados.");
+    return done("predictions", source, logId, edgeRows.length, "Predicciones recalculadas y edges reemplazados.");
   } catch (e) {
     return fail("predictions", source, logId, e);
   }

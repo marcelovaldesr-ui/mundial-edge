@@ -1,8 +1,8 @@
 import type { Match, TeamStats, Odd, Prediction, Edge, Market, Outcome } from "@/lib/types";
 import { buildScoreMatrix, marketsFromMatrix } from "./poisson";
 import { expectedGoals } from "./expected-goals";
-import { groupByMarket, impliedProbabilityForOutcome } from "./odds";
-import { impliedProbability, edge as calcEdge, expectedValue, classifyEv } from "./edge";
+import { groupByMarket } from "./odds";
+import { impliedProbability, classifyEv, blendedProbability } from "./edge";
 
 export const MODEL_VERSION = "poisson-v1";
 
@@ -55,9 +55,33 @@ export function buildPredictions(
 }
 
 /**
- * Cruza predicciones con cuotas y produce edges.
- * - Ajusta overround por mercado (devig).
- * - Toma, por (market, outcome), la MEJOR cuota disponible entre casas.
+ * Consenso de mercado de-vig por outcome: promedia las cuotas entre casas
+ * y elimina el margen (overround) normalizando sobre los outcomes del mercado.
+ */
+function marketConsensus(marketOdds: Odd[]): Record<string, number> {
+  const byOutcome: Record<string, number[]> = {};
+  for (const o of marketOdds) (byOutcome[o.outcome] ??= []).push(o.decimal_odds);
+  const raw: Record<string, number> = {};
+  let sum = 0;
+  for (const oc of Object.keys(byOutcome)) {
+    const list = byOutcome[oc];
+    const avgOdds = list.reduce((a, b) => a + b, 0) / list.length;
+    const p = avgOdds > 1 ? 1 / avgOdds : 0;
+    raw[oc] = p;
+    sum += p;
+  }
+  const out: Record<string, number> = {};
+  for (const oc of Object.keys(raw)) out[oc] = sum > 0 ? raw[oc] / sum : 0;
+  return out;
+}
+
+/**
+ * Cruza predicciones con cuotas y produce edges, en modo "tipster":
+ * - Calcula el consenso de mercado de-vig por mercado.
+ * - Ancla la probabilidad del modelo al mercado (blendedProbability).
+ * - Toma la MEJOR cuota disponible entre casas para el EV.
+ * El edge resultante es la discrepancia *moderada* frente al consenso,
+ * no el delirio del modelo crudo sobre longshots.
  */
 export function buildEdges(
   match: Match,
@@ -70,23 +94,24 @@ export function buildEdges(
 
   for (const pred of predictions) {
     const marketOdds = byMarket[pred.market] ?? [];
-    // mejor cuota (mayor decimal) para este outcome
     const candidates = marketOdds.filter((o) => o.outcome === pred.outcome);
     if (!candidates.length) continue;
     const best = candidates.reduce((a, b) => (b.decimal_odds > a.decimal_odds ? b : a));
 
-    const bookmakerMarketOdds = marketOdds.filter((o) => o.bookmaker === best.bookmaker);
-    const impliedAdj = impliedProbabilityForOutcome(bookmakerMarketOdds, pred.outcome);
-    const ev = expectedValue(pred.model_probability, best.decimal_odds);
+    const consensus = marketConsensus(marketOdds);
+    const pMarket = consensus[pred.outcome] || impliedProbability(best.decimal_odds);
+    const pFair = blendedProbability(pMarket, pred.model_probability);
+    const ev = pFair * best.decimal_odds - 1;
+
     edges.push({
       id: `${match.id}:${pred.market}:${pred.outcome}`,
       match_id: match.id,
       market: pred.market,
       outcome: pred.outcome,
       decimal_odds: best.decimal_odds,
-      implied_probability: impliedAdj || impliedProbability(best.decimal_odds),
-      model_probability: pred.model_probability,
-      edge: calcEdge(pred.model_probability, impliedAdj || impliedProbability(best.decimal_odds)),
+      implied_probability: pMarket,        // consenso de-vig (lo que dice el mercado)
+      model_probability: pFair,            // estimación final anclada
+      edge: pFair - pMarket,               // discrepancia frente al consenso
       expected_value: ev,
       tier: classifyEv(ev),
       bookmaker: best.bookmaker,

@@ -18,7 +18,7 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
 
   const rows = useMemo(() => {
     let r = [...edges];
-    if (onlyValue) r = r.filter((e) => e.expected_value >= 0.03);
+    if (onlyValue) r = r.filter((e) => e.qualifies);
     r.sort((a, b) => (asc ? a[sortKey] - b[sortKey] : b[sortKey] - a[sortKey]));
     return r;
   }, [edges, sortKey, asc, onlyValue]);
@@ -39,7 +39,7 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
     <div className="space-y-3">
       <label className="flex items-center gap-2 text-xs text-muted-foreground">
         <input type="checkbox" checked={onlyValue} onChange={(e) => setOnlyValue(e.target.checked)} />
-        Mostrar solo apuestas con valor (EV ≥ 3%)
+        Mostrar solo picks de calidad (filtros de tipster)
       </label>
       <Table>
         <TableHeader>
@@ -77,7 +77,19 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
               <TableCell className={"text-right font-semibold tabular-nums " + (e.expected_value >= 0 ? "text-success" : "text-danger")}>
                 {fmtEv(e.expected_value)}
               </TableCell>
-              <TableCell><RiskBadge tier={e.tier} /></TableCell>
+              <TableCell>
+                <div className="flex items-center gap-1.5">
+                  <RiskBadge tier={e.tier} />
+                  {e.qualifies === false && (
+                    <span
+                      title="No pasa los filtros de calidad: cuota fuera de rango o EV atípico (posible error del modelo)."
+                      className="rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground"
+                    >
+                      atípico
+                    </span>
+                  )}
+                </div>
+              </TableCell>
             </TableRow>
           ))}
           {rows.length === 0 && (

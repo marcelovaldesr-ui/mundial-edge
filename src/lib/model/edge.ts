@@ -30,6 +30,42 @@ export function classifyEv(ev: number): ValueTier {
   return "high";
 }
 
+// ─── Modo tipster: anclaje al mercado y filtros de calidad ───────
+// El mercado del Mundial es muy eficiente y el modelo aún tiene poca
+// muestra, así que la probabilidad "justa" se ancla fuerte al mercado
+// (de-vig) y solo se desvía un poco según el modelo. Esto evita el
+// clásico falso "valor" en longshots (p. ej. Argelia vs Argentina).
+export const MARKET_WEIGHT = 0.78; // peso del mercado; (1 - peso) = modelo
+
+/** Probabilidad "justa" = mezcla de mercado (de-vig) y modelo. */
+export const blendedProbability = (marketProb: number, modelProb: number): number =>
+  MARKET_WEIGHT * marketProb + (1 - MARKET_WEIGHT) * modelProb;
+
+// Guardarraíles de un pick "publicable" (lo que mostraría un tipster).
+export const PICK_RULES = {
+  minOdds: 1.4,        // evita favoritos sin recorrido
+  maxOdds: 6.0,        // evita longshots donde el modelo es poco fiable
+  minEv: 0.02,         // 2% mínimo para considerar valor
+  maxEv: 0.2,          // > 20% casi siempre es error de modelo, no valor real
+  minMarketProb: 0.08, // descarta probabilidades implícitas ínfimas
+};
+
+/** ¿Es un pick de calidad y no un artefacto del modelo? */
+export function isQualityPick(e: {
+  decimal_odds: number;
+  expected_value: number;
+  implied_probability: number;
+}): boolean {
+  const r = PICK_RULES;
+  return (
+    e.decimal_odds >= r.minOdds &&
+    e.decimal_odds <= r.maxOdds &&
+    e.expected_value >= r.minEv &&
+    e.expected_value <= r.maxEv &&
+    e.implied_probability >= r.minMarketProb
+  );
+}
+
 export const TIER_META: Record<
   ValueTier,
   { label: string; description: string; color: string; warn: boolean }

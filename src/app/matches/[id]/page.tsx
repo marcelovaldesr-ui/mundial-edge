@@ -58,7 +58,7 @@ export default async function MatchDetail({ params }: { params: { id: string } }
           <CardHeader><CardTitle className="text-base">Cómo leer esto</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             <p><strong className="text-foreground">Prob. implícita</strong>: lo que la cuota da por probable (1/cuota), ajustada por el margen de la casa.</p>
-            <p><strong className="text-foreground">Prob. modelo</strong>: estimación propia (Poisson) a partir de goles, forma y rival.</p>
+            <p><strong className="text-foreground">Prob. modelo</strong>: estimación final anclada al mercado, con señal Poisson a partir de goles, forma y rival.</p>
             <p><strong className="text-foreground">Edge</strong> = modelo − implícita. <strong className="text-foreground">EV</strong> = modelo × cuota − 1.</p>
             <Disclaimer compact className="mt-3" />
           </CardContent>

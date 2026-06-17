@@ -88,6 +88,8 @@ export interface Edge {
   bookmaker: string;
   source: string;
   updated_at: string;
+  // calculado en lectura: ¿pasa los filtros de calidad (modo tipster)?
+  qualifies?: boolean;
   // joins opcionales
   match?: Match;
 }

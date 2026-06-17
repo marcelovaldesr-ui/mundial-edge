@@ -11,15 +11,18 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const [matches, edges, sync] = await Promise.all([getMatches(), getEdges(), getLastSync()]);
 
+  // Solo picks de calidad (filtros estilo tipster) para destacar.
+  const quality = edges.filter((e) => e.qualifies);
+
   const bestByMatch = new Map<string, Edge>();
-  for (const e of edges) {
+  for (const e of quality) {
     const cur = bestByMatch.get(e.match_id);
     if (!cur || e.expected_value > cur.expected_value) bestByMatch.set(e.match_id, e);
   }
   const upcoming = matches.filter((m) => m.status === "scheduled").slice(0, 6);
-  const topEdges = edges.filter((e) => e.expected_value >= 0.03).slice(0, 8);
+  const topEdges = [...quality].sort((a, b) => b.expected_value - a.expected_value).slice(0, 8);
 
-  const valueCount = edges.filter((e) => e.expected_value >= 0.03).length;
+  const valueCount = quality.length;
 
   return (
     <div className="space-y-8">
@@ -36,7 +39,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Partidos próximos" value={upcoming.length} />
         <Stat label="Selecciones analizadas" value={edges.length} />
-        <Stat label="Con valor (EV ≥ 3%)" value={valueCount} accent />
+        <Stat label="Picks de calidad" value={valueCount} accent />
         <Stat label="Modelo" value="Poisson v1" small />
       </div>
 

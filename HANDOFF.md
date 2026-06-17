@@ -177,3 +177,76 @@ npm install
 npm run dev            # arranca en http://localhost:3003 (o el que indique)
 # sincronizar: navegador → /admin → pegar CRON_SECRET → "Ejecutar todo"
 ```
+
+---
+
+## ACTUALIZACIÓN — 16 jun 2026 (sesión 2)
+
+### Estado: pipeline LIVE funcionando con datos reales del Mundial 2026
+- Proyecto movido a `C:\Users\marce\mundial-edge` (fuera de OneDrive — OneDrive
+  corrompía node_modules y truncaba archivos). git inicializado.
+- Proveedores reales conectados y con tokens en `.env.local`:
+  - Fixtures/resultados: **football-data.org** (competición WC) → 48 equipos, 72 partidos.
+  - Cuotas: **The Odds API** (`soccer_fifa_world_cup`, mercados h2h + totals; `btts` NO soportado, quitado).
+  - team_stats se calculan de resultados (`recomputeStats` en sync.ts).
+- Supabase poblado: edges ~190, partidos scheduled/live/finished. El dashboard ya muestra datos reales.
+
+### Fix aplicado: lectura de edges
+`repository.getEdges` ahora lee la **tabla `edges`** con join a `matches`/`teams`
+(en vez de la vista `v_top_edges`, que PostgREST no tenía en su caché de esquema
+y devolvía vacío). Filtra a partidos `scheduled`/`live`.
+
+### Cambio grande: MODO TIPSTER (capa 1 + 3)
+Problema detectado: el modelo, con poca muestra, daba probabilidades absurdas a
+underdogs (ej. Argelia 35% vs Argentina) → falso "valor" de +886% EV.
+Solución implementada:
+- **Anclaje al mercado** (`engine.ts` + `edge.ts`): `prob_justa = 0.78·mercado_devig + 0.22·modelo`.
+  Nuevo `marketConsensus()` (de-vig promediando casas). `buildEdges` guarda la prob anclada.
+- **Filtros de calidad** (`edge.ts`): `isQualityPick()` con `PICK_RULES`
+  (cuota 1.40–6.0, EV 2%–20%, prob implícita ≥ 8%). `MARKET_WEIGHT = 0.78`.
+- `types.ts`: campo `Edge.qualifies?`. `repository.ts`: `annotate()` lo calcula en lectura.
+- Dashboard (`page.tsx`): destaca solo picks de calidad; stat "Picks de calidad".
+- `edge-table.tsx`: filtro "solo picks de calidad" + marca "atípico" a los que no pasan.
+
+### Pendiente inmediato
+1. **Re-ejecutar el job `predictions`** (en /admin) para reescribir los edges con
+   los valores anclados; luego recargar el dashboard. (El motor solo recalcula al sincronizar.)
+2. Verificar que las "mejores oportunidades" ya son sensatas (probablemente queden
+   pocas o ninguna — es lo correcto con un mercado eficiente).
+3. **Commitear** estos cambios (aún no hay commit del modo tipster).
+
+### Próximo paso de producto (capa 2): ratings de fuerza
+Para que el sistema encuentre valor REAL (no fabricado), sembrar el modelo con
+ranking FIFA / Elo de selecciones, así conoce que Argentina ≫ Argelia desde el
+partido 0 sin esperar resultados. Hoy `teams.fifa_rank` existe pero no se usa.
+
+### Notas técnicas
+- El typecheck desde el sandbox de la sesión daba falsos errores por truncación
+  del puente de archivos; el código real compila. Verificar con `npm run build` o el dev server.
+- Dev server suele levantar en puerto 3003. `.next` viejo puede estar corrupto → borrarlo y `npm run dev`.
+
+---
+
+## ACTUALIZACIÓN — sesión 3
+
+### Estado: modo tipster validado contra Supabase
+- `npm run typecheck` pasa con 0 errores.
+- Se re-ejecutó `GET /api/sync/predictions` desde la copia correcta del proyecto
+  (`C:\Users\marce\mundial-edge`) en `http://localhost:3004`.
+- Resultado del job: `records: 106`, `status: success`, `message:
+  "Predicciones recalculadas y edges reemplazados."`
+- Supabase quedó con **106 edges vigentes** para partidos `scheduled/live` y
+  **19 picks de calidad** según `isQualityPick`.
+
+### Fix adicional aplicado
+- `syncPredictions()` ahora borra los `edges` de los partidos recalculados antes
+  de hacer `upsert`. Antes quedaban edges viejos mezclados con los nuevos cuando
+  el motor dejaba de producir una combinación `match/market/outcome`.
+- La página de detalle actualizó la copy de "Prob. modelo" para aclarar que ahora
+  es una estimación final anclada al mercado, no Poisson crudo.
+
+### Nota local
+- El puerto `3003` estaba ocupado por un dev server viejo apuntando a la ruta de
+  OneDrive. Para esta sesión se usó `3004`.
+- En esta copia local `.env.local` no contiene `CRON_SECRET`; en dev el endpoint
+  permite sync sin secreto, pero producción debe configurarlo.

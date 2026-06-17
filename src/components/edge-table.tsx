@@ -10,7 +10,7 @@ import { pct, fmtEv } from "@/lib/utils";
 import { ArrowUpDown, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-type SortKey = "expected_value" | "edge" | "model_probability" | "decimal_odds";
+type SortKey = "expected_value" | "edge" | "model_probability" | "decimal_odds" | "final_probability";
 
 export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatch?: boolean }) {
   const [sortKey, setSortKey] = useState<SortKey>("expected_value");
@@ -20,7 +20,11 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
   const rows = useMemo(() => {
     let r = [...edges];
     if (onlyValue) r = r.filter((e) => e.qualifies);
-    r.sort((a, b) => (asc ? a[sortKey] - b[sortKey] : b[sortKey] - a[sortKey]));
+    r.sort((a, b) => {
+      const av = sortKey === "final_probability" ? (a.final_probability ?? a.model_probability) : a[sortKey];
+      const bv = sortKey === "final_probability" ? (b.final_probability ?? b.model_probability) : b[sortKey];
+      return asc ? av - bv : bv - av;
+    });
     return r;
   }, [edges, sortKey, asc, onlyValue]);
 
@@ -63,9 +67,9 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
               </div>
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-              <MobileMetric label="Modelo" value={pct(e.model_probability)} />
-              <MobileMetric label="Edge" value={fmtEv(e.edge)} accent={e.edge >= 0} />
-              <MobileMetric label="EV" value={fmtEv(e.expected_value)} accent={e.expected_value >= 0} />
+              <MobileMetric label="Mercado" value={pct(e.implied_probability)} />
+              <MobileMetric label="Final" value={pct(e.final_probability ?? e.model_probability)} />
+              <MobileMetric label="EV final" value={fmtEv(e.final_expected_value ?? e.expected_value)} accent={(e.final_expected_value ?? e.expected_value) >= 0} />
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <RiskBadge tier={e.tier} />
@@ -88,10 +92,11 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
             <TableHead>Mercado</TableHead>
             <TableHead>Selección</TableHead>
             <TableHead className="text-right">{sortBtn("decimal_odds", "Cuota")}</TableHead>
-            <TableHead className="text-right">Impl.</TableHead>
-            <TableHead className="text-right">{sortBtn("model_probability", "Modelo")}</TableHead>
-            <TableHead className="text-right">{sortBtn("edge", "Edge")}</TableHead>
-            <TableHead className="text-right">{sortBtn("expected_value", "EV")}</TableHead>
+            <TableHead className="text-right">Mercado</TableHead>
+            <TableHead className="text-right">{sortBtn("model_probability", "Poisson")}</TableHead>
+            <TableHead className="text-right">{sortBtn("final_probability", "Final")}</TableHead>
+            <TableHead className="text-right">{sortBtn("edge", "Edge final")}</TableHead>
+            <TableHead className="text-right">{sortBtn("expected_value", "EV final")}</TableHead>
             <TableHead>Riesgo</TableHead>
           </TableRow>
         </TableHeader>
@@ -111,11 +116,12 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
               <TableCell className="text-right tabular-nums">{e.decimal_odds.toFixed(2)}</TableCell>
               <TableCell className="text-right tabular-nums text-muted-foreground">{pct(e.implied_probability)}</TableCell>
               <TableCell className="text-right tabular-nums">{pct(e.model_probability)}</TableCell>
-              <TableCell className={"text-right tabular-nums " + (e.edge >= 0 ? "text-success" : "text-danger")}>
-                {fmtEv(e.edge)}
+              <TableCell className="text-right tabular-nums">{pct(e.final_probability ?? e.model_probability)}</TableCell>
+              <TableCell className={"text-right tabular-nums " + ((e.final_edge ?? e.edge) >= 0 ? "text-success" : "text-danger")}>
+                {fmtEv(e.final_edge ?? e.edge)}
               </TableCell>
-              <TableCell className={"text-right font-semibold tabular-nums " + (e.expected_value >= 0 ? "text-success" : "text-danger")}>
-                {fmtEv(e.expected_value)}
+              <TableCell className={"text-right font-semibold tabular-nums " + ((e.final_expected_value ?? e.expected_value) >= 0 ? "text-success" : "text-danger")}>
+                {fmtEv(e.final_expected_value ?? e.expected_value)}
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-1.5">
@@ -133,7 +139,7 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
             </TableRow>
           ))}
           {rows.length === 0 && (
-            <TableRow><TableCell colSpan={showMatch ? 9 : 8} className="py-8 text-center text-muted-foreground">
+            <TableRow><TableCell colSpan={showMatch ? 10 : 9} className="py-8 text-center text-muted-foreground">
               Sin selecciones para los filtros actuales.
             </TableCell></TableRow>
           )}

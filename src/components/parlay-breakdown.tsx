@@ -17,7 +17,9 @@ export function ParlayBreakdown({ picks }: { picks: ParlayPick[] }) {
                 <Badge variant="outline">{marketLabel(pick.market)}</Badge>
               </div>
               <p className="font-medium">{outcomeLabel(pick.market, pick.selection, pick.match)}</p>
-              <p className="text-xs text-muted-foreground">{pick.bookmaker ?? "Mercado"} · probabilidad anclada</p>
+              <p className="text-xs text-muted-foreground">
+                {pick.bookmaker ?? "Mercado"} · {pick.probabilitySource === "edge.final_probability_ensemble" ? "probabilidad final calibrada" : "probabilidad anclada"}
+              </p>
             </div>
             <div className="text-right tabular-nums">
               <p className="font-semibold">{pick.odds.toFixed(2)}</p>
@@ -27,8 +29,17 @@ export function ParlayBreakdown({ picks }: { picks: ParlayPick[] }) {
           <div className="mt-3">
             <ProbabilityBar label="Probabilidad estimada" value={pick.anchoredProb} tone="success" />
           </div>
+          {pick.finalProbabilityBreakdown && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Ensemble: mercado {pctWeight(pick.finalProbabilityBreakdown.weights.market)}, Poisson {pctWeight(pick.finalProbabilityBreakdown.weights.poisson)}, ratings {pctWeight(pick.finalProbabilityBreakdown.weights.ratings)}, stats {pctWeight(pick.finalProbabilityBreakdown.weights.realStats)}, contexto {pctWeight(pick.finalProbabilityBreakdown.weights.worldCupContext)}.
+            </p>
+          )}
         </div>
       ))}
     </div>
   );
+}
+
+function pctWeight(value: number): string {
+  return `${Math.round(value * 100)}%`;
 }

@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { buildScoreMatricesByMatchId } from "@/lib/stat-model";
 import { filterPreMatchMatches } from "@/lib/matches/pre-match-eligibility";
 import { getWorldCupGroupContext } from "@/lib/world-cup";
+import { decorateEdgesWithFinalProbability } from "@/lib/model/final-probability";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -21,10 +22,11 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const [matches, edges, sync, teamStats] = await Promise.all([getMatches(), getEdges(), getLastSync(), getTeamStats()]);
   const statModel = buildScoreMatricesByMatchId(matches, teamStats);
+  const calibratedEdges = decorateEdgesWithFinalProbability(edges, statModel.predictions);
   const confidenceByMatchId = new Map(statModel.predictions.map((prediction) => [prediction.matchId, prediction.confidence]));
 
   // Solo picks de calidad (filtros estilo tipster) para destacar.
-  const quality = edges.filter((e) => e.qualifies);
+  const quality = calibratedEdges.filter((e) => e.qualifies);
 
   const bestByMatch = new Map<string, Edge>();
   for (const e of quality) {
@@ -70,7 +72,7 @@ export default async function DashboardPage() {
       <DashboardStats
         items={[
           { label: "Partidos del Mundial", value: upcoming.length, helper: "pre-partido elegibles" },
-          { label: "Edges analizados", value: edges.length, helper: "mercados con cuota" },
+          { label: "Edges analizados", value: calibratedEdges.length, helper: "mercados con cuota" },
           { label: "Picks de calidad", value: valueCount, helper: "pasan modo tipster", tone: "success" },
           { label: "Matrices Poisson", value: statModel.coverage.withScoreMatrix, helper: "pre-partido cubiertos" },
         ]}

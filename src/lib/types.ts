@@ -90,6 +90,33 @@ export interface Edge {
   updated_at: string;
   // calculado en lectura: ¿pasa los filtros de calidad (modo tipster)?
   qualifies?: boolean;
+  // calculado en runtime: ensemble calibrado mercado + Poisson + ratings/contexto
+  final_probability?: number;
+  final_edge?: number;
+  final_expected_value?: number;
+  final_tier?: ValueTier;
+  final_probability_confidence?: "low" | "medium" | "high";
+  final_probability_explanation?: string;
+  final_probability_breakdown?: {
+    finalProbability: number;
+    confidence: "low" | "medium" | "high";
+    explanation: string;
+    weights: {
+      market: number;
+      poisson: number;
+      ratings: number;
+      realStats: number;
+      worldCupContext: number;
+    };
+    warnings: string[];
+    components: {
+      marketProbability: number | null;
+      poissonProbability: number | null;
+      ratingProbability: number | null;
+      realStatsProbability: number | null;
+      worldCupContextProbability: number | null;
+    };
+  };
   // joins opcionales
   match?: Match;
 }

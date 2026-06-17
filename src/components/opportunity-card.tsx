@@ -24,7 +24,10 @@ export function OpportunityCard({
   const matchLabel = match
     ? `${match.home_team?.code ?? "LOC"}-${match.away_team?.code ?? "VIS"}`
     : "Partido";
-  const potential = edge.decimal_odds * edge.model_probability;
+  const finalProbability = edge.final_probability ?? edge.model_probability;
+  const finalEv = edge.final_expected_value ?? edge.expected_value;
+  const finalEdge = edge.final_edge ?? edge.edge;
+  const potential = edge.decimal_odds * finalProbability;
 
   return (
     <Card className="overflow-hidden bg-card/90">
@@ -54,15 +57,16 @@ export function OpportunityCard({
 
         <div className="space-y-4 p-4">
           <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
-            <ProbabilityBar label="Probabilidad estimada anclada" value={edge.model_probability} tone="success" />
+            <ProbabilityBar label="Probabilidad final calibrada" value={finalProbability} tone="success" />
             <div className="grid grid-cols-2 gap-2 text-sm">
               <Metric label="Mercado devig" value={pct(edge.implied_probability)} />
+              <Metric label="Poisson/modelo" value={pct(edge.model_probability)} />
               <Metric label="Retorno estimado" value={`${potential.toFixed(2)}x`} />
             </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <ExpectedValueIndicator ev={edge.expected_value} edge={edge.edge} />
+            <ExpectedValueIndicator ev={finalEv} edge={finalEdge} />
             {match && (
               <Link
                 href={`/matches/${match.id}`}
@@ -74,8 +78,8 @@ export function OpportunityCard({
           </div>
 
           <p className="text-sm text-muted-foreground">
-            Aparece destacada porque supera los filtros de calidad del modo tipster: EV razonable,
-            cuota utilizable y probabilidad final anclada al mercado.
+            {edge.final_probability_explanation ??
+              "Aparece destacada porque supera filtros de calidad: EV razonable, cuota utilizable y probabilidad final calibrada."}
           </p>
         </div>
       </CardContent>

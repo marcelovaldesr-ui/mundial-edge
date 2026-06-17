@@ -1,4 +1,4 @@
-import type { ValueTier } from "@/lib/types";
+import type { ValueTier } from "../types";
 
 // ─── Cálculo de edge, valor esperado y clasificación ─────────────
 

@@ -14,6 +14,7 @@ import { isPreMatchEligible, matchStatusLabel } from "@/lib/matches/pre-match-el
 import { getMatches } from "@/lib/data/repository";
 import { getWorldCupGroupContext } from "@/lib/world-cup";
 import { WorldCupContextCard } from "@/components/world-cup-context-card";
+import { decorateEdgesWithFinalProbability } from "@/lib/model/final-probability";
 
 export const dynamic = "force-dynamic";
 
@@ -33,9 +34,11 @@ export default async function MatchDetail({ params }: { params: { id: string } }
     { groupContext, allMatches }
   );
   const modelPrediction = "scoreMatrix" in modelResult ? modelResult : null;
+  const activeEdgesCalibrated = modelPrediction ? decorateEdgesWithFinalProbability(activeEdges, [modelPrediction]) : activeEdges;
+  const historicalEdgesCalibrated = modelPrediction ? decorateEdgesWithFinalProbability(historicalEdges, [modelPrediction]) : historicalEdges;
 
   // Datos del gráfico: 1X2 (modelo vs implícita)
-  const edgesForContext = preMatchEligible ? activeEdges : historicalEdges;
+  const edgesForContext = preMatchEligible ? activeEdgesCalibrated : historicalEdgesCalibrated;
   const x12 = edgesForContext.filter((e) => e.market === "1x2");
   const chartData = x12.map((e) => ({
     label: e.outcome === "home" ? (match.home_team?.code ?? "Local")

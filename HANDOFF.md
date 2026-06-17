@@ -767,3 +767,79 @@ Con datos actuales, varios partidos usan priors similares por baja muestra:
 - Grupo/contexto usa datos disponibles en `matches` y resultados finalizados;
   si faltan grupos o resultados, muestra fallback prudente.
 - No se tocó schema Supabase ni se generaron mercados apostables nuevos.
+
+---
+
+## ACTUALIZACIÓN — sesión 14
+
+### Estado: probabilidad final calibrada y backtesting inicial
+- Nuevo módulo `src/lib/model/final-probability.ts`.
+- Calcula una `finalProbability` runtime, sin tocar Supabase, como ensemble
+  prudente entre:
+  - probabilidad de mercado/de-vig;
+  - probabilidad Poisson/modelo Mundial Edge;
+  - señal de ratings;
+  - señal de stats reales;
+  - contexto Mundial/grupos.
+- El mercado funciona como baseline fuerte cuando hay odds reales:
+  - con cuota real, mercado tiene peso alto;
+  - el modelo ajusta de forma acotada;
+  - la probabilidad final queda anclada para evitar saltos extremos.
+- Sin odds reales:
+  - mercado pesa 0;
+  - no se genera edge apostable;
+  - confidence nunca sube a high.
+- `Edge` ahora puede llevar campos runtime opcionales:
+  - `final_probability`
+  - `final_edge`
+  - `final_expected_value`
+  - `final_tier`
+  - `final_probability_confidence`
+  - `final_probability_explanation`
+  - `final_probability_breakdown`
+- `decorateEdgesWithFinalProbability()` decora edges existentes a partir de las
+  predicciones del modelo Mundial Edge.
+- `edgeToParlayPick()` usa `final_probability` si existe, manteniendo fallback a
+  `model_probability` anclada.
+
+### UI
+- Dashboard/Ranking/Picks/Oportunidades muestran `Probabilidad final calibrada`,
+  mercado, Poisson/modelo y EV final.
+- `EdgeTable` agrega columnas de Mercado, Poisson y Final.
+- `/parlays?debug=1` muestra bloque `Ensemble de probabilidad final`:
+  - pesos promedio mercado/Poisson/ratings/stats/contexto;
+  - probabilidades por pick;
+  - confidence y warnings.
+- `ParlayBreakdown` indica si usa probabilidad final calibrada y muestra pesos
+  del ensemble cuando están disponibles.
+
+### Backtesting / tracking
+- Nuevo `src/lib/backtesting/`:
+  - `prediction-snapshot.ts`: estructura pura para snapshots de predicción;
+  - `scoring.ts`: Brier score, log loss, hit rate, ROI/yield, buckets de
+    calibración, average edge y warnings por muestra baja.
+- No persiste en Supabase todavía; queda preparado para futura persistencia.
+
+### Verificación
+- Nuevos scripts:
+  - `npm run verify:final-probability`
+  - `npm run verify:backtesting`
+- `npm run typecheck` pasa.
+- `npm run lint` pasa.
+- `npm run verify:pre-match` pasa.
+- `npm run verify:markets` pasa.
+- `npm run verify:team-ratings` pasa.
+- `npm run verify:world-cup-context` pasa.
+- `npm run verify:parlays` pasa.
+- `npm run verify:stat-model` pasa.
+- `npm run verify:final-probability` pasa.
+- `npm run verify:backtesting` pasa.
+- Smoke HTTP OK en `/`, `/edges`, `/matches`, `/stat-model`,
+  `/parlays?profile=balanced&debug=1` y un `/matches/[id]` real.
+
+### Nota importante
+- No se crearon mercados nuevos.
+- No se tocaron tablas ni schema Supabase.
+- La probabilidad final no es edge por sí sola: edge apostable sigue requiriendo
+  cuota real, comparación contra probabilidad implícita y partido pre-match
+  elegible.

@@ -1,5 +1,6 @@
 import type { Market, Match, MatchStatus, Outcome, ValueTier } from "../types";
 import type { ScoreMatrix } from "../stat-model";
+import type { FinalProbabilityResult } from "../model/final-probability";
 
 export type ParlayProfile = "conservative" | "balanced" | "aggressive";
 export type CorrelationLevel = "low" | "medium" | "high" | "invalid";
@@ -25,7 +26,7 @@ export interface ParlayPick {
   odds: number;
   marketProb: number;
   anchoredProb: number;
-  probabilitySource: "edge.model_probability_blended";
+  probabilitySource: "edge.model_probability_blended" | "edge.final_probability_ensemble";
   edge: number;
   ev: number;
   riskLevel: ValueTier;
@@ -34,6 +35,7 @@ export interface ParlayPick {
   matchStatus?: MatchStatus;
   bookmaker?: string;
   match?: Match;
+  finalProbabilityBreakdown?: FinalProbabilityResult;
 }
 
 export interface CorrelationEvaluation {

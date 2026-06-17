@@ -20,7 +20,10 @@ export function PickCard({
   const matchLabel = match
     ? `${match.home_team?.code ?? "LOC"}-${match.away_team?.code ?? "VIS"}`
     : "Partido";
-  const estimatedReturn = edge.decimal_odds * edge.model_probability;
+  const finalProbability = edge.final_probability ?? edge.model_probability;
+  const finalEv = edge.final_expected_value ?? edge.expected_value;
+  const finalEdge = edge.final_edge ?? edge.edge;
+  const estimatedReturn = edge.decimal_odds * finalProbability;
 
   return (
     <div className="rounded-lg border border-border bg-card/80 p-4">
@@ -43,20 +46,20 @@ export function PickCard({
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <ProbabilityBar label="Probabilidad estimada" value={edge.model_probability} tone="success" />
+        <ProbabilityBar label="Probabilidad final" value={finalProbability} tone="success" />
         <div className="rounded-md bg-muted/30 p-3">
           <p className="text-xs text-muted-foreground">Retorno estimado</p>
           <p className="font-semibold tabular-nums">{estimatedReturn.toFixed(2)}x</p>
-          <p className="text-xs text-muted-foreground">EV {fmtEv(edge.expected_value)} · mercado {pct(edge.implied_probability)}</p>
+          <p className="text-xs text-muted-foreground">EV {fmtEv(finalEv)} · mercado {pct(edge.implied_probability)} · modelo {pct(edge.model_probability)}</p>
         </div>
       </div>
 
       {!compact && (
         <div className="mt-4 space-y-2">
-          <ExpectedValueIndicator ev={edge.expected_value} edge={edge.edge} />
+          <ExpectedValueIndicator ev={finalEv} edge={finalEdge} />
           <p className="text-sm text-muted-foreground">
-            Recomendado porque pasa filtros de calidad: cuota dentro de rango, EV positivo razonable y
-            probabilidad anclada al mercado. No usa probabilidad Poisson cruda para apostar.
+            {edge.final_probability_explanation ??
+              "Recomendado porque pasa filtros de calidad: cuota dentro de rango, EV positivo razonable y probabilidad anclada al mercado."}
           </p>
         </div>
       )}

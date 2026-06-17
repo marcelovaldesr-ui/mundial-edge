@@ -1,13 +1,17 @@
-import { getEdges, getLastSync, dataMode } from "@/lib/data/repository";
+import { getEdges, getLastSync, dataMode, getMatches, getTeamStats } from "@/lib/data/repository";
 import { EdgeTable } from "@/components/edge-table";
 import { LastUpdated } from "@/components/last-updated";
 import { Disclaimer } from "@/components/disclaimer";
 import { Card, CardContent } from "@/components/ui/card";
+import { buildScoreMatricesByMatchId } from "@/lib/stat-model";
+import { decorateEdgesWithFinalProbability } from "@/lib/model/final-probability";
 
 export const dynamic = "force-dynamic";
 
 export default async function EdgesPage() {
-  const [edges, sync] = await Promise.all([getEdges(), getLastSync()]);
+  const [edges, sync, matches, teamStats] = await Promise.all([getEdges(), getLastSync(), getMatches(), getTeamStats()]);
+  const statModel = buildScoreMatricesByMatchId(matches, teamStats);
+  const calibratedEdges = decorateEdgesWithFinalProbability(edges, statModel.predictions);
   return (
     <div className="space-y-5">
       <div className="flex items-end justify-between">
@@ -20,7 +24,7 @@ export default async function EdgesPage() {
         <LastUpdated at={sync.at} source={sync.source} mode={dataMode()} />
       </div>
       <Disclaimer compact />
-      <Card><CardContent className="pt-5"><EdgeTable edges={edges} /></CardContent></Card>
+      <Card><CardContent className="pt-5"><EdgeTable edges={calibratedEdges} /></CardContent></Card>
     </div>
   );
 }

@@ -99,6 +99,7 @@ export function ParlayWorkspace({
     () => buildMarketDiagnostics(picks, generated.parlays, generated.rejected),
     [picks, generated.parlays, generated.rejected]
   );
+  const ensembleDiagnostics = useMemo(() => buildEnsembleDiagnostics(picks), [picks]);
 
   return (
     <div className="space-y-5">
@@ -236,6 +237,7 @@ export function ParlayWorkspace({
       )}
 
       {showDebug && <MarketDiagnostics diagnostics={marketDiagnostics} />}
+      {showDebug && <EnsembleDiagnostics diagnostics={ensembleDiagnostics} />}
 
       <div className="grid gap-4">
         {parlays.map((parlay, index) => (
@@ -394,6 +396,21 @@ interface MarketDiagnosticsData {
   selected: Array<{ label: string; count: number }>;
 }
 
+interface EnsembleDiagnosticsData {
+  avgWeights: { market: number; poisson: number; ratings: number; realStats: number; worldCupContext: number } | null;
+  rows: Array<{
+    id: string;
+    label: string;
+    marketProbability: number | null;
+    poissonProbability: number | null;
+    finalProbability: number;
+    impliedProbability: number | null;
+    edge: number;
+    confidence: string;
+    warnings: string[];
+  }>;
+}
+
 function buildMarketDiagnostics(
   picks: ParlayPick[],
   parlays: Parlay[],
@@ -431,6 +448,92 @@ function MarketDiagnostics({ diagnostics }: { diagnostics: MarketDiagnosticsData
           <DistributionList title="Disponibles antes de generar" rows={diagnostics.available} />
           <DistributionList title="Descartados por filtros" rows={diagnostics.rejected} />
           <DistributionList title="Seleccionados en combinadas" rows={diagnostics.selected} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function buildEnsembleDiagnostics(picks: ParlayPick[]): EnsembleDiagnosticsData {
+  const withBreakdown = picks.filter((pick) => pick.finalProbabilityBreakdown);
+  if (!withBreakdown.length) return { avgWeights: null, rows: [] };
+  const sum = { market: 0, poisson: 0, ratings: 0, realStats: 0, worldCupContext: 0 };
+  for (const pick of withBreakdown) {
+    const weights = pick.finalProbabilityBreakdown!.weights;
+    sum.market += weights.market;
+    sum.poisson += weights.poisson;
+    sum.ratings += weights.ratings;
+    sum.realStats += weights.realStats;
+    sum.worldCupContext += weights.worldCupContext;
+  }
+  const divisor = withBreakdown.length;
+  return {
+    avgWeights: {
+      market: sum.market / divisor,
+      poisson: sum.poisson / divisor,
+      ratings: sum.ratings / divisor,
+      realStats: sum.realStats / divisor,
+      worldCupContext: sum.worldCupContext / divisor,
+    },
+    rows: withBreakdown.slice(0, 8).map((pick) => {
+      const breakdown = pick.finalProbabilityBreakdown!;
+      return {
+        id: pick.id,
+        label: `${pick.match?.home_team?.code ?? "LOC"}-${pick.match?.away_team?.code ?? "VIS"} ${formatSelectionName(pick)}`,
+        marketProbability: breakdown.components.marketProbability,
+        poissonProbability: breakdown.components.poissonProbability,
+        finalProbability: breakdown.finalProbability,
+        impliedProbability: pick.marketProb,
+        edge: pick.edge,
+        confidence: breakdown.confidence,
+        warnings: breakdown.warnings,
+      };
+    }),
+  };
+}
+
+function EnsembleDiagnostics({ diagnostics }: { diagnostics: EnsembleDiagnosticsData }) {
+  return (
+    <Card>
+      <CardContent className="space-y-4 pt-5">
+        <div>
+          <h2 className="text-base font-semibold">Ensemble de probabilidad final</h2>
+          <p className="text-sm text-muted-foreground">
+            Pesos y probabilidades usados por las combinadas. No crea mercados sin cuota real.
+          </p>
+        </div>
+        {diagnostics.avgWeights ? (
+          <div className="grid gap-3 lg:grid-cols-5">
+            <SummaryCard label="Mercado" value={pct(diagnostics.avgWeights.market, 0)} />
+            <SummaryCard label="Poisson" value={pct(diagnostics.avgWeights.poisson, 0)} />
+            <SummaryCard label="Ratings" value={pct(diagnostics.avgWeights.ratings, 0)} />
+            <SummaryCard label="Stats reales" value={pct(diagnostics.avgWeights.realStats, 0)} />
+            <SummaryCard label="Contexto" value={pct(diagnostics.avgWeights.worldCupContext, 0)} />
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Sin breakdown de ensemble disponible.</p>
+        )}
+        <div className="grid gap-2">
+          {diagnostics.rows.map((row) => (
+            <div key={row.id} className="rounded-md border border-border p-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-medium">{row.label}</p>
+                <Badge variant={row.confidence === "high" ? "success" : row.confidence === "medium" ? "warning" : "muted"}>
+                  Confidence {row.confidence}
+                </Badge>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                {row.marketProbability != null && <span>Mercado {pct(row.marketProbability)}</span>}
+                {row.poissonProbability != null && <span>Poisson {pct(row.poissonProbability)}</span>}
+                <span>Final {pct(row.finalProbability)}</span>
+                {row.impliedProbability != null && <span>Impl. {pct(row.impliedProbability)}</span>}
+                <span>Edge final {fmtEv(row.edge)}</span>
+              </div>
+              {row.warnings.slice(0, 2).map((warning) => (
+                <p key={warning} className="mt-1 text-xs text-muted-foreground">Aviso: {warning}</p>
+              ))}
+            </div>
+          ))}
         </div>
       </CardContent>
     </Card>

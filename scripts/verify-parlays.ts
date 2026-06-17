@@ -5,6 +5,7 @@ import { sortAndFilterParlays, sortParlays } from "../src/lib/parlays/parlay-fil
 import { scoreParlay } from "../src/lib/parlays/parlay-scoring";
 import type { Parlay, ParlayPick } from "../src/lib/parlays/parlay-types";
 import { kellyFraction, suggestStake } from "../src/lib/parlays/staking";
+import { createScoreMatrix } from "../src/lib/stat-model/score-matrix";
 import type { Edge } from "../src/lib/types";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -194,6 +195,48 @@ function tooManySameMatchPicksAreInvalid() {
   assert(correlation.level === "invalid", "Expected 3 picks from same match to be invalid");
 }
 
+function scoreMatrixCorrelationIntegration() {
+  const matrix = createScoreMatrix({ homeExpectedGoals: 1.7, awayExpectedGoals: 1.1, maxGoals: 12 });
+  const sameMatch = [
+    pick({ id: "a", matchId: "m1", market: "1x2", selection: "home", odds: 1.8, anchoredProb: 0.58, ev: 0.08 }),
+    pick({ id: "b", matchId: "m1", market: "over_under_2_5", selection: "over", odds: 1.9, anchoredProb: 0.55, ev: 0.07 }),
+  ];
+  const heuristic = generateParlays(sameMatch, {
+    profile: "aggressive",
+    minJointProbability: 0,
+    minEV: -1,
+    maxResults: 1,
+    now: "2026-06-16T00:00:00Z",
+  })[0];
+  const exact = generateParlays(sameMatch, {
+    profile: "aggressive",
+    minJointProbability: 0,
+    minEV: -1,
+    maxResults: 1,
+    now: "2026-06-16T00:00:00Z",
+    scoreMatricesByMatchId: { m1: matrix },
+  })[0];
+  assert(heuristic.correlationMethod === "heuristic", "Expected heuristic fallback without matrix");
+  assert(exact.correlationMethod === "score_matrix", "Expected score-matrix correlation when matrix exists");
+  assert(exact.correlationRatio != null && exact.correlationRatio > 0, "Expected correlation ratio from matrix");
+  assert(
+    Math.abs(exact.jointProbabilityAdjusted - heuristic.jointProbabilityAdjusted) > 0.001,
+    "Expected exact same-match probability to differ from heuristic penalty"
+  );
+
+  const invalid = generateParlaysWithDebug([
+    pick({ id: "c", matchId: "m2", market: "1x2", selection: "home", odds: 1.8, anchoredProb: 0.58, ev: 0.08 }),
+    pick({ id: "d", matchId: "m2", market: "1x2", selection: "away", odds: 1.8, anchoredProb: 0.3, ev: 0.08 }),
+  ], {
+    profile: "aggressive",
+    minJointProbability: 0,
+    minEV: -1,
+    now: "2026-06-16T00:00:00Z",
+    scoreMatricesByMatchId: { m2: matrix },
+  });
+  assert(invalid.rejected.some((x) => x.reason === "same_market_contradiction"), "Expected contradictory selections to remain rejected");
+}
+
 function ranking() {
   const giantEvLowProb = scoreParlay({
     picks: [
@@ -228,6 +271,7 @@ function sortingAndFiltering() {
     jointProbabilityRaw: 0.2,
     correlationLevel: "low",
     correlationReasons: [],
+    correlationMethod: "heuristic",
     suggestedStakePercent: null,
     suggestedStakeAmount: null,
     stakeReason: "",
@@ -254,6 +298,7 @@ staking();
 expiredPicksAreExcluded();
 debugRejections();
 tooManySameMatchPicksAreInvalid();
+scoreMatrixCorrelationIntegration();
 ranking();
 sortingAndFiltering();
 

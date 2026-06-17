@@ -406,3 +406,62 @@ partido 0 sin esperar resultados. Hoy `teams.fifa_rank` existe pero no se usa.
   - `/parlays?profile=aggressive`
   - `/parlays?profile=aggressive&debug=1`
   - `/`
+
+---
+
+## ACTUALIZACIÓN — sesión 8
+
+### Estado: motor estadístico avanzado de goles (Poisson matrix)
+- Nuevo módulo `src/lib/stat-model/`:
+  - `score-matrix.ts`: `poissonProbability()`, `createScoreMatrix()`,
+    `scoreMatrixTotalProbability()`.
+  - `market-probabilities.ts`: predicados, probabilidades derivadas,
+    `jointProbabilityForSelections()`.
+  - `market-types.ts`: selecciones/mercados internos del modelo.
+  - `calibration.ts`: `anchorProbability()` con pesos configurables.
+  - `expected-goals.ts`: wrapper auditable sobre `team_stats`/estimador existente.
+  - `index.ts`: exports.
+- Mercados soportados por matriz:
+  1X2, over/under 0.5-4.5, BTTS, team totals 0.5/1.5 y doble oportunidad.
+- `scripts/verify-stat-model.ts` agregado y `npm run verify:stat-model`
+  registrado en `package.json`.
+
+### Integración incremental con combinadas
+- Nuevo `src/lib/parlays/stat-model-adapter.ts`.
+- `generateParlaysWithDebug()` acepta opcionalmente `scoreMatricesByMatchId`.
+- Si varios picks son del mismo partido y hay matriz:
+  - calcula probabilidad conjunta exacta por predicados de marcador;
+  - guarda `correlationMethod: "score_matrix"`;
+  - guarda `correlationRatio` y `sameMatchJointProbability`;
+  - detecta incompatibilidades con `jointProbability <= epsilon`.
+- Si no hay matriz, se mantiene fallback heurístico actual.
+- `ParlayCard` muestra en detalles técnicos si la correlación fue por matriz o
+  heurística, además de ratio/joint same-match cuando existan.
+
+### Ejemplo numérico simple
+Con lambdas `home=1.5`, `away=1.1`, `maxGoals=12`:
+- Masa matriz normalizada: 1.000000
+- Home win: 46.42%
+- Draw: 25.77%
+- Away win: 27.81%
+- Over 2.5: 48.16%
+- BTTS yes: 51.83%
+- Home win + over 2.5: 26.93%
+- Correlation ratio home win + over 2.5: 1.20
+
+### Supuestos y límites
+- Todo sigue pre-partido.
+- Poisson asume independencia de goles local/visita; no usa Dixon-Coles todavía.
+- Expected goals usa datos internos disponibles (`team_stats`); no inventa xG
+  externo ni ratings.
+- El anclaje mercado/modelo vive separado en `calibration.ts`; no reutilizar
+  `Edge.model_probability` como probabilidad Poisson pura porque ahí ya está
+  anclada.
+- No todos los mercados derivados son apostables: solo se vuelven edge si existe
+  cuota real comparable.
+
+### Verificación
+- `npm run typecheck` pasa.
+- `npm run verify:parlays` pasa.
+- `npm run verify:stat-model` pasa.
+- Smoke UI OK en `/parlays?profile=aggressive&debug=1` y `/`.

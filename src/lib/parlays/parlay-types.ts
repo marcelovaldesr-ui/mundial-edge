@@ -1,4 +1,5 @@
 import type { Market, Match, MatchStatus, Outcome, ValueTier } from "../types";
+import type { ScoreMatrix } from "../stat-model";
 
 export type ParlayProfile = "conservative" | "balanced" | "aggressive";
 export type CorrelationLevel = "low" | "medium" | "high" | "invalid";
@@ -59,6 +60,9 @@ export interface Parlay {
   jointProbabilityAdjusted: number;
   correlationLevel: CorrelationLevel;
   correlationReasons: string[];
+  correlationMethod: "heuristic" | "score_matrix";
+  correlationRatio?: number;
+  sameMatchJointProbability?: number;
   ev: number;
   riskScore: number;
   riskLevel: ParlayRiskLevel;
@@ -102,6 +106,7 @@ export interface GenerateParlaysOptions {
   allowSameMatch?: boolean;
   maxLegs?: number;
   now?: Date | string;
+  scoreMatricesByMatchId?: Record<string, ScoreMatrix>;
 }
 
 export interface ParlayFilters {

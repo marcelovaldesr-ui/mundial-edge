@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "verify:parlays": "tsc scripts/verify-parlays.ts --outDir .tmp/parlay-check --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict && node .tmp/parlay-check/scripts/verify-parlays.js"
+    "verify:parlays": "tsc scripts/verify-parlays.ts --outDir .tmp/parlay-check --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict && node .tmp/parlay-check/scripts/verify-parlays.js",
+    "verify:stat-model": "tsc scripts/verify-stat-model.ts --outDir .tmp/stat-model-check --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict && node .tmp/stat-model-check/scripts/verify-stat-model.js"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.1.0",

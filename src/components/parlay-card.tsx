@@ -97,6 +97,9 @@ export function ParlayCard({ parlay, index }: { parlay: Parlay; index: number })
             <Tech label="Prob. raw" value={pct(parlay.jointProbabilityRaw)} />
             <Tech label="Prob. ajustada" value={pct(parlay.jointProbabilityAdjusted)} />
             <Tech label="Penalty" value={(parlay.jointProbabilityAdjusted / parlay.jointProbabilityRaw).toFixed(2)} />
+            <Tech label="Método corr." value={parlay.correlationMethod === "score_matrix" ? "Matriz" : "Heurística"} />
+            {parlay.correlationRatio != null && <Tech label="Ratio corr." value={parlay.correlationRatio.toFixed(2)} />}
+            {parlay.sameMatchJointProbability != null && <Tech label="Joint same-match" value={pct(parlay.sameMatchJointProbability)} />}
             <Tech label="Risk score" value={String(parlay.riskScore)} />
             <Tech label="Score" value={parlay.score.toFixed(2)} />
             <Tech label="EV" value={fmtEv(parlay.ev)} />

@@ -1,4 +1,4 @@
-import type { TeamStats } from "@/lib/types";
+import type { TeamStats } from "../types";
 
 // ─── Estimación de goles esperados (lambda) por equipo ───────────
 // Combina, de forma transparente y ponderable:

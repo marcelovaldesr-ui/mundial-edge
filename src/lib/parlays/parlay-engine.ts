@@ -1,5 +1,6 @@
 import { evaluateCorrelation, compareCorrelationLevel } from "./correlation";
 import { calculateRiskScore, riskLabel, scoreParlay } from "./parlay-scoring";
+import { calculateMatrixAwareJointProbability } from "./stat-model-adapter";
 import type {
   GenerateParlaysOptions,
   GenerateParlaysResult,
@@ -288,7 +289,19 @@ export function generateParlaysWithDebug(picks: ParlayPick[], options: GenerateP
 
   for (let size = 2; size <= Math.min(maxLegs, candidates.length); size++) {
     for (const pickSet of combinations(candidates, size)) {
-      const correlation = evaluateCorrelation(pickSet);
+      const matrixAware = hasSameMatchScoreMatrix(pickSet, options.scoreMatricesByMatchId);
+      let correlation = evaluateCorrelation(pickSet);
+      if (
+        matrixAware &&
+        correlation.level === "invalid" &&
+        correlation.reasons.some((reason) => reason.includes("Más de dos"))
+      ) {
+        correlation = {
+          level: "high",
+          penaltyFactor: 1,
+          reasons: ["Múltiples selecciones del mismo partido evaluadas con matriz de goles."],
+        };
+      }
       if (correlation.level === "invalid") {
         const message = correlation.reasons[0] ?? "Correlación inválida.";
         rejected.push(reject({
@@ -342,7 +355,25 @@ export function generateParlaysWithDebug(picks: ParlayPick[], options: GenerateP
         continue;
       }
       const jointProbabilityRaw = product(pickSet.map((pick) => pick.anchoredProb));
-      const jointProbabilityAdjusted = jointProbabilityRaw * correlation.penaltyFactor;
+      const matrixJoint = calculateMatrixAwareJointProbability(pickSet, options.scoreMatricesByMatchId);
+      if (matrixJoint.isInvalid) {
+        rejected.push(reject({
+          profile: options.profile,
+          picks: pickSet,
+          reason: "invalid_correlation",
+          message: matrixJoint.reasons[0] ?? "Selecciones incompatibles según matriz de goles.",
+          totalOdds,
+          jointProbabilityRaw,
+          jointProbabilityAdjusted: 0,
+          ev: -1,
+          correlationLevel: "invalid",
+          correlationReasons: matrixJoint.reasons,
+        }));
+        continue;
+      }
+      const jointProbabilityAdjusted = matrixJoint.usedScoreMatrix
+        ? matrixJoint.jointProbabilityAdjusted
+        : jointProbabilityRaw * correlation.penaltyFactor;
       const ev = jointProbabilityAdjusted * totalOdds - 1;
       if (
         !Number.isFinite(jointProbabilityRaw) ||
@@ -429,7 +460,12 @@ export function generateParlaysWithDebug(picks: ParlayPick[], options: GenerateP
         jointProbabilityRaw,
         jointProbabilityAdjusted,
         correlationLevel: correlation.level,
-        correlationReasons: correlation.reasons,
+        correlationReasons: matrixJoint.usedScoreMatrix
+          ? ["Correlación calculada por matriz de goles.", ...matrixJoint.reasons]
+          : correlation.reasons,
+        correlationMethod: matrixJoint.usedScoreMatrix ? "score_matrix" : "heuristic",
+        correlationRatio: matrixJoint.correlationRatio,
+        sameMatchJointProbability: matrixJoint.sameMatchJointProbability,
         ev,
         riskScore,
         riskLevel: riskLabel(riskScore),
@@ -450,4 +486,14 @@ export function generateParlaysWithDebug(picks: ParlayPick[], options: GenerateP
     .sort((a, b) => b.score - a.score || b.jointProbabilityAdjusted - a.jointProbabilityAdjusted)
     .slice(0, maxResults);
   return { parlays: sorted, rejected };
+}
+
+function hasSameMatchScoreMatrix(
+  picks: ParlayPick[],
+  scoreMatricesByMatchId?: GenerateParlaysOptions["scoreMatricesByMatchId"]
+): boolean {
+  if (!scoreMatricesByMatchId) return false;
+  const counts = new Map<string, number>();
+  for (const pick of picks) counts.set(pick.matchId, (counts.get(pick.matchId) ?? 0) + 1);
+  return Array.from(counts.entries()).some(([matchId, count]) => count > 1 && !!scoreMatricesByMatchId[matchId]);
 }

@@ -2,6 +2,7 @@ import { evaluateCorrelation, compareCorrelationLevel } from "./correlation";
 import { calculateRiskScore, riskLabel, scoreParlay } from "./parlay-scoring";
 import { calculateMatrixAwareJointProbability } from "./stat-model-adapter";
 import { isPreMatchEligible } from "../matches/pre-match-eligibility";
+import { formatMarketWithLine, marketDistributionKey } from "../markets/market-display";
 import type {
   GenerateParlaysOptions,
   GenerateParlaysResult,
@@ -258,7 +259,7 @@ function explanationFor(profile: ParlayProfile, parlay: {
   jointProbabilityAdjusted: number;
   totalOdds: number;
 }): string {
-  const base = `${parlay.picks.length} picks de calidad, cuota ${parlay.totalOdds.toFixed(2)}, probabilidad ajustada ${(parlay.jointProbabilityAdjusted * 100).toFixed(1)}%, EV ${(parlay.ev * 100).toFixed(1)}% y correlación ${parlay.correlationLevel}.`;
+  const base = `${parlay.picks.length} picks de calidad, cuota ${parlay.totalOdds.toFixed(2)}, probabilidad ajustada ${(parlay.jointProbabilityAdjusted * 100).toFixed(1)}%, EV ${(parlay.ev * 100).toFixed(1)}% y correlación ${parlay.correlationLevel}. ${marketMixExplanation(parlay.picks)}`;
   if (profile === "conservative") {
     return `Aparece como conservadora porque prioriza selecciones de probabilidad alta, cuota total moderada y riesgo bajo. ${base}`;
   }
@@ -266,6 +267,22 @@ function explanationFor(profile: ParlayProfile, parlay: {
     return `Aparece como balanceada porque combina valor esperado positivo con probabilidad conjunta razonable y varianza controlada. ${base}`;
   }
   return `Aparece como agresiva porque acepta mayor varianza y explora una cuota total más ambiciosa, manteniendo EV ajustado positivo y stake acotado. ${base}`;
+}
+
+function marketMixExplanation(picks: ParlayPick[]): string {
+  const counts = new Map<string, { count: number; label: string }>();
+  for (const pick of picks) {
+    const key = marketDistributionKey(pick);
+    const current = counts.get(key);
+    if (current) current.count++;
+    else counts.set(key, { count: 1, label: formatMarketWithLine(pick) });
+  }
+  const repeated = Array.from(counts.values()).filter((item) => item.count > 1);
+  if (!repeated.length) {
+    return "La combinación mantiene diversidad de mercados cuando las alternativas tienen calidad comparable.";
+  }
+  const main = repeated.sort((a, b) => b.count - a.count)[0];
+  return `${main.label} aparece ${main.count} veces; se mantiene porque esos picks superan filtros de EV, probabilidad y riesgo, aunque el ranking aplica una penalización suave por concentración.`;
 }
 
 export function generateParlays(picks: ParlayPick[], options: GenerateParlaysOptions): Parlay[] {

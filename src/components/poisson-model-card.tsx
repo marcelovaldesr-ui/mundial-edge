@@ -44,8 +44,8 @@ export function PoissonModelCard({
         </div>
 
         <div className="grid grid-cols-2 gap-3 text-sm">
-          <Metric label="Over 2.5" value={prob(prediction, "over_2_5")} />
-          <Metric label="Under 2.5" value={prob(prediction, "under_2_5")} />
+          <Metric label="Más de 2.5 goles" value={prob(prediction, "over_2_5")} />
+          <Metric label="Menos de 2.5 goles" value={prob(prediction, "under_2_5")} />
           <Metric label="BTTS sí" value={prob(prediction, "btts_yes")} />
           <Metric label="BTTS no" value={prob(prediction, "btts_no")} />
           {!compact && <Metric label="1X" value={prob(prediction, "double_chance_1x")} />}

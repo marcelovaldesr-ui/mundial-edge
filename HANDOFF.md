@@ -631,3 +631,62 @@ Con datos actuales, varios partidos usan priors similares por baja muestra:
 ### Nota importante
 - No se borraron edges, odds ni predicciones históricas. El fix es de lectura,
   generación de combinadas y presentación pública.
+
+---
+
+## ACTUALIZACIÓN — sesión 12
+
+### Estado: labels de mercados y auditoría de Over/Under 2.5
+- Se creó `src/lib/markets/market-display.ts` como helper central para labels:
+  - `formatMarketName()`
+  - `formatSelectionName()`
+  - `formatMarketWithLine()`
+  - `getMarketCategoryLabel()`
+  - `marketDistributionKey()`
+- `components/outcome-label.tsx` quedó como wrapper compatible, pero ahora usa el
+  helper central.
+- Se corrigió la ambigüedad visual:
+  - antes: `Más de 2.5` / `Menos de 2.5`
+  - ahora: `Más de 2.5 goles` / `Menos de 2.5 goles`
+- El helper ya soporta/fallbackea categorías futuras:
+  1X2, doble oportunidad, total de goles, BTTS, team totals, handicap, corners,
+  tarjetas y remates.
+
+### Auditoría de sesgo hacia 2.5
+- No se encontró hardcoding en el generador de combinadas que fuerce Over/Under
+  2.5.
+- La presencia de `over_under_2_5` viene de los datos disponibles:
+  - The Odds API se consume con `markets=h2h,totals`;
+  - el adapter actual solo acepta totals con `point === 2.5`;
+  - el tipo apostable actual `Market` solo incluye `over_under_2_5`.
+- Conclusión: la repetición de 2.5 no venía del scoring, sino de la cobertura de
+  mercados/cuotas disponibles.
+
+### Debug de distribución en `/parlays`
+- En modo debug se agregó bloque `Distribución de mercados`:
+  - disponibles antes de generar;
+  - descartados por filtros;
+  - seleccionados en combinadas;
+  - agrupados por tipo/línea, por ejemplo `Total de goles 2.5`.
+- Los descartes ahora muestran selección legible en español, no `market:selection`.
+
+### Diversidad suave
+- `scoreParlay()` ahora aplica una penalización suave si una combinada concentra
+  demasiados picks del mismo tipo/línea de mercado.
+- No descarta combinadas ni fuerza mercados peores: solo desempata/rankea mejor
+  alternativas comparables con más diversidad.
+- La explicación de combinadas ahora menciona si se mantiene concentración de
+  mercado porque supera EV/probabilidad/riesgo, o si hay diversidad de mercados.
+
+### Verificación
+- Nuevo script `npm run verify:markets`.
+- `npm run typecheck` pasa.
+- `npm run lint` pasa.
+- `npm run verify:markets` pasa.
+- `npm run verify:parlays` pasa.
+- `npm run verify:stat-model` pasa.
+- `npm run verify:pre-match` pasa.
+- Smoke HTTP OK en `/`, `/edges`, `/parlays?profile=balanced&debug=1` y
+  `/stat-model`.
+- Validado por HTML que no aparecen labels ambiguos `Más de 2.5` / `Menos de 2.5`
+  sin `goles` en rutas públicas revisadas.

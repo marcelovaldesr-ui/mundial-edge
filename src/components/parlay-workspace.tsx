@@ -17,6 +17,7 @@ import {
   type RejectedParlayCandidate,
 } from "@/lib/parlays";
 import type { ScoreMatrix, StatModelCoverage } from "@/lib/stat-model";
+import { formatMarketWithLine, formatSelectionName, marketDistributionKey } from "@/lib/markets/market-display";
 import { fmtEv, pct } from "@/lib/utils";
 
 const profiles: ParlayProfile[] = ["conservative", "balanced", "aggressive"];
@@ -94,6 +95,10 @@ export function ParlayWorkspace({
   const summary = summarize(parlays);
   const matrixCount = generated.parlays.filter((parlay) => parlay.correlationMethod === "score_matrix").length;
   const heuristicCount = generated.parlays.filter((parlay) => parlay.correlationMethod === "heuristic").length;
+  const marketDiagnostics = useMemo(
+    () => buildMarketDiagnostics(picks, generated.parlays, generated.rejected),
+    [picks, generated.parlays, generated.rejected]
+  );
 
   return (
     <div className="space-y-5">
@@ -230,6 +235,8 @@ export function ParlayWorkspace({
         </Card>
       )}
 
+      {showDebug && <MarketDiagnostics diagnostics={marketDiagnostics} />}
+
       <div className="grid gap-4">
         {parlays.map((parlay, index) => (
           <ParlayCard key={parlay.id} parlay={parlay} index={index} />
@@ -363,7 +370,7 @@ function RejectedCandidates({ rejected }: { rejected: RejectedParlayCandidate[] 
                 <span className="text-muted-foreground">{item.message}</span>
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                {item.picks.map((pick) => `${pick.match?.home_team?.code ?? "LOC"}-${pick.match?.away_team?.code ?? "VIS"} ${pick.market}:${pick.selection}`).join(" · ")}
+                {item.picks.map((pick) => `${pick.match?.home_team?.code ?? "LOC"}-${pick.match?.away_team?.code ?? "VIS"} ${formatSelectionName(pick)}`).join(" · ")}
               </p>
               <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
                 {item.totalOdds != null && <span>Cuota {item.totalOdds.toFixed(2)}</span>}
@@ -378,5 +385,71 @@ function RejectedCandidates({ rejected }: { rejected: RejectedParlayCandidate[] 
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+interface MarketDiagnosticsData {
+  available: Array<{ label: string; count: number }>;
+  rejected: Array<{ label: string; count: number }>;
+  selected: Array<{ label: string; count: number }>;
+}
+
+function buildMarketDiagnostics(
+  picks: ParlayPick[],
+  parlays: Parlay[],
+  rejected: RejectedParlayCandidate[]
+): MarketDiagnosticsData {
+  return {
+    available: countMarkets(picks),
+    rejected: countMarkets(rejected.flatMap((item) => item.picks)),
+    selected: countMarkets(parlays.flatMap((parlay) => parlay.picks)),
+  };
+}
+
+function countMarkets(picks: ParlayPick[]): Array<{ label: string; count: number }> {
+  const counts = new Map<string, { label: string; count: number }>();
+  for (const pick of picks) {
+    const key = marketDistributionKey(pick);
+    const current = counts.get(key);
+    if (current) current.count++;
+    else counts.set(key, { label: formatMarketWithLine(pick), count: 1 });
+  }
+  return Array.from(counts.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+}
+
+function MarketDiagnostics({ diagnostics }: { diagnostics: MarketDiagnosticsData }) {
+  return (
+    <Card>
+      <CardContent className="space-y-4 pt-5">
+        <div>
+          <h2 className="text-base font-semibold">Distribución de mercados</h2>
+          <p className="text-sm text-muted-foreground">
+            Diagnóstico para revisar si las combinadas dependen demasiado de un tipo de mercado.
+          </p>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <DistributionList title="Disponibles antes de generar" rows={diagnostics.available} />
+          <DistributionList title="Descartados por filtros" rows={diagnostics.rejected} />
+          <DistributionList title="Seleccionados en combinadas" rows={diagnostics.selected} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DistributionList({ title, rows }: { title: string; rows: Array<{ label: string; count: number }> }) {
+  return (
+    <div className="rounded-md border border-border bg-muted/20 p-3">
+      <p className="text-sm font-medium">{title}</p>
+      <div className="mt-3 space-y-2">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-center justify-between gap-3 text-sm">
+            <span className="text-muted-foreground">{row.label}</span>
+            <span className="font-semibold tabular-nums">{row.count}</span>
+          </div>
+        ))}
+        {rows.length === 0 && <p className="text-sm text-muted-foreground">Sin datos.</p>}
+      </div>
+    </div>
   );
 }

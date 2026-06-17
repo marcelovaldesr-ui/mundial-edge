@@ -1,4 +1,5 @@
 import type { CorrelationLevel, ParlayPick, ParlayProfile, ParlayRiskLevel } from "./parlay-types";
+import { marketDistributionKey } from "../markets/market-display";
 
 const correlationPenalty: Record<CorrelationLevel, number> = {
   low: 0,
@@ -49,6 +50,7 @@ export function scoreParlay(input: {
   const cappedEv = Math.min(Math.max(input.ev, 0), 0.25);
   const oddsPenalty = Math.max(0, Math.log(input.totalOdds) - 2.2) * 2.5;
   const legs = input.picks.length;
+  const diversityPenalty = marketConcentrationPenalty(input.picks);
 
   const profileAdjustment =
     input.profile === "conservative"
@@ -65,6 +67,21 @@ export function scoreParlay(input: {
     input.riskScore * 0.08 -
     correlationPenalty[input.correlationLevel] * 0.4 -
     oddsPenalty +
+    diversityPenalty +
     profileAdjustment
   ).toFixed(4);
+}
+
+function marketConcentrationPenalty(picks: ParlayPick[]): number {
+  const counts = new Map<string, number>();
+  for (const pick of picks) {
+    const key = marketDistributionKey(pick);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  let penalty = 0;
+  for (const count of counts.values()) {
+    if (count > 1) penalty -= (count - 1) * 1.5;
+    if (count > 2) penalty -= (count - 2) * 2;
+  }
+  return penalty;
 }

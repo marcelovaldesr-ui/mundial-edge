@@ -10,6 +10,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "verify:pre-match": "tsc scripts/verify-pre-match-eligibility.ts --outDir .tmp/pre-match-check --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict && node .tmp/pre-match-check/scripts/verify-pre-match-eligibility.js",
+    "verify:markets": "tsc scripts/verify-market-display.ts --outDir .tmp/market-check --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict && node .tmp/market-check/scripts/verify-market-display.js",
     "verify:parlays": "tsc scripts/verify-parlays.ts --outDir .tmp/parlay-check --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict && node .tmp/parlay-check/scripts/verify-parlays.js",
     "verify:stat-model": "tsc scripts/verify-stat-model.ts --outDir .tmp/stat-model-check --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict && node .tmp/stat-model-check/scripts/verify-stat-model.js"
   },

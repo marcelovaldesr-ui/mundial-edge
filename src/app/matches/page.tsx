@@ -2,6 +2,11 @@ import { getMatches, getEdges, getLastSync, dataMode } from "@/lib/data/reposito
 import { MatchCard } from "@/components/match-card";
 import { LastUpdated } from "@/components/last-updated";
 import type { Edge } from "@/lib/types";
+import {
+  isFinishedMatch,
+  isLiveMatch,
+  isPreMatchEligible,
+} from "@/lib/matches/pre-match-eligibility";
 
 export const dynamic = "force-dynamic";
 
@@ -12,18 +17,63 @@ export default async function MatchesPage() {
     const cur = best.get(e.match_id);
     if (!cur || e.expected_value > cur.expected_value) best.set(e.match_id, e);
   }
+  const upcoming = matches.filter((match) => isPreMatchEligible(match));
+  const live = matches.filter((match) => isLiveMatch(match));
+  const finished = matches.filter((match) => isFinishedMatch(match));
+  const other = matches.filter(
+    (match) =>
+      !isPreMatchEligible(match) &&
+      !isLiveMatch(match) &&
+      !isFinishedMatch(match)
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Partidos</h1>
-          <p className="text-sm text-muted-foreground">{matches.length} partidos en el sistema.</p>
+          <p className="text-sm text-muted-foreground">
+            Calendario e historial: {upcoming.length} próximos, {live.length} en vivo, {finished.length} finalizados.
+          </p>
         </div>
         <LastUpdated at={sync.at} source={sync.source} mode={dataMode()} />
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {matches.map((m) => <MatchCard key={m.id} match={m} best={best.get(m.id)} />)}
-      </div>
+      <MatchSection title="Próximos" description="Elegibles para análisis pre-partido si la hora de inicio sigue en el futuro." matches={upcoming} best={best} />
+      <MatchSection title="En vivo" description="No elegibles para pre-partido; se muestran como seguimiento de calendario." matches={live} best={best} />
+      <MatchSection title="Finalizados" description="Historial con marcador final. No se muestran como oportunidades activas." matches={finished} best={best} />
+      {other.length > 0 && (
+        <MatchSection title="Otros / no elegibles" description="Partidos postergados, suspendidos o con fecha vencida sin estado final claro." matches={other} best={best} />
+      )}
     </div>
+  );
+}
+
+function MatchSection({
+  title,
+  description,
+  matches,
+  best,
+}: {
+  title: string;
+  description: string;
+  matches: Awaited<ReturnType<typeof getMatches>>;
+  best: Map<string, Edge>;
+}) {
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-lg font-semibold">{title}</h2>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      {matches.length > 0 ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {matches.map((match) => <MatchCard key={match.id} match={match} best={best.get(match.id)} />)}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-border bg-card p-5 text-sm text-muted-foreground">
+          Sin partidos en esta sección.
+        </div>
+      )}
+    </section>
   );
 }

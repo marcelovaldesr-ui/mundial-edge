@@ -577,3 +577,57 @@ Con datos actuales, varios partidos usan priors similares por baja muestra:
 - `TeamMark` usa `<img>` para crests remotos con excepción ESLint localizada;
   si se quiere optimización de imágenes, configurar `next/image` con dominios
   remotos más adelante.
+
+---
+
+## ACTUALIZACIÓN — sesión 11
+
+### Estado: filtro global de elegibilidad pre-partido
+- Se corrigió el bug donde Dashboard, Ranking, Picks y Combinadas podían mostrar
+  edges de partidos live/finalizados o con kickoff ya vencido.
+- Nuevo helper central:
+  `src/lib/matches/pre-match-eligibility.ts`
+  - normaliza estados de proveedor (`SCHEDULED`, `TIMED`, `LIVE`, `FT`,
+    `POSTPONED`, `SUSPENDED`, etc.);
+  - exige estado pre-partido y kickoff futuro;
+  - excluye fechas inválidas por seguridad;
+  - expone filtros para matches, edges y parlays.
+- `repository.getEdges()` ahora devuelve solo edges apostables pre-partido.
+  Los datos históricos siguen en Supabase y se pueden consultar con
+  `getAllEdges()` / `getAllEdgesForMatch()`.
+- `parlay-engine` usa el helper central para rechazar legs no pre-partido aunque
+  lleguen picks mal filtrados.
+- `buildScoreMatricesByMatchId()` ahora genera cobertura pre-partido solo para
+  partidos elegibles, evitando matrices para partidos vencidos con status stale.
+
+### Superficies ajustadas
+- Dashboard y Ranking de Edges heredan el filtro desde `getEdges()`.
+- `/parlays` genera combinadas solo con edges elegibles y en debug muestra cuántos
+  edges se excluyeron por no ser pre-match.
+- `/matches/[id]`:
+  - si el partido es futuro, muestra oportunidades pre-partido;
+  - si está live/finalizado/no elegible, muestra marcador/estado y trata los
+    edges como históricos/no apostables.
+- `/matches` ahora funciona como calendario/historial:
+  - secciones Próximos, En vivo, Finalizados y Otros/no elegibles;
+  - cards con estado claro y marcador cuando existe;
+  - no muestra oportunidades activas en partidos no elegibles.
+- `EdgeTable` agrega cards móviles para mejorar legibilidad del Ranking.
+- `/stat-model` explicita que el universo evaluado es pre-partido elegible y
+  muestra cuántos partidos quedan fuera como live/finalizados/vencidos.
+
+### Verificación
+- Nuevo script `npm run verify:pre-match`.
+- `npm run typecheck` pasa.
+- `npm run lint` pasa.
+- `npm run verify:pre-match` pasa.
+- `npm run verify:parlays` pasa.
+- `npm run verify:stat-model` pasa.
+- Smoke HTTP OK en `/`, `/edges`, `/parlays?profile=balanced&debug=1`,
+  `/matches` y `/stat-model`.
+- Validado por HTML que `ARG-ALG`, `ESP-KSA`, `BRA-HAI` y `MAR-HAI` no aparecen
+  en Dashboard, Ranking ni Combinadas.
+
+### Nota importante
+- No se borraron edges, odds ni predicciones históricas. El fix es de lectura,
+  generación de combinadas y presentación pública.

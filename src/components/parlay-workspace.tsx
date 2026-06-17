@@ -57,12 +57,14 @@ export function ParlayWorkspace({
   initialDebug,
   scoreMatricesByMatchId,
   coverage,
+  excludedNonPreMatchEdges,
 }: {
   picks: ParlayPick[];
   initialProfile: ParlayProfile;
   initialDebug?: boolean;
   scoreMatricesByMatchId?: Record<string, ScoreMatrix>;
   coverage?: StatModelCoverage;
+  excludedNonPreMatchEdges?: number;
 }) {
   const [profile, setProfile] = useState<ParlayProfile>(initialProfile);
   const [bankrollInput, setBankrollInput] = useState("");
@@ -214,6 +216,16 @@ export function ParlayWorkspace({
             <CoverageMetric label="Sin matriz" value={coverage.withoutScoreMatrix} />
             <CoverageMetric label="Comb. matriz" value={matrixCount} />
             <CoverageMetric label="Comb. heurística" value={heuristicCount} />
+          </CardContent>
+        </Card>
+      )}
+
+      {showDebug && excludedNonPreMatchEdges != null && excludedNonPreMatchEdges > 0 && (
+        <Card>
+          <CardContent className="p-4 text-sm text-muted-foreground">
+            Edges excluidos por no ser pre-partido elegible:{" "}
+            <span className="font-semibold tabular-nums text-foreground">{excludedNonPreMatchEdges}</span>.
+            No se borran de Supabase; solo se omiten de combinadas apostables.
           </CardContent>
         </Card>
       )}

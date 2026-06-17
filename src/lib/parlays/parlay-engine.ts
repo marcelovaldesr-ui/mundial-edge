@@ -1,6 +1,7 @@
 import { evaluateCorrelation, compareCorrelationLevel } from "./correlation";
 import { calculateRiskScore, riskLabel, scoreParlay } from "./parlay-scoring";
 import { calculateMatrixAwareJointProbability } from "./stat-model-adapter";
+import { isPreMatchEligible } from "../matches/pre-match-eligibility";
 import type {
   GenerateParlaysOptions,
   GenerateParlaysResult,
@@ -102,13 +103,7 @@ function parseNow(now: GenerateParlaysOptions["now"]): number {
 }
 
 function isPreMatchPick(pick: ParlayPick, nowMs: number): boolean {
-  const startsAt = new Date(pick.startsAt).getTime();
-  return (
-    pick.matchStatus !== "live" &&
-    pick.matchStatus !== "finished" &&
-    Number.isFinite(startsAt) &&
-    startsAt > nowMs
-  );
+  return isPreMatchEligible(pick.match ?? { status: pick.matchStatus, kickoff: pick.startsAt }, nowMs);
 }
 
 function rejectionId(profile: ParlayProfile, picks: ParlayPick[], reason: RejectionReason): string {

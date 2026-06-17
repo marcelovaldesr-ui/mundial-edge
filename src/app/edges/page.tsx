@@ -13,7 +13,9 @@ export default async function EdgesPage() {
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Ranking de Edges</h1>
-          <p className="text-sm text-muted-foreground">Todas las selecciones, ordenables por valor esperado.</p>
+          <p className="text-sm text-muted-foreground">
+            Solo oportunidades pre-partido elegibles, ordenables por valor esperado.
+          </p>
         </div>
         <LastUpdated at={sync.at} source={sync.source} mode={dataMode()} />
       </div>

@@ -1,4 +1,5 @@
 import type { Match, TeamStats } from "../types";
+import { filterPreMatchMatches } from "../matches/pre-match-eligibility";
 import { estimateExpectedGoals } from "./expected-goals";
 import { deriveMarketProbabilities } from "./market-probabilities";
 import type { ModelMarketProbability } from "./market-types";
@@ -94,7 +95,7 @@ export function buildScoreMatricesByMatchId(
   options: BuildScoreMatrixOptions = {}
 ): BuildScoreMatricesResult {
   const statMap = new Map(teamStats.map((stats) => [stats.team_id, stats]));
-  const preMatch = matches.filter((match) => match.status === "scheduled");
+  const preMatch = filterPreMatchMatches(matches, options.generatedAt);
   const predictions: MatchStatModelPrediction[] = [];
   const issues: MatrixBuildIssue[] = [];
 

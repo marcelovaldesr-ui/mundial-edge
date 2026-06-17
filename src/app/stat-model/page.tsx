@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { dataMode, getLastSync, getMatches, getTeamStats } from "@/lib/data/repository";
 import { buildScoreMatricesByMatchId } from "@/lib/stat-model";
+import { filterPreMatchMatches } from "@/lib/matches/pre-match-eligibility";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,8 @@ export default async function StatModelPage() {
   const model = buildScoreMatricesByMatchId(matches, teamStats);
   const predictions = model.predictions.slice(0, 12);
   const lowConfidence = model.predictions.filter((prediction) => prediction.confidence === "low").length;
+  const eligibleMatches = filterPreMatchMatches(matches);
+  const nonEligibleMatches = matches.length - eligibleMatches.length;
 
   return (
     <div className="space-y-7">
@@ -26,7 +29,7 @@ export default async function StatModelPage() {
             </div>
             <h1 className="text-3xl font-bold tracking-tight">Modelo Poisson</h1>
             <p className="text-sm text-muted-foreground">
-              Probabilidades pre-partido derivadas de una matriz de marcadores. Esta vista explica el modelo:
+              Probabilidades para partidos pre-partido elegibles derivadas de una matriz de marcadores. Esta vista explica el modelo:
               no convierte una probabilidad en edge apostable si no hay cuota real comparable.
             </p>
           </div>
@@ -38,7 +41,7 @@ export default async function StatModelPage() {
         <Metric label="Partidos pre-partido" value={model.coverage.totalPreMatch} helper="universo evaluado" />
         <Metric label="Con matriz" value={model.coverage.withScoreMatrix} helper="cobertura técnica" tone="success" />
         <Metric label="Stats suficientes" value={model.coverage.withSufficientTeamStats} helper="confianza media/alta" />
-        <Metric label="Sin matriz" value={model.coverage.withoutScoreMatrix} helper="fallback pendiente" tone="warning" />
+        <Metric label="No elegibles" value={nonEligibleMatches} helper="live/finalizados/vencidos" tone="warning" />
       </div>
 
       <ExplanationBox warning={lowConfidence > 0}>

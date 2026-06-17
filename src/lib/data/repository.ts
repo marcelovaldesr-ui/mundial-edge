@@ -3,6 +3,7 @@ import { getServiceSupabase, isLiveMode } from "@/lib/supabase/server";
 import * as mock from "./mock";
 import { buildPredictions, buildEdges } from "@/lib/model/engine";
 import { isQualityPick } from "@/lib/model/edge";
+import { filterPreMatchEdges } from "@/lib/matches/pre-match-eligibility";
 
 /** Marca cada edge con `qualifies` (filtros de calidad estilo tipster). */
 const annotate = (edges: Edge[]): Edge[] =>
@@ -63,6 +64,10 @@ export async function getMatch(id: string): Promise<Match | null> {
 }
 
 export async function getEdges(): Promise<Edge[]> {
+  return filterPreMatchEdges(await getAllEdges());
+}
+
+export async function getAllEdges(): Promise<Edge[]> {
   if (isLiveMode()) {
     const sb = getServiceSupabase()!;
     // Leemos la tabla `edges` directamente (no la vista v_top_edges) para no
@@ -79,17 +84,20 @@ export async function getEdges(): Promise<Edge[]> {
       return [];
     }
     const rows = (data as unknown as Edge[]) ?? [];
-    // Solo partidos próximos o en juego (no finalizados) para el dashboard/ranking.
-    const upcoming = rows.filter(
-      (e) => e.match && (e.match.status === "scheduled" || e.match.status === "live")
-    );
-    return annotate(upcoming);
+    return annotate(rows);
   }
   return annotate(mockEdges().sort((a, b) => b.expected_value - a.expected_value));
 }
 
 export async function getEdgesForMatch(matchId: string): Promise<Edge[]> {
   const edges = await getEdges();
+  return edges
+    .filter((e) => e.match_id === matchId)
+    .sort((a, b) => b.expected_value - a.expected_value);
+}
+
+export async function getAllEdgesForMatch(matchId: string): Promise<Edge[]> {
+  const edges = await getAllEdges();
   return edges
     .filter((e) => e.match_id === matchId)
     .sort((a, b) => b.expected_value - a.expected_value);

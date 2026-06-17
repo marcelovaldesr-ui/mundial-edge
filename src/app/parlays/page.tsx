@@ -2,7 +2,7 @@ import { Disclaimer } from "@/components/disclaimer";
 import { LastUpdated } from "@/components/last-updated";
 import { ParlayWorkspace } from "@/components/parlay-workspace";
 import { Badge } from "@/components/ui/badge";
-import { getEdges, getLastSync, dataMode, getMatches, getTeamStats } from "@/lib/data/repository";
+import { getAllEdges, getEdges, getLastSync, dataMode, getMatches, getTeamStats } from "@/lib/data/repository";
 import { edgeToParlayPick, type ParlayProfile } from "@/lib/parlays";
 import { buildScoreMatricesByMatchId } from "@/lib/stat-model";
 
@@ -25,9 +25,10 @@ export default async function ParlaysPage({
 }) {
   const profile = parseProfile(searchParams.profile);
   const debug = parseDebug(searchParams.debug);
-  const [edges, sync, matches, teamStats] = await Promise.all([getEdges(), getLastSync(), getMatches(), getTeamStats()]);
+  const [edges, allEdges, sync, matches, teamStats] = await Promise.all([getEdges(), getAllEdges(), getLastSync(), getMatches(), getTeamStats()]);
   const picks = edges.filter((edge) => edge.qualifies).map(edgeToParlayPick);
   const statModel = buildScoreMatricesByMatchId(matches, teamStats);
+  const excludedNonPreMatch = Math.max(0, allEdges.length - edges.length);
 
   return (
     <div className="space-y-7">
@@ -58,6 +59,7 @@ export default async function ParlaysPage({
         initialDebug={debug}
         scoreMatricesByMatchId={statModel.scoreMatricesByMatchId}
         coverage={statModel.coverage}
+        excludedNonPreMatchEdges={excludedNonPreMatch}
       />
     </div>
   );

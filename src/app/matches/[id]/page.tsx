@@ -11,6 +11,9 @@ import { fmtKickoff } from "@/lib/utils";
 import { buildScoreMatrixForMatch } from "@/lib/stat-model";
 import { TeamMark } from "@/components/team-mark";
 import { isPreMatchEligible, matchStatusLabel } from "@/lib/matches/pre-match-eligibility";
+import { getMatches } from "@/lib/data/repository";
+import { getWorldCupGroupContext } from "@/lib/world-cup";
+import { WorldCupContextCard } from "@/components/world-cup-context-card";
 
 export const dynamic = "force-dynamic";
 
@@ -18,14 +21,16 @@ export default async function MatchDetail({ params }: { params: { id: string } }
   const match = await getMatch(params.id);
   if (!match) notFound();
   const preMatchEligible = isPreMatchEligible(match);
-  const [activeEdges, historicalEdges, odds, sync, teamStats] = await Promise.all([
-    getEdgesForMatch(params.id), getAllEdgesForMatch(params.id), getOddsForMatch(params.id), getLastSync(), getTeamStats(),
+  const [activeEdges, historicalEdges, odds, sync, teamStats, allMatches] = await Promise.all([
+    getEdgesForMatch(params.id), getAllEdgesForMatch(params.id), getOddsForMatch(params.id), getLastSync(), getTeamStats(), getMatches(),
   ]);
+  const groupContext = getWorldCupGroupContext(match, allMatches);
   const statMap = new Map(teamStats.map((stats) => [stats.team_id, stats]));
   const modelResult = buildScoreMatrixForMatch(
     match,
     statMap.get(match.home_team_id),
-    statMap.get(match.away_team_id)
+    statMap.get(match.away_team_id),
+    { groupContext, allMatches }
   );
   const modelPrediction = "scoreMatrix" in modelResult ? modelResult : null;
 
@@ -64,10 +69,12 @@ export default async function MatchDetail({ params }: { params: { id: string } }
             {match.away_team?.name}<span className="ml-2 inline-flex align-middle"><TeamMark team={match.away_team} className="h-6 w-6" /></span>
           </CardTitle>
           <CardDescription>
-            {match.venue ?? "Sede por confirmar"} · Casas: {bookmakers.join(", ") || "—"}
+            Mundial 2026 · {match.venue ?? "Sede por confirmar"} · Casas: {bookmakers.join(", ") || "—"}
           </CardDescription>
         </CardHeader>
       </Card>
+
+      <WorldCupContextCard context={groupContext} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -82,7 +89,7 @@ export default async function MatchDetail({ params }: { params: { id: string } }
           <CardHeader><CardTitle className="text-base">Cómo leer esto</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             <p><strong className="text-foreground">Prob. implícita</strong>: lo que la cuota da por probable (1/cuota), ajustada por el margen de la casa.</p>
-            <p><strong className="text-foreground">Prob. modelo</strong>: estimación final anclada al mercado, con señal Poisson a partir de goles, forma y rival.</p>
+            <p><strong className="text-foreground">Prob. modelo</strong>: estimación final anclada al mercado, con señal Poisson, rating base de selecciones y contexto mundialista.</p>
             <p><strong className="text-foreground">Edge</strong> = modelo − implícita. <strong className="text-foreground">EV</strong> = modelo × cuota − 1.</p>
             {!preMatchEligible && (
               <p className="rounded-md bg-warning/10 p-3 text-warning">

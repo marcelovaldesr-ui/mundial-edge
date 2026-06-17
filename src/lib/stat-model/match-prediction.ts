@@ -4,6 +4,8 @@ import { estimateExpectedGoals } from "./expected-goals";
 import { deriveMarketProbabilities } from "./market-probabilities";
 import type { ModelMarketProbability } from "./market-types";
 import { createScoreMatrix, type ScoreMatrix } from "./score-matrix";
+import type { TeamStrengthRating } from "./team-strength-ratings";
+import { getWorldCupGroupContext, type WorldCupGroupContext } from "../world-cup/group-context";
 
 export type StatModelConfidence = "none" | "low" | "medium" | "high";
 
@@ -20,6 +22,15 @@ export interface MatchStatModelPrediction {
   generatedAt: string;
   modelVersion: "poisson-score-matrix-v1";
   expectedGoalsSource: string;
+  expectedGoalsBlend: {
+    homeRatingWeight: number;
+    awayRatingWeight: number;
+    homeStatsWeight: number;
+    awayStatsWeight: number;
+  };
+  homeRating: TeamStrengthRating | null;
+  awayRating: TeamStrengthRating | null;
+  groupContext?: WorldCupGroupContext;
 }
 
 export interface MatrixBuildIssue {
@@ -39,6 +50,8 @@ export interface BuildScoreMatrixOptions {
   maxGoals?: number;
   leagueAvgGoals?: number;
   generatedAt?: string;
+  groupContext?: WorldCupGroupContext;
+  allMatches?: Match[];
 }
 
 export interface BuildScoreMatricesResult {
@@ -60,13 +73,17 @@ export function buildScoreMatrixForMatch(
     return { matchId: match.id, reason: "Faltan joins de equipos local/visitante." };
   }
 
-  const warnings = confidenceWarnings(homeStats, awayStats);
-  const confidence = confidenceFromStats(homeStats, awayStats);
+  const groupContext = options.groupContext ?? (options.allMatches ? getWorldCupGroupContext(match, options.allMatches) : undefined);
   const xg = estimateExpectedGoals({
     home: homeStats,
     away: awayStats,
+    homeTeam: match.home_team,
+    awayTeam: match.away_team,
     leagueAvgGoals: options.leagueAvgGoals,
+    groupContext,
   });
+  const warnings = confidenceWarnings(homeStats, awayStats, xg.homeRating, xg.awayRating, groupContext);
+  const confidence = confidenceFromInputs(homeStats, awayStats, xg.homeRating, xg.awayRating);
   const scoreMatrix = createScoreMatrix({
     homeExpectedGoals: xg.homeExpectedGoals,
     awayExpectedGoals: xg.awayExpectedGoals,
@@ -86,6 +103,10 @@ export function buildScoreMatrixForMatch(
     generatedAt: options.generatedAt ?? new Date().toISOString(),
     modelVersion: "poisson-score-matrix-v1",
     expectedGoalsSource: xg.source,
+    expectedGoalsBlend: xg.blend,
+    homeRating: xg.homeRating,
+    awayRating: xg.awayRating,
+    groupContext,
   };
 }
 
@@ -104,7 +125,7 @@ export function buildScoreMatricesByMatchId(
       match,
       statMap.get(match.home_team_id),
       statMap.get(match.away_team_id),
-      options
+      { ...options, allMatches: matches, groupContext: getWorldCupGroupContext(match, matches) }
     );
     if ("scoreMatrix" in result) predictions.push(result);
     else issues.push(result);
@@ -135,17 +156,47 @@ export function confidenceFromStats(homeStats: TeamStats, awayStats: TeamStats):
   return "high";
 }
 
-function confidenceWarnings(homeStats: TeamStats, awayStats: TeamStats): string[] {
+export function confidenceFromInputs(
+  homeStats: TeamStats,
+  awayStats: TeamStats,
+  homeRating: TeamStrengthRating | null,
+  awayRating: TeamStrengthRating | null
+): StatModelConfidence {
+  const minMatches = Math.min(homeStats.matches_played, awayStats.matches_played);
+  const hasSpecificRatings = homeRating?.source === "manual_seed" && awayRating?.source === "manual_seed";
+  if (minMatches >= 4 && hasSpecificRatings) return "high";
+  if (minMatches >= 2 && (homeRating || awayRating)) return "medium";
+  if (hasSpecificRatings) return "medium";
+  return confidenceFromStats(homeStats, awayStats);
+}
+
+function confidenceWarnings(
+  homeStats: TeamStats,
+  awayStats: TeamStats,
+  homeRating: TeamStrengthRating | null,
+  awayRating: TeamStrengthRating | null,
+  groupContext?: WorldCupGroupContext
+): string[] {
   const warnings: string[] = [];
   if (homeStats.matches_played <= 0 || awayStats.matches_played <= 0) {
-    warnings.push("Baja confianza: una o ambas selecciones no tienen partidos finalizados en team_stats.");
+    warnings.push("Confianza limitada: una o ambas selecciones no tienen partidos finalizados en team_stats del Mundial.");
   } else if (Math.min(homeStats.matches_played, awayStats.matches_played) < 2) {
-    warnings.push("Baja confianza: muestra menor a 2 partidos por selección.");
+    warnings.push("Confianza limitada: muestra menor a 2 partidos por selección.");
   } else if (Math.min(homeStats.matches_played, awayStats.matches_played) < 4) {
     warnings.push("Confianza media: muestra todavía corta para un Mundial.");
   }
   if (!homeStats.recent_form.length || !awayStats.recent_form.length) {
     warnings.push("Forma reciente incompleta; se usan priors derivados de goles por partido.");
+  }
+  if (homeRating?.source === "manual_seed" && awayRating?.source === "manual_seed") {
+    warnings.push("Rating base Mundial Edge usado para diferenciar selecciones con baja muestra.");
+  }
+  if (homeRating?.source === "neutral_fallback" || awayRating?.source === "neutral_fallback") {
+    warnings.push("Sin rating específico para una selección; se usa prior neutral prudente.");
+  }
+  if (groupContext?.warnings.length) warnings.push(...groupContext.warnings);
+  if (groupContext && Object.values(groupContext.modifiers).some((value) => value !== 0)) {
+    warnings.push("Contexto de grupo aplicado con ajuste pequeño; puede ser especulativo.");
   }
   return warnings;
 }

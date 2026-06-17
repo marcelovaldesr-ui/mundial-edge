@@ -8,8 +8,9 @@ import { ChevronRight } from "lucide-react";
 import { TeamMark } from "@/components/team-mark";
 import { Badge } from "@/components/ui/badge";
 import { isPreMatchEligible, matchStatusLabel } from "@/lib/matches/pre-match-eligibility";
+import type { WorldCupGroupContext } from "@/lib/world-cup";
 
-export function MatchCard({ match, best }: { match: Match; best?: Edge }) {
+export function MatchCard({ match, best, groupContext }: { match: Match; best?: Edge; groupContext?: WorldCupGroupContext }) {
   const preMatchEligible = isPreMatchEligible(match);
   const showScore = !preMatchEligible && match.home_score != null && match.away_score != null;
   const activeBest = preMatchEligible ? best : undefined;
@@ -20,6 +21,7 @@ export function MatchCard({ match, best }: { match: Match; best?: Edge }) {
         <CardContent className="p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
             <span>{match.stage}</span>
+            {groupContext?.group && <Badge variant="outline">{groupContext.group}</Badge>}
             <Badge variant={preMatchEligible ? "success" : match.status === "live" ? "warning" : match.status === "finished" ? "muted" : "outline"}>
               {matchStatusLabel(match)}
             </Badge>
@@ -47,6 +49,11 @@ export function MatchCard({ match, best }: { match: Match; best?: Edge }) {
           {!preMatchEligible && (
             <div className="mt-3 rounded-md bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
               No elegible para pre-partido.
+            </div>
+          )}
+          {groupContext && (
+            <div className="mt-3 rounded-md bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+              {groupContext.summary}
             </div>
           )}
           {activeBest && (

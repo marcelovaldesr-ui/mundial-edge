@@ -23,13 +23,14 @@ export default async function StatModelPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline">Motor estadístico</Badge>
+              <Badge variant="outline">Motor Mundial 2026</Badge>
               <Badge variant="muted">Poisson score matrix v1</Badge>
               {lowConfidence > 0 && <Badge variant="warning">Muestra baja en {lowConfidence} partidos</Badge>}
             </div>
-            <h1 className="text-3xl font-bold tracking-tight">Modelo Poisson</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Modelo Mundial Edge</h1>
             <p className="text-sm text-muted-foreground">
-              Probabilidades para partidos pre-partido elegibles derivadas de una matriz de marcadores. Esta vista explica el modelo:
+              Probabilidades para partidos pre-partido del Mundial 2026 derivadas de matriz Poisson,
+              rating base por selección, stats reales del torneo y contexto de grupos. Esta vista explica el modelo:
               no convierte una probabilidad en edge apostable si no hay cuota real comparable.
             </p>
           </div>
@@ -40,14 +41,14 @@ export default async function StatModelPage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Metric label="Partidos pre-partido" value={model.coverage.totalPreMatch} helper="universo evaluado" />
         <Metric label="Con matriz" value={model.coverage.withScoreMatrix} helper="cobertura técnica" tone="success" />
-        <Metric label="Stats suficientes" value={model.coverage.withSufficientTeamStats} helper="confianza media/alta" />
+        <Metric label="Rating + stats" value={model.predictions.filter((prediction) => prediction.expectedGoalsSource === "rating_stats_blend_v1").length} helper="blend Mundial Edge" />
         <Metric label="No elegibles" value={nonEligibleMatches} helper="live/finalizados/vencidos" tone="warning" />
       </div>
 
       <ExplanationBox warning={lowConfidence > 0}>
         <p>
-          La cobertura técnica es amplia, pero la confianza puede ser baja porque muchos equipos todavía no tienen
-          partidos finalizados en `team_stats`. Por eso esta pantalla separa modelo estadístico de edge apostable.
+          El rating base ayuda a diferenciar selecciones desde el partido 0, pero sigue siendo un seed prudente:
+          cuando haya más resultados reales del Mundial, `team_stats` ganará peso. Esta pantalla separa modelo estadístico de edge apostable.
         </p>
       </ExplanationBox>
 

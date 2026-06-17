@@ -49,7 +49,7 @@ export function ParlayCard({ parlay, index }: { parlay: Parlay; index: number })
             </CardTitle>
             <div className="flex flex-wrap items-center gap-1.5">
               <Badge variant="outline">{profileLabel[parlay.profile]}</Badge>
-              <Badge variant="outline">{parlay.correlationMethod === "score_matrix" ? "Modelo Poisson disponible" : "Fallback heurístico"}</Badge>
+              <Badge variant="outline">{parlay.correlationMethod === "score_matrix" ? "Modelo Mundial Edge disponible" : "Fallback heurístico"}</Badge>
               {sameMatch && <Badge variant="warning">Same-match</Badge>}
               <Badge variant={riskVariant[parlay.riskLevel]}>Riesgo {riskLabel[parlay.riskLevel]}</Badge>
             </div>
@@ -89,7 +89,7 @@ export function ParlayCard({ parlay, index }: { parlay: Parlay; index: number })
 
         <ExplanationBox warning={parlay.riskLevel === "high" || parlay.riskLevel === "very_high"}>
           <p>{parlay.explanation}</p>
-          <p>Supuesto: cada pick usa probabilidad anclada al mercado, no probabilidad Poisson cruda.</p>
+          <p>Supuesto: cada pick usa probabilidad final anclada al mercado; el modelo Mundial Edge informa la señal, pero no crea edges sin cuota real.</p>
           {parlay.warnings.slice(0, 3).map((warning) => (
             <p key={warning}>Advertencia: {warning}</p>
           ))}

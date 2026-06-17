@@ -690,3 +690,80 @@ Con datos actuales, varios partidos usan priors similares por baja muestra:
   `/stat-model`.
 - Validado por HTML que no aparecen labels ambiguos `Más de 2.5` / `Menos de 2.5`
   sin `goles` en rutas públicas revisadas.
+
+---
+
+## ACTUALIZACIÓN — sesión 13
+
+### Estado: Mundial-only, ratings base y contexto de grupos
+- Se reforzó el foco de producto en Mundial 2026:
+  - Dashboard habla de `Mesa pre-partido Mundial 2026`;
+  - Partidos pasa a `Partidos del Mundial 2026`;
+  - el modelo visible se etiqueta como `Modelo Mundial Edge`.
+- Nuevo módulo `src/lib/stat-model/team-strength-ratings.ts`:
+  - ratings seed manuales por selección;
+  - campos `overallRating`, `attackRating`, `defenseRating`, `formRating`,
+    `tournamentExperience`, `confidence`, `source`;
+  - `source: "manual_seed"` y confidence prudente `medium`;
+  - fallback neutral explícito `neutral_fallback`.
+- `estimateExpectedGoals()` ahora usa blend:
+  - rating base por selección;
+  - team_stats reales del Mundial;
+  - promedio global;
+  - contexto de grupo cuando está disponible.
+- Regla de peso:
+  - poca muestra => rating base pesa más;
+  - más partidos reales => team_stats gana peso;
+  - rating manual nunca se presenta como precisión absoluta.
+- `MatchStatModelPrediction` ahora incluye:
+  - `homeRating`, `awayRating`;
+  - `expectedGoalsBlend`;
+  - `groupContext`;
+  - warnings y source del xG.
+
+### Contexto de grupos
+- Nuevo módulo `src/lib/world-cup/group-context.ts`:
+  - fases: `GROUP_STAGE`, `ROUND_OF_32`, `ROUND_OF_16`, `QUARTER_FINAL`,
+    `SEMI_FINAL`, `THIRD_PLACE`, `FINAL`;
+  - standings por grupo con puntos, PJ, GF, GC, DG, posición y partidos restantes;
+  - inferencia de partido 1/2/3 de grupo;
+  - resumen textual de contexto;
+  - modificadores prudentes: urgencia, utilidad del empate, incentivo por
+    diferencia de gol y riesgo de rotación.
+- Los modificadores son pequeños y transparentes; no reemplazan el modelo ni
+  crean edges sin cuota real.
+
+### UI
+- Nuevo componente `WorldCupContextCard` para detalle de partido.
+- `PoissonModelCard` muestra:
+  - `Rating + stats`;
+  - rating de ambas selecciones;
+  - porcentaje de blend rating/stats;
+  - resumen de contexto de grupo cuando existe.
+- `/matches/[id]` muestra contexto Mundial 2026 + rating/stats en el modelo.
+- `/matches` muestra grupo/contexto en cards de calendario/historial.
+- Dashboard usa filtro pre-partido para próximos partidos y muestra contexto de
+  grupo en cards.
+- Combinadas aclara que los picks usan probabilidad final anclada al mercado; el
+  modelo Mundial Edge informa señal, pero no crea edges sin cuota real.
+
+### Verificación
+- Nuevos scripts:
+  - `npm run verify:team-ratings`
+  - `npm run verify:world-cup-context`
+- `npm run typecheck` pasa.
+- `npm run lint` pasa.
+- `npm run verify:stat-model` pasa.
+- `npm run verify:pre-match` pasa.
+- `npm run verify:parlays` pasa.
+- `npm run verify:markets` pasa.
+- `npm run verify:team-ratings` pasa.
+- `npm run verify:world-cup-context` pasa.
+- Smoke HTTP OK en `/`, `/matches`, `/stat-model`,
+  `/parlays?profile=balanced&debug=1` y un `/matches/[id]` real.
+
+### Límites pendientes
+- Ratings son seed manuales, no feed oficial ni Elo/FIFA live.
+- Grupo/contexto usa datos disponibles en `matches` y resultados finalizados;
+  si faltan grupos o resultados, muestra fallback prudente.
+- No se tocó schema Supabase ni se generaron mercados apostables nuevos.

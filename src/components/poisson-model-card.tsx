@@ -23,7 +23,8 @@ export function PoissonModelCard({
             {prediction.homeTeam.code} vs {prediction.awayTeam.code}
           </CardTitle>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">Modelo Poisson</Badge>
+            <Badge variant="outline">Modelo Mundial Edge</Badge>
+            <Badge variant="muted">{sourceLabel(prediction.expectedGoalsSource)}</Badge>
             <ConfidenceBadge confidence={prediction.confidence} />
             <Badge variant="muted">No apostable sin cuota</Badge>
           </div>
@@ -35,6 +36,8 @@ export function PoissonModelCard({
           <Metric label={`xG ${prediction.awayTeam.code}`} value={prediction.awayExpectedGoals.toFixed(2)} />
           <Metric label="Score probable" value={`${likelyScore.home}-${likelyScore.away}`} />
           <Metric label="Prob. score" value={pct(likelyScore.probability)} />
+          <Metric label={`Rating ${prediction.homeTeam.code}`} value={ratingValue(prediction.homeRating)} />
+          <Metric label={`Rating ${prediction.awayTeam.code}`} value={ratingValue(prediction.awayRating)} />
         </div>
 
         <div className="grid gap-3">
@@ -54,6 +57,13 @@ export function PoissonModelCard({
 
         <ExplanationBox warning={prediction.confidence === "low"}>
           <p>Probabilidad modelo, no edge apostable todavía.</p>
+          <p>
+            Blend xG: {prediction.homeTeam.code} usa {(prediction.expectedGoalsBlend.homeRatingWeight * 100).toFixed(0)}% rating /
+            {(prediction.expectedGoalsBlend.homeStatsWeight * 100).toFixed(0)}% stats; {prediction.awayTeam.code} usa{" "}
+            {(prediction.expectedGoalsBlend.awayRatingWeight * 100).toFixed(0)}% rating /
+            {(prediction.expectedGoalsBlend.awayStatsWeight * 100).toFixed(0)}% stats.
+          </p>
+          {prediction.groupContext && <p>{prediction.groupContext.summary}</p>}
           <p>Score más probable por celda de matriz: {likelyScore.home}-{likelyScore.away} ({pct(likelyScore.probability)}).</p>
           {prediction.warnings.slice(0, compact ? 1 : 3).map((warning) => (
             <p key={warning}>Aviso: {warning}</p>
@@ -78,6 +88,16 @@ function mostLikelyScore(prediction: MatchStatModelPrediction) {
     prediction.scoreMatrix.entries[0]
   );
   return { home: best.homeGoals, away: best.awayGoals, probability: best.probability };
+}
+
+function sourceLabel(source: string): string {
+  if (source === "rating_stats_blend_v1") return "Rating + stats";
+  return "Stats torneo";
+}
+
+function ratingValue(rating: MatchStatModelPrediction["homeRating"]): string {
+  if (!rating) return "—";
+  return `${rating.overallRating} (${rating.source === "manual_seed" ? "seed" : "neutral"})`;
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

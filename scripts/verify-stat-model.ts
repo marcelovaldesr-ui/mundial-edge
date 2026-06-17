@@ -117,7 +117,7 @@ function matchPrediction() {
 
   const low = buildScoreMatrixForMatch(match, { ...homeStats, matches_played: 0, recent_form: [] }, awayStats);
   assert("scoreMatrix" in low && low.confidence === "low", "Expected low confidence with missing sample");
-  assert("scoreMatrix" in low && low.warnings.some((warning) => warning.includes("Baja confianza")), "Expected low-confidence warning");
+  assert("scoreMatrix" in low && low.warnings.some((warning) => warning.includes("Confianza limitada")), "Expected low-confidence warning");
 
   const missing = buildScoreMatrixForMatch(match, undefined, awayStats);
   assert(!("scoreMatrix" in missing), "Expected controlled issue for missing stats");

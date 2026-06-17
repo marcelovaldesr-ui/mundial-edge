@@ -12,6 +12,8 @@ import { OpportunityCard } from "@/components/opportunity-card";
 import { PickCard } from "@/components/pick-card";
 import { Badge } from "@/components/ui/badge";
 import { buildScoreMatricesByMatchId } from "@/lib/stat-model";
+import { filterPreMatchMatches } from "@/lib/matches/pre-match-eligibility";
+import { getWorldCupGroupContext } from "@/lib/world-cup";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +31,7 @@ export default async function DashboardPage() {
     const cur = bestByMatch.get(e.match_id);
     if (!cur || e.expected_value > cur.expected_value) bestByMatch.set(e.match_id, e);
   }
-  const upcoming = matches.filter((m) => m.status === "scheduled").slice(0, 6);
+  const upcoming = filterPreMatchMatches(matches).slice(0, 6);
   const topEdges = [...quality].sort((a, b) => b.expected_value - a.expected_value).slice(0, 8);
   const featuredEdges = topEdges.slice(0, 3);
   const secondaryPicks = topEdges.slice(3, 7);
@@ -50,14 +52,14 @@ export default async function DashboardPage() {
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline">Mundial Edge</Badge>
               <Badge variant="success">Modo tipster</Badge>
-              <Badge variant="muted">Poisson + mercado</Badge>
+              <Badge variant="muted">Modelo Mundial Edge</Badge>
               {lowConfidenceCount > 0 && <Badge variant="warning">Muestra baja en destacados</Badge>}
             </div>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Mesa pre-partido</h1>
+              <h1 className="text-3xl font-bold tracking-tight">Mesa pre-partido Mundial 2026</h1>
               <p className="mt-2 text-sm text-muted-foreground">
-                Oportunidades, picks y combinadas con probabilidad anclada al mercado, EV filtrado,
-                stake prudente y avisos de riesgo.
+                Oportunidades del Mundial, picks y combinadas con probabilidad anclada al mercado,
+                ratings base por selección, EV filtrado y avisos de riesgo.
               </p>
             </div>
           </div>
@@ -67,7 +69,7 @@ export default async function DashboardPage() {
 
       <DashboardStats
         items={[
-          { label: "Partidos próximos", value: upcoming.length, helper: "agenda activa" },
+          { label: "Partidos del Mundial", value: upcoming.length, helper: "pre-partido elegibles" },
           { label: "Edges analizados", value: edges.length, helper: "mercados con cuota" },
           { label: "Picks de calidad", value: valueCount, helper: "pasan modo tipster", tone: "success" },
           { label: "Matrices Poisson", value: statModel.coverage.withScoreMatrix, helper: "pre-partido cubiertos" },
@@ -79,7 +81,7 @@ export default async function DashboardPage() {
           <div>
             <h2 className="text-xl font-semibold">Oportunidades destacadas</h2>
             <p className="text-sm text-muted-foreground">
-              Picks apostables: tienen cuota real, probabilidad anclada y EV positivo dentro de rangos razonables.
+              Picks apostables del Mundial: tienen cuota real, probabilidad anclada y EV positivo dentro de rangos razonables.
             </p>
           </div>
           <Link href="/edges" className="text-sm text-primary hover:underline">Ver ranking completo</Link>
@@ -107,7 +109,7 @@ export default async function DashboardPage() {
         <div className="space-y-3">
           <div>
             <h2 className="text-xl font-semibold">Picks individuales</h2>
-            <p className="text-sm text-muted-foreground">Lectura rápida de probabilidad, cuota, EV y confianza.</p>
+            <p className="text-sm text-muted-foreground">Lectura rápida por selección: probabilidad, cuota, EV y confianza.</p>
           </div>
           <div className="grid gap-3">
             {secondaryPicks.map((edge) => (
@@ -156,10 +158,10 @@ export default async function DashboardPage() {
       <section className="space-y-3">
         <div>
           <h2 className="text-xl font-semibold">Próximos partidos</h2>
-          <p className="text-sm text-muted-foreground">Contexto de calendario y mejor pick por partido cuando existe.</p>
+          <p className="text-sm text-muted-foreground">Contexto de fase de grupos y mejor pick por partido cuando existe.</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {upcoming.map((m) => <MatchCard key={m.id} match={m} best={bestByMatch.get(m.id)} />)}
+          {upcoming.map((m) => <MatchCard key={m.id} match={m} best={bestByMatch.get(m.id)} groupContext={getWorldCupGroupContext(m, matches)} />)}
         </div>
       </section>
 

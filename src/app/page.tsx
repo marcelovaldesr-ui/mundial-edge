@@ -2,9 +2,12 @@ import { getMatches, getEdges, getLastSync, dataMode } from "@/lib/data/reposito
 import { MatchCard } from "@/components/match-card";
 import { EdgeTable } from "@/components/edge-table";
 import { LastUpdated } from "@/components/last-updated";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Disclaimer } from "@/components/disclaimer";
 import type { Edge } from "@/lib/types";
+import { edgeToParlayPick, generateParlays } from "@/lib/parlays";
+import { ParlayCard } from "@/components/parlay-card";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +24,10 @@ export default async function DashboardPage() {
   }
   const upcoming = matches.filter((m) => m.status === "scheduled").slice(0, 6);
   const topEdges = [...quality].sort((a, b) => b.expected_value - a.expected_value).slice(0, 8);
+  const topParlays = generateParlays(quality.map(edgeToParlayPick), {
+    profile: "balanced",
+    maxResults: 3,
+  });
 
   const valueCount = quality.length;
 
@@ -60,6 +67,30 @@ export default async function DashboardPage() {
             <EdgeTable edges={topEdges} />
           </CardContent>
         </Card>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Combinadas recomendadas</h2>
+            <p className="text-sm text-muted-foreground">
+              Vista previa balanceada. En combinadas puedes comparar perfiles conservador, balanceado y agresivo.
+            </p>
+          </div>
+          <Link href="/parlays" className="text-sm text-primary hover:underline">Abrir constructor</Link>
+        </div>
+        <div className="grid gap-4">
+          {topParlays.map((parlay, index) => (
+            <ParlayCard key={parlay.id} parlay={parlay} index={index} />
+          ))}
+          {topParlays.length === 0 && (
+            <Card>
+              <CardContent className="pt-5 text-sm text-muted-foreground">
+                No hay combinadas medias que pasen los filtros actuales.
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </section>
     </div>
   );

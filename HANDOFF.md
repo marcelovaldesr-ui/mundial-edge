@@ -250,3 +250,159 @@ partido 0 sin esperar resultados. Hoy `teams.fifa_rank` existe pero no se usa.
   OneDrive. Para esta sesión se usó `3004`.
 - En esta copia local `.env.local` no contiene `CRON_SECRET`; en dev el endpoint
   permite sync sin secreto, pero producción debe configurarlo.
+
+---
+
+## ACTUALIZACIÓN — sesión 4
+
+### Estado: motor pre-partido de combinadas implementado
+- Nuevo módulo `src/lib/parlays/` con lógica separada y testeable:
+  - `parlay-types.ts`: tipos `ParlayPick`, `Parlay`, perfiles y opciones.
+  - `correlation.ts`: `evaluateCorrelation()` con niveles `low/medium/high/invalid`.
+  - `staking.ts`: Kelly fraccional + caps por perfil.
+  - `parlay-scoring.ts`: score balanceado por EV, probabilidad, riesgo y correlación.
+  - `parlay-engine.ts`: `generateParlays()` y reglas configurables por perfil.
+- Nueva página `/parlays` con perfiles `conservative`, `balanced`, `aggressive`.
+- Dashboard agrega vista previa de combinadas medias.
+- Navegación agrega enlace "Combinadas".
+
+### Verificación
+- `npm run typecheck` pasa.
+- `npm run verify:parlays` pasa. El script cubre:
+  - combinada independiente,
+  - correlación same-match,
+  - combinada inválida,
+  - Kelly/caps,
+  - ranking que no premia automáticamente EV gigante con probabilidad mínima.
+
+### Limitaciones actuales
+- Solo pre-partido; no hay modo live/in-play.
+- La probabilidad base de cada pick es `Edge.model_probability`, que en modo tipster
+  ya representa la probabilidad anclada al mercado.
+- La correlación es heurística inicial; no modela dependencias exactas tipo equipo
+  gana + over con distribución conjunta de goles.
+- Stake se muestra en unidades salvo que se pase bankroll a `generateParlays()`.
+
+---
+
+## ACTUALIZACIÓN — sesión 5
+
+### Estado: endurecimiento y validación del motor de combinadas
+- Confirmado en código: `edges.model_probability` contiene la probabilidad
+  anclada (`pFair`) porque `buildEdges()` guarda `blendedProbability(...)` en ese
+  campo. El adapter `edgeToParlayPick()` lo documenta explícitamente como
+  `anchoredProb = edge.model_probability`.
+- El adapter se movió a `src/lib/parlays/edge-adapter.ts` para separar contrato
+  de datos y tipos.
+- `generateParlays()` ahora filtra picks inválidos, duplicados, live/finished o
+  con kickoff vencido; valida cuotas/probabilidades finitas; aplica límites por
+  perfil de cuota total y risk score.
+- `evaluateCorrelation()` invalida picks duplicados, selecciones contradictorias
+  del mismo mercado/partido y más de dos selecciones del mismo partido.
+- `suggestStake()` corta stake a cero si EV/Kelly no es positivo y devuelve
+  explicación del cap Kelly aplicado.
+- `ParlayCard` muestra razón de stake y explicita que usa probabilidad anclada.
+
+### Validación real con Supabase
+- Picks de calidad disponibles: 19.
+- Top observado para los tres perfiles fue la misma combinada conservadora:
+  `TUN-JPN: JPN @1.61` + `PAN-CRO: CRO @1.55`.
+  - Cuota total: 2.4955
+  - Probabilidad raw/ajustada: 47.9316% / 47.9316%
+  - Correlación: low, penalty 1.00
+  - EV combinado: +19.61%
+  - Risk score: 14
+  - Stake sugerido: 0.75u conservador, 1.5u medio, 2.5u agresivo
+- No se fuerza riesgo artificial por perfil; si la mejor combinada por score es
+  baja correlación y buena probabilidad, aparece también en agresivo.
+
+### Verificación
+- `npm run typecheck` pasa.
+- `npm run verify:parlays` pasa.
+- Se abrieron correctamente:
+  - `/parlays?profile=conservative`
+  - `/parlays?profile=balanced`
+  - `/parlays?profile=aggressive`
+  - `/`
+
+---
+
+## ACTUALIZACIÓN — sesión 6
+
+### Estado: producto/UI de combinadas mejorado
+- `/parlays` ahora usa `ParlayWorkspace` cliente para manejar perfil y bankroll
+  local sin persistir en Supabase.
+- Bankroll opcional:
+  - vacío o inválido => stake en unidades;
+  - número positivo => unidades + porcentaje de bankroll + monto estimado.
+- `ParlayCard` muestra mejor jerarquía: perfil, riesgo, correlación, cuota,
+  probabilidad ajustada, EV, stake, explicación, warnings y detalles técnicos.
+- Detalles técnicos desplegables incluyen probabilidad raw, probabilidad ajustada,
+  penalty factor, risk score, score, EV, cuota y número de legs.
+- Dashboard mantiene solo preview balanceada y CTA al constructor completo.
+
+### Diferenciación de perfiles
+- `ProfileRules` agrega `targetOddsRange`, `preferredLegs` y `maxEV`.
+- Scoring por perfil:
+  - Conservadora: premia mayor probabilidad, cuota moderada y 2 legs.
+  - Balanceada: premia relación valor/riesgo, cuota objetivo intermedia y 3 legs.
+  - Agresiva: explora mayor cuota/legs, mantiene EV positivo, maxEV y caps de stake.
+- Ejemplos reales con bankroll 100.000:
+  - Conservadora: `TUN-JPN JPN @1.61` + `PAN-CRO CRO @1.55`, cuota 2.496,
+    prob ajustada 47.93%, EV +19.61%, risk 14, stake 0.75u / 0.75% / 750.
+  - Balanceada: agrega `GER-CIV GER @1.58`, cuota 3.943, prob ajustada 33.09%,
+    EV +30.46%, risk 27, stake 1.5u / 1.5% / 1.500.
+  - Agresiva: 5 legs, cuota 27.328, prob ajustada 6.43%, EV +75.64%, risk 86,
+    stake 1.5u / 1.44% / 1.436,56.
+
+### Verificación
+- `npm run typecheck` pasa.
+- `npm run verify:parlays` pasa.
+- Se abrieron correctamente `/parlays?profile=conservative`, `balanced`,
+  `aggressive` y `/` en `http://localhost:3004`.
+
+---
+
+## ACTUALIZACIÓN — sesión 7
+
+### Estado: control/auditoría/calibración de combinadas
+- Checkpoint recomendado antes de seguir:
+  `feat: add pre-match parlay builder with bankroll and risk profiles`
+  (no se hizo commit).
+- `/parlays` agrega ordenamiento local por:
+  score recomendado, EV, probabilidad ajustada, menor riesgo, cuota total y
+  stake sugerido.
+- `/parlays` agrega filtros locales:
+  riesgo máximo, cuota mínima/máxima, EV mínimo, probabilidad mínima, ocultar
+  correlación alta y número de selecciones.
+- Nuevo modo debug interno:
+  `/parlays?profile=aggressive&debug=1` o toggle "Modo debug".
+  Muestra "Candidatas descartadas" con picks, motivo, cuota, probabilidad, EV,
+  risk score y correlación cuando aplica.
+- Motor:
+  - `generateParlays()` mantiene API anterior.
+  - `generateParlaysWithDebug()` devuelve `{ parlays, rejected }`.
+  - `RejectedParlayCandidate` registra motivo principal de descarte.
+- Staking agresivo recalibrado:
+  - `suggestStake()` ahora considera `riskScore`, `totalOdds`, `legs`,
+    `jointProbabilityAdjusted` y `correlationLevel`.
+  - Haircuts por cuota >15, cuota >25, 5+ legs, probabilidad <7%, riskScore alto
+    y correlación alta.
+
+### Validación real de stake agresivo
+- Caso real agresivo:
+  5 legs, cuota 27.328, probabilidad ajustada 6.43%, EV +75.64%, riskScore 86.
+- Antes: stake 1.5u / 1.44% / 1.436,56 sobre bankroll 100.000.
+- Ahora: stake 0.25u / 0.085% / 84,74.
+- Razón mostrada: stake reducido por alta varianza, cuota total elevada, cuota
+  >25, 5 selecciones y probabilidad conjunta baja.
+
+### Verificación
+- `npm run typecheck` pasa.
+- `npm run verify:parlays` pasa.
+- Se abrieron correctamente:
+  - `/parlays?profile=conservative`
+  - `/parlays?profile=balanced`
+  - `/parlays?profile=aggressive`
+  - `/parlays?profile=aggressive&debug=1`
+  - `/`

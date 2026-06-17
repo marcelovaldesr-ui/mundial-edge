@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify:parlays": "tsc scripts/verify-parlays.ts --outDir .tmp/parlay-check --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict && node .tmp/parlay-check/scripts/verify-parlays.js"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.1.0",

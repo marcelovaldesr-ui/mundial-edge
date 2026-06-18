@@ -7,17 +7,20 @@ import type { GroupSimulationServiceResult } from "@/lib/tournament";
 export function GroupSimulationCard({
   result,
   preview = false,
+  dataStatus,
 }: {
   result?: GroupSimulationServiceResult | null;
   preview?: boolean;
+  dataStatus?: "current" | "demo";
 }) {
+  const isDemo = preview || dataStatus === "demo";
   if (!result || result.standings.length === 0) {
     return (
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle className="text-base">Simulación Monte Carlo de grupo</CardTitle>
-            {preview && <Badge variant="warning">Preview</Badge>}
+            {isDemo && <Badge variant="warning">Demo</Badge>}
           </div>
         </CardHeader>
         <CardContent>
@@ -35,7 +38,8 @@ export function GroupSimulationCard({
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <CardTitle className="text-lg">Simulación Grupo {result.groupId}</CardTitle>
-              {preview && <Badge variant="warning">Demo / Preview</Badge>}
+              {isDemo && <Badge variant="warning">Demo</Badge>}
+              {dataStatus === "current" && <Badge variant="success">Datos actuales</Badge>}
               <Badge variant="outline">Monte Carlo</Badge>
             </div>
             <p className="text-sm text-muted-foreground">
@@ -52,7 +56,7 @@ export function GroupSimulationCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {preview && (
+        {isDemo && (
           <div className="rounded-md border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
             Fixture ilustrativo aislado. No representa el grupo real ni datos productivos del Mundial 2026.
           </div>

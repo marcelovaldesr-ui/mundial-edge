@@ -7,18 +7,23 @@ import { dataMode, getLastSync, getMatches, getTeamStats } from "@/lib/data/repo
 import { buildScoreMatricesByMatchId } from "@/lib/stat-model";
 import { filterPreMatchMatches } from "@/lib/matches/pre-match-eligibility";
 import { GroupSimulationCard } from "@/components/group-simulation-card";
-import { createGroupSimulationPreview } from "@/lib/tournament";
+import { createWorldCup2026GroupSimulationView } from "@/lib/tournament";
 
 export const dynamic = "force-dynamic";
 
-export default async function StatModelPage() {
+export default async function StatModelPage({
+  searchParams,
+}: {
+  searchParams: { group?: string | string[] };
+}) {
   const [matches, teamStats, sync] = await Promise.all([getMatches(), getTeamStats(), getLastSync()]);
   const model = buildScoreMatricesByMatchId(matches, teamStats, { predictionConfig: "recommended" });
   const predictions = model.predictions.slice(0, 12);
   const lowConfidence = model.predictions.filter((prediction) => prediction.confidence === "low").length;
   const eligibleMatches = filterPreMatchMatches(matches);
   const nonEligibleMatches = matches.length - eligibleMatches.length;
-  const groupSimulationPreview = createGroupSimulationPreview();
+  const requestedGroup = Array.isArray(searchParams.group) ? searchParams.group[0] : searchParams.group;
+  const groupSimulation = createWorldCup2026GroupSimulationView(matches, requestedGroup);
 
   return (
     <div className="space-y-7">
@@ -59,10 +64,31 @@ export default async function StatModelPage() {
         <div>
           <h2 className="text-xl font-semibold">Simulación de fase de grupos</h2>
           <p className="text-sm text-muted-foreground">
-            Primera integración visual del motor Monte Carlo. Esta sección usa un fixture aislado de demostración.
+            {groupSimulation.dataStatus === "current"
+              ? "Fixtures y resultados disponibles actualmente en el repositorio del Mundial 2026."
+              : "No hay un grupo real completo disponible; se mantiene el fixture aislado de demostración."}
           </p>
         </div>
-        <GroupSimulationCard result={groupSimulationPreview} preview />
+        {groupSimulation.groups.length > 1 && (
+          <form className="flex flex-wrap items-end gap-2" method="get">
+            <label className="space-y-1 text-sm">
+              <span className="block text-xs text-muted-foreground">Grupo</span>
+              <select
+                className="h-9 rounded-md border border-input bg-background px-3"
+                name="group"
+                defaultValue={groupSimulation.selectedGroupId}
+              >
+                {groupSimulation.groups.map((group) => (
+                  <option key={group.groupId} value={group.groupId}>Grupo {group.groupId}</option>
+                ))}
+              </select>
+            </label>
+            <button className="h-9 rounded-md border border-border px-3 text-sm hover:bg-accent" type="submit">
+              Ver grupo
+            </button>
+          </form>
+        )}
+        <GroupSimulationCard result={groupSimulation.result} dataStatus={groupSimulation.dataStatus} />
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">

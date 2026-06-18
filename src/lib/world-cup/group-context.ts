@@ -66,7 +66,7 @@ export function phaseLabel(phase: WorldCupPhase): string {
 }
 
 export function getMatchGroupLabel(match: Match): string | null {
-  const stageGroup = (match.stage ?? "").match(/Group\s+([A-H])/i)?.[1];
+  const stageGroup = (match.stage ?? "").match(/Group[\s_-]+([A-L])/i)?.[1];
   const teamGroup = match.home_team?.group ?? match.away_team?.group ?? null;
   const group = stageGroup ? `Grupo ${stageGroup.toUpperCase()}` : teamGroup ? `Grupo ${teamGroup}` : null;
   return group;

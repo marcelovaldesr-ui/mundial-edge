@@ -100,6 +100,14 @@ const FD_STAGE: Record<string, string> = {
   FINAL: "Final",
 };
 
+function footballDataStage(match: any): string {
+  if (match.stage === "GROUP_STAGE" && match.group) {
+    const group = String(match.group).toUpperCase().replace(/^GROUP[\s_-]*/, "");
+    if (/^[A-L]$/.test(group)) return `Group ${group}`;
+  }
+  return FD_STAGE[match.stage] ?? (match.group ?? "Group Stage");
+}
+
 function fdStatus(s: string): MatchStatus {
   if (["SCHEDULED", "TIMED"].includes(s)) return "scheduled";
   if (["IN_PLAY", "PAUSED"].includes(s)) return "live";
@@ -135,7 +143,7 @@ async function fetchFromFootballData(onlyFinished: boolean): Promise<FixturesBun
       away_external_id: String(a.id),
       home_name: h.name,
       away_name: a.name,
-      stage: FD_STAGE[m.stage] ?? (m.group ?? "Group Stage"),
+      stage: footballDataStage(m),
       kickoff: m.utcDate,
       venue: m.venue ?? null,
       status: fdStatus(m.status),

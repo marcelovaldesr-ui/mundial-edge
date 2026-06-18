@@ -1708,3 +1708,46 @@ Con datos actuales, varios partidos usan priors similares por baja muestra:
 - La calibracion solo modifica 1X2; los otros mercados siguen derivados de la
   matriz de goles. Las probabilidades finales de picks continúan ancladas al
   mercado por `final-probability`; no se convierten en edges sin cuotas reales.
+
+---
+
+## ACTUALIZACION - Monte Carlo conectado a grupos 2026 disponibles
+
+### Fuente y adapter
+- `/stat-model` usa los partidos entregados por `getMatches()`: en modo live son
+  filas de Supabase sincronizadas desde Football Data (default) o API-Football;
+  en modo mock el dataset actual solo contiene eliminatorias y no se presenta
+  como información real de grupos.
+- `src/lib/tournament/world-cup-2026-groups.ts` adapta esos partidos a
+  `groupId`, `teams`, `matches`, `playedMatches` y `pendingMatches`, y luego
+  llama a `simulateGroupFromSchedule()` sin reemplazar su default local
+  `xg-v2.1-prior8 + platt-blend-25`.
+- Si `stage` o `teams.group` trae A-L, se usa esa etiqueta. Para filas antiguas
+  sincronizadas como `Group Stage`, el adapter reconstruye componentes por los
+  cruces entre equipos. Solo acepta como actual un fixture con cuatro equipos y
+  los seis cruces únicos.
+- El normalizador de Football Data conserva ahora `m.group` dentro de `stage`
+  (`Group A` ... `Group L`) en sincronizaciones futuras. No se agregó ni cambió
+  ninguna columna.
+
+### UI y fallback
+- La sección Monte Carlo muestra `Datos actuales` cuando hay al menos un grupo
+  completo del repositorio y permite seleccionar grupo mediante query `group`.
+- Si no existe un grupo completo, mantiene el fixture de
+  `group-simulation-demo.ts`, agrega badge `Demo` y un warning explícito. Datos
+  parciales nunca se rotulan como actuales.
+- Resultados `finished` sin marcador válido se tratan como pendientes con un
+  warning visible; un calendario sin resultados parte la tabla en cero y
+  también lo declara.
+
+### Verificación, limitaciones y próximo paso
+- `npm run verify:world-cup-2026-groups` comprueba agrupación de fixtures
+  genéricos, separación played/pending, fallback demo, ausencia de NaN, suma de
+  `probabilityAdvance ~= 2` y probabilidades de posiciones `~= 1` por equipo.
+- La v1 exige grupos completos de cuatro equipos. No simula desde marcador live
+  parcial y su desempate sigue simplificado. `probabilityAdvance` representa
+  top-2: todavía no incorpora la clasificación de mejores terceros del formato
+  2026 ni el bracket posterior.
+- Próximo paso recomendado: persistir/normalizar la etiqueta de grupo desde
+  ambos proveedores en el sync (sin depender de inferencia) y extender el motor
+  del torneo para mejores terceros y cruces de Round of 32.

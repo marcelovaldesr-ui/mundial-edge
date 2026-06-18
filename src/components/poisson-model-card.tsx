@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getTopScorelines, type MatchStatModelPrediction, type StatSelectionKey } from "@/lib/stat-model";
 import { pct } from "@/lib/utils";
+import { ModelMetadata } from "@/components/model-metadata";
 
 export function PoissonModelCard({
   prediction,
@@ -26,7 +27,7 @@ export function PoissonModelCard({
             {prediction.homeTeam.code} vs {prediction.awayTeam.code}
           </CardTitle>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">Modelo Mundial Edge</Badge>
+            <Badge variant="outline">Matriz de marcadores</Badge>
             <Badge variant="muted">{sourceLabel(prediction.expectedGoalsSource)}</Badge>
             <ConfidenceBadge confidence={prediction.confidence} />
             <Badge variant="muted">No apostable sin cuota</Badge>
@@ -34,6 +35,13 @@ export function PoissonModelCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        <ModelMetadata
+          modelVariantUsed={prediction.modelVariantUsed}
+          calibrationUsed={prediction.calibrationUsed}
+          configSource={prediction.configSource}
+          warnings={prediction.warnings}
+          compact
+        />
         <div className="grid grid-cols-2 gap-3">
           <Metric label={`xG ${prediction.homeTeam.code}`} value={prediction.homeExpectedGoals.toFixed(2)} />
           <Metric label={`xG ${prediction.awayTeam.code}`} value={prediction.awayExpectedGoals.toFixed(2)} />

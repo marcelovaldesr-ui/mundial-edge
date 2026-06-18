@@ -67,8 +67,8 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
               </div>
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-              <MobileMetric label="Mercado" value={pct(e.implied_probability)} />
-              <MobileMetric label="Final" value={pct(e.final_probability ?? e.model_probability)} />
+              <MobileMetric label="Prob. mercado" value={pct(e.implied_probability)} />
+              <MobileMetric label="Prob. final" value={pct(e.final_probability ?? e.model_probability)} />
               <MobileMetric label="EV final" value={fmtEv(e.final_expected_value ?? e.expected_value)} accent={(e.final_expected_value ?? e.expected_value) >= 0} />
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -92,9 +92,9 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
             <TableHead>Mercado</TableHead>
             <TableHead>Selección</TableHead>
             <TableHead className="text-right">{sortBtn("decimal_odds", "Cuota")}</TableHead>
-            <TableHead className="text-right">Mercado</TableHead>
-            <TableHead className="text-right">{sortBtn("model_probability", "Poisson")}</TableHead>
-            <TableHead className="text-right">{sortBtn("final_probability", "Final")}</TableHead>
+            <TableHead className="text-right">Prob. mercado</TableHead>
+            <TableHead className="text-right">{sortBtn("model_probability", "Modelo base")}</TableHead>
+            <TableHead className="text-right">{sortBtn("final_probability", "Prob. final")}</TableHead>
             <TableHead className="text-right">{sortBtn("edge", "Edge final")}</TableHead>
             <TableHead className="text-right">{sortBtn("expected_value", "EV final")}</TableHead>
             <TableHead>Riesgo</TableHead>

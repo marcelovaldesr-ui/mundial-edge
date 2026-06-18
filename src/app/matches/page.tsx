@@ -8,6 +8,7 @@ import {
   isPreMatchEligible,
 } from "@/lib/matches/pre-match-eligibility";
 import { getWorldCupGroupContext, type WorldCupGroupContext } from "@/lib/world-cup";
+import { Badge } from "@/components/ui/badge";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,10 @@ export default async function MatchesPage() {
             Calendario, fase de grupos e historial: {upcoming.length} próximos, {live.length} en vivo, {finished.length} finalizados.
           </p>
         </div>
-        <LastUpdated at={sync.at} source={sync.source} mode={dataMode()} />
+        <div className="flex flex-col items-end gap-2">
+          <LastUpdated at={sync.at} source={sync.source} mode={dataMode()} />
+          <Badge variant="outline">Oportunidades: modelo base persistido</Badge>
+        </div>
       </div>
       <MatchSection title="Próximos del Mundial" description="Elegibles para análisis pre-partido si la hora de inicio sigue en el futuro." matches={upcoming} best={best} contexts={contexts} />
       <MatchSection title="En vivo" description="Partidos del Mundial en seguimiento; no elegibles para pre-partido." matches={live} best={best} contexts={contexts} />

@@ -60,7 +60,7 @@ export function OpportunityCard({
             <ProbabilityBar label="Probabilidad final calibrada" value={finalProbability} tone="success" />
             <div className="grid grid-cols-2 gap-2 text-sm">
               <Metric label="Mercado devig" value={pct(edge.implied_probability)} />
-              <Metric label="Poisson/modelo" value={pct(edge.model_probability)} />
+              <Metric label="Modelo base persistido" value={pct(edge.model_probability)} />
               <Metric label="Retorno estimado" value={`${potential.toFixed(2)}x`} />
             </div>
           </div>

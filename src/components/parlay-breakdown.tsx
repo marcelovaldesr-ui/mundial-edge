@@ -31,7 +31,7 @@ export function ParlayBreakdown({ picks }: { picks: ParlayPick[] }) {
           </div>
           {pick.finalProbabilityBreakdown && (
             <p className="mt-2 text-xs text-muted-foreground">
-              Ensemble: mercado {pctWeight(pick.finalProbabilityBreakdown.weights.market)}, Poisson {pctWeight(pick.finalProbabilityBreakdown.weights.poisson)}, ratings {pctWeight(pick.finalProbabilityBreakdown.weights.ratings)}, stats {pctWeight(pick.finalProbabilityBreakdown.weights.realStats)}, contexto {pctWeight(pick.finalProbabilityBreakdown.weights.worldCupContext)}.
+              Pesos del ensemble: mercado {pctWeight(pick.finalProbabilityBreakdown.weights.market)}, stat-model {pctWeight(pick.finalProbabilityBreakdown.weights.poisson)}, ratings {pctWeight(pick.finalProbabilityBreakdown.weights.ratings)}, stats {pctWeight(pick.finalProbabilityBreakdown.weights.realStats)}, contexto {pctWeight(pick.finalProbabilityBreakdown.weights.worldCupContext)}.
             </p>
           )}
         </div>

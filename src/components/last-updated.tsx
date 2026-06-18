@@ -1,5 +1,6 @@
 import { RefreshCw, Database } from "lucide-react";
 import { timeAgo } from "@/lib/utils";
+import { dataSourceLabel } from "@/lib/stat-model/model-labels";
 
 export function LastUpdated({ at, source, mode }: { at: string | null; source: string; mode: string }) {
   return (
@@ -8,7 +9,7 @@ export function LastUpdated({ at, source, mode }: { at: string | null; source: s
         <RefreshCw className="h-3.5 w-3.5" /> Última actualización: {timeAgo(at)}
       </span>
       <span className="inline-flex items-center gap-1.5">
-        <Database className="h-3.5 w-3.5" /> Fuente: {source}
+        <Database className="h-3.5 w-3.5" /> Fuente de datos: {dataSourceLabel(source)}
         <span className="rounded bg-muted px-1.5 py-0.5 uppercase tracking-wide">{mode}</span>
       </span>
     </div>

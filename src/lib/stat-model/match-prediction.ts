@@ -104,14 +104,17 @@ export function buildScoreMatrixForMatch(
   }
 
   const groupContext = options.groupContext ?? (options.allMatches ? getWorldCupGroupContext(match, options.allMatches) : undefined);
+  const environmentOverride = process.env.STAT_MODEL_VARIANT != null || process.env.STAT_MODEL_CALIBRATION != null;
   const config = options.modelVariant != null || options.calibration != null
     ? resolvePredictionConfig({ modelVariant: options.modelVariant, calibration: options.calibration })
     : options.predictionConfig != null
       ? resolvePredictionConfig(options.predictionConfig)
-      : resolvePredictionConfig({
-        modelVariant: getActiveStatModelVariant(undefined).id,
-        calibration: getActiveStatModelCalibration(undefined).id,
-      });
+      : environmentOverride
+        ? resolvePredictionConfig({
+          modelVariant: getActiveStatModelVariant(undefined).id,
+          calibration: getActiveStatModelCalibration(undefined).id,
+        })
+        : resolvePredictionConfig();
   const variant = getActiveStatModelVariant(config.modelVariant, undefined);
   const xg = estimateExpectedGoals({
     home: homeStats,

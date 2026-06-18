@@ -507,11 +507,11 @@ function EnsembleDiagnostics({ diagnostics }: { diagnostics: EnsembleDiagnostics
         </div>
         {diagnostics.avgWeights ? (
           <div className="grid gap-3 lg:grid-cols-5">
-            <SummaryCard label="Mercado" value={pct(diagnostics.avgWeights.market, 0)} />
-            <SummaryCard label="Poisson" value={pct(diagnostics.avgWeights.poisson, 0)} />
-            <SummaryCard label="Ratings" value={pct(diagnostics.avgWeights.ratings, 0)} />
-            <SummaryCard label="Stats reales" value={pct(diagnostics.avgWeights.realStats, 0)} />
-            <SummaryCard label="Contexto" value={pct(diagnostics.avgWeights.worldCupContext, 0)} />
+            <SummaryCard label="Peso mercado" value={pct(diagnostics.avgWeights.market, 0)} />
+            <SummaryCard label="Peso stat-model" value={pct(diagnostics.avgWeights.poisson, 0)} />
+            <SummaryCard label="Peso ratings" value={pct(diagnostics.avgWeights.ratings, 0)} />
+            <SummaryCard label="Peso stats reales" value={pct(diagnostics.avgWeights.realStats, 0)} />
+            <SummaryCard label="Peso contexto" value={pct(diagnostics.avgWeights.worldCupContext, 0)} />
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">Sin breakdown de ensemble disponible.</p>
@@ -526,9 +526,9 @@ function EnsembleDiagnostics({ diagnostics }: { diagnostics: EnsembleDiagnostics
                 </Badge>
               </div>
               <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                {row.marketProbability != null && <span>Mercado {pct(row.marketProbability)}</span>}
-                {row.poissonProbability != null && <span>Poisson {pct(row.poissonProbability)}</span>}
-                <span>Final {pct(row.finalProbability)}</span>
+                {row.marketProbability != null && <span>Prob. mercado {pct(row.marketProbability)}</span>}
+                {row.poissonProbability != null && <span>Prob. stat-model {pct(row.poissonProbability)}</span>}
+                <span>Prob. final {pct(row.finalProbability)}</span>
                 {row.impliedProbability != null && <span>Impl. {pct(row.impliedProbability)}</span>}
                 <span>Edge final {fmtEv(row.edge)}</span>
               </div>

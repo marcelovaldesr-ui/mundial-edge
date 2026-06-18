@@ -6,6 +6,7 @@ import { ParlayBreakdown } from "@/components/parlay-breakdown";
 import { StakeRecommendation } from "@/components/stake-recommendation";
 import type { Parlay, ParlayProfile, ParlayRiskLevel } from "@/lib/parlays";
 import { fmtEv, pct } from "@/lib/utils";
+import { modelConfigurationLabel } from "@/lib/stat-model/model-labels";
 
 const profileLabel: Record<ParlayProfile, string> = {
   conservative: "Conservadora",
@@ -50,6 +51,9 @@ export function ParlayCard({ parlay, index }: { parlay: Parlay; index: number })
             <div className="flex flex-wrap items-center gap-1.5">
               <Badge variant="outline">{profileLabel[parlay.profile]}</Badge>
               <Badge variant="outline">{parlay.correlationMethod === "score_matrix" ? "Modelo Mundial Edge disponible" : "Fallback heurístico"}</Badge>
+              {parlay.modelVariantUsed && parlay.calibrationUsed && (
+                <Badge variant="muted">{modelConfigurationLabel(parlay.modelVariantUsed, parlay.calibrationUsed)}</Badge>
+              )}
               {sameMatch && <Badge variant="warning">Same-match</Badge>}
               <Badge variant={riskVariant[parlay.riskLevel]}>Riesgo {riskLabel[parlay.riskLevel]}</Badge>
             </div>

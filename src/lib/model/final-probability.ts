@@ -152,9 +152,9 @@ export function getFinalProbabilityConfidence(input: FinalProbabilityInput): Fin
 
 export function explainFinalProbability(input: FinalProbabilityInput, weights: FinalProbabilityWeights): string {
   if (validProbability(input.marketProbability)) {
-    return `Probabilidad final calibrada: el mercado es baseline principal (${pctWeight(weights.market)}), con ajuste prudente por Poisson, rating de selección, stats reales y contexto del Mundial.`;
+    return `Probabilidad final calibrada: el mercado es baseline principal (${pctWeight(weights.market)}), con ajuste prudente por stat-model, rating de selección, stats reales y contexto del Mundial.`;
   }
-  return "Probabilidad de modelo sin cuota real: combina Poisson, rating de selección, stats reales y contexto del Mundial, pero no se considera edge apostable.";
+  return "Probabilidad de modelo sin cuota real: combina stat-model, rating de selección, stats reales y contexto del Mundial, pero no se considera edge apostable.";
 }
 
 export function decorateEdgesWithFinalProbability(

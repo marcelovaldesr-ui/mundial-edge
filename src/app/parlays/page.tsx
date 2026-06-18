@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { getAllEdges, getEdges, getLastSync, dataMode, getMatches, getTeamStats } from "@/lib/data/repository";
 import { buildParlayStatModel, edgeToParlayPick, type ParlayProfile } from "@/lib/parlays";
 import { decorateEdgesWithFinalProbability } from "@/lib/model/final-probability";
+import { ModelMetadata } from "@/components/model-metadata";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +40,7 @@ export default async function ParlaysPage({
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline">Perfil {profileLabel(profile)}</Badge>
               <Badge variant="success">Probabilidad anclada</Badge>
-              <Badge variant="muted">Poisson same-match</Badge>
+              <Badge variant="muted">Matriz de marcadores same-match</Badge>
             </div>
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Combinadas pre-partido</h1>
@@ -52,6 +53,13 @@ export default async function ParlaysPage({
           <LastUpdated at={sync.at} source={sync.source} mode={dataMode()} />
         </div>
       </div>
+
+      <ModelMetadata
+        modelVariantUsed={statModel.modelVariantUsed}
+        calibrationUsed={statModel.calibrationUsed}
+        configSource={statModel.configSource}
+        warnings={statModel.warnings}
+      />
 
       <Disclaimer compact />
       <ParlayWorkspace

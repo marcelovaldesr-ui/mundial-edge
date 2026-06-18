@@ -1974,3 +1974,50 @@ Con datos actuales, varios partidos usan priors similares por baja muestra:
 - Próximo paso: comparar out-of-sample v2.2 + calibración conservadora propia
   contra v2.1 + blend-25, incluyendo upsets, empates y estabilidad por Mundial,
   antes de considerar cambiar `recommended`.
+
+---
+
+## ACTUALIZACION - auditoria de labels e integracion de modelo
+
+### Hallazgo
+- El texto UI `Fuente: poisson-v1` provenía de `getLastSync()` y describía el
+  origen del último sync/pipeline persistido, no el stat-model runtime. La UI lo
+  presentaba sin distinguir fuente de datos, probabilidad base y configuración
+  efectiva, por lo que parecía que pantallas recommended seguían en Legacy.
+- Los edges tienen dos capas legítimas: `model_probability` persistida por el
+  pipeline base y `final_probability` calculada runtime con matrices recommended
+  más el ensemble. No se eliminó ninguna ni se cambió el cálculo.
+
+### Cambios de labels y metadata
+- `LastUpdated` ahora dice `Fuente de datos` y traduce `poisson-v1` a
+  `pipeline persistido`. No oculta que es una capa histórica: evita llamarla
+  modelo efectivo.
+- `model-labels.ts` centraliza nombres legibles de variante, calibración y
+  config source. `ModelMetadata` expone `modelVariantUsed`, `calibrationUsed`,
+  `configSource` y warnings en Dashboard, Edges, Parlays, detalle y `/stat-model`.
+- EdgeTable separa `Prob. mercado`, `Modelo base` y `Prob. final`.
+  Opportunity/Pick cards dicen `Modelo base persistido`.
+- En debug de parlays, `Mercado 100%` pasó a `Peso mercado 100%`; `Final 33%`
+  pasó a `Prob. final 33%`. Eran valores correctos de magnitudes distintas.
+- `/matches` sigue consumiendo edges persistidos y lo declara como
+  `Oportunidades: modelo base persistido`; no inventa metadata runtime.
+- Monte Carlo reemplazó el string hardcodeado prior8/blend-25 por metadata
+  dinámica de `GroupSimulationServiceResult`. Sus warnings siguen visibles.
+
+### Cobertura real
+- Dashboard, Ranking de Edges, Parlays, detalle de partido y `/stat-model` usan
+  `xg-v2.1-prior8 + platt-blend-25` mediante config recommended.
+- Monte Carlo usa el recommended simulation model salvo override explícito.
+- La lista `/matches` conserva el pipeline persistido; el detalle es la frontera
+  donde se recalcula con recommended.
+- Reporte completo: `reports/model-integration-audit.md`.
+
+### Verificacion y siguiente paso
+- `npm run verify:model-integration-labels` escanea 46 archivos UI: prohíbe el
+  hardcode `poisson-v1`, valida labels recommended/Legacy, consumers y ausencia
+  de metadata literal `undefined`/`NaN`.
+- QA visual local confirmó Edges, Parlays debug, `/stat-model` y `/matches`: sin
+  `poisson-v1`, sin `undefined`/`NaN` visibles y con labels dinámicos correctos.
+- Próximo paso: persistir variante/calibración junto a cada edge/predicción en
+  una futura migración para mostrar metadata histórica por fila. No se hizo
+  ahora porque esta tarea prohíbe cambios de schema.

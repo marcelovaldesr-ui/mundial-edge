@@ -5,12 +5,15 @@ import { Disclaimer } from "@/components/disclaimer";
 import { Card, CardContent } from "@/components/ui/card";
 import { buildScoreMatricesByMatchId } from "@/lib/stat-model";
 import { decorateEdgesWithFinalProbability } from "@/lib/model/final-probability";
+import { ModelMetadata } from "@/components/model-metadata";
+import { getRecommendedPredictionConfig } from "@/lib/stat-model";
 
 export const dynamic = "force-dynamic";
 
 export default async function EdgesPage() {
   const [edges, sync, matches, teamStats] = await Promise.all([getEdges(), getLastSync(), getMatches(), getTeamStats()]);
-  const statModel = buildScoreMatricesByMatchId(matches, teamStats, { predictionConfig: "recommended" });
+  const config = getRecommendedPredictionConfig();
+  const statModel = buildScoreMatricesByMatchId(matches, teamStats, { predictionConfig: config });
   const calibratedEdges = decorateEdgesWithFinalProbability(edges, statModel.predictions);
   return (
     <div className="space-y-5">
@@ -23,6 +26,12 @@ export default async function EdgesPage() {
         </div>
         <LastUpdated at={sync.at} source={sync.source} mode={dataMode()} />
       </div>
+      <ModelMetadata
+        modelVariantUsed={config.modelVariant}
+        calibrationUsed={config.calibration}
+        configSource={config.configSource}
+        warnings={statModel.coverage.issues.map((issue) => `${issue.matchId}: ${issue.reason}`)}
+      />
       <Disclaimer compact />
       <Card><CardContent className="pt-5"><EdgeTable edges={calibratedEdges} /></CardContent></Card>
     </div>

@@ -50,7 +50,7 @@ export function PickCard({
         <div className="rounded-md bg-muted/30 p-3">
           <p className="text-xs text-muted-foreground">Retorno estimado</p>
           <p className="font-semibold tabular-nums">{estimatedReturn.toFixed(2)}x</p>
-          <p className="text-xs text-muted-foreground">EV {fmtEv(finalEv)} · mercado {pct(edge.implied_probability)} · modelo {pct(edge.model_probability)}</p>
+          <p className="text-xs text-muted-foreground">EV {fmtEv(finalEv)} · mercado {pct(edge.implied_probability)} · modelo base {pct(edge.model_probability)}</p>
         </div>
       </div>
 

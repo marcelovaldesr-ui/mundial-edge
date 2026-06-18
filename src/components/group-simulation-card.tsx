@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { GroupSimulationServiceResult } from "@/lib/tournament";
+import { calibrationLabel, modelConfigurationLabel } from "@/lib/stat-model/model-labels";
 
 export function GroupSimulationCard({
   result,
@@ -48,8 +49,8 @@ export function GroupSimulationCard({
             </p>
           </div>
           <div className="flex max-w-xl flex-wrap gap-2">
-            <Badge variant="muted">Modelo: {result.modelVariant}</Badge>
-            <Badge variant="muted">Calibración: {result.calibration}</Badge>
+            <Badge variant="muted">{modelConfigurationLabel(result.modelVariant, result.calibration)}</Badge>
+            <Badge variant="outline">Calibración: {calibrationLabel(result.calibration)}</Badge>
             <Badge variant={result.modelSelection === "recommended-simulation-default" ? "success" : "outline"}>
               {selectionLabel(result.modelSelection)}
             </Badge>

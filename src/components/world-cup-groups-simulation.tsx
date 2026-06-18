@@ -12,6 +12,7 @@ import {
   type WorldCup2026GroupId,
   type WorldCup2026GroupsUiData,
 } from "@/lib/tournament";
+import { modelConfigurationLabel } from "@/lib/stat-model/model-labels";
 
 export function WorldCupGroupsSimulation({ data }: { data: WorldCup2026GroupsUiData }) {
   const firstGroup = data.groups[0]?.schedule.groupId ?? "A";
@@ -73,7 +74,8 @@ export function WorldCupGroupsSimulation({ data }: { data: WorldCup2026GroupsUiD
                 <summary className="cursor-pointer">Fuente y modelo</summary>
                 <div className="mt-2 rounded-md border border-border bg-muted/20 p-2">
                   <p>{sourceLabel(schedule.metadata.source)}</p>
-                  <p>xg-v2.1-prior8 + platt-blend-25</p>
+                  <p>{modelConfigurationLabel(simulation.modelVariant, simulation.calibration)}</p>
+                  <p>configSource: {simulation.modelSelection === "recommended-simulation-default" ? "recommended" : "explicit-override"}</p>
                 </div>
               </details>
             </div>

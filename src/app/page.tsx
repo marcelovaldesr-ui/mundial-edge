@@ -15,6 +15,7 @@ import { filterPreMatchMatches } from "@/lib/matches/pre-match-eligibility";
 import { getWorldCupGroupContext } from "@/lib/world-cup";
 import { decorateEdgesWithFinalProbability } from "@/lib/model/final-probability";
 import Link from "next/link";
+import { ModelMetadata } from "@/components/model-metadata";
 
 export const dynamic = "force-dynamic";
 
@@ -74,12 +75,19 @@ export default async function DashboardPage() {
         </div>
       </section>
 
+      <ModelMetadata
+        modelVariantUsed={statModel.modelVariantUsed}
+        calibrationUsed={statModel.calibrationUsed}
+        configSource={statModel.configSource}
+        warnings={statModel.warnings}
+      />
+
       <DashboardStats
         items={[
           { label: "Partidos del Mundial", value: upcoming.length, helper: "pre-partido elegibles" },
           { label: "Edges analizados", value: calibratedEdges.length, helper: "mercados con cuota" },
           { label: "Picks de calidad", value: valueCount, helper: "pasan modo tipster", tone: "success" },
-          { label: "Matrices Poisson", value: statModel.coverage.withScoreMatrix, helper: "pre-partido cubiertos" },
+          { label: "Matrices de marcadores", value: statModel.coverage.withScoreMatrix, helper: "pre-partido cubiertos" },
         ]}
       />
 
@@ -142,7 +150,7 @@ export default async function DashboardPage() {
             <div>
               <h2 className="text-xl font-semibold">Combinadas sugeridas</h2>
               <p className="text-sm text-muted-foreground">
-                Preview balanceada con matriz Poisson para correlaciones same-match cuando aplica.
+                Preview balanceada con matriz de marcadores para correlaciones same-match cuando aplica.
               </p>
             </div>
             <Link href="/parlays" className="text-sm text-primary hover:underline">Abrir constructor</Link>

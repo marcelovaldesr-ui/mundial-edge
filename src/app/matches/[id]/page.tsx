@@ -15,6 +15,7 @@ import { getMatches } from "@/lib/data/repository";
 import { getWorldCupGroupContext } from "@/lib/world-cup";
 import { WorldCupContextCard } from "@/components/world-cup-context-card";
 import { decorateEdgesWithFinalProbability } from "@/lib/model/final-probability";
+import { ModelMetadata } from "@/components/model-metadata";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,7 @@ export default async function MatchDetail({ params }: { params: { id: string } }
   const chartData = x12.map((e) => ({
     label: e.outcome === "home" ? (match.home_team?.code ?? "Local")
       : e.outcome === "away" ? (match.away_team?.code ?? "Visita") : "Empate",
-    modelo: e.model_probability,
+    modelo: e.final_probability ?? e.model_probability,
     implícita: e.implied_probability,
   }));
 
@@ -53,6 +54,14 @@ export default async function MatchDetail({ params }: { params: { id: string } }
   return (
     <div className="space-y-6">
       <LastUpdated at={sync.at} source={sync.source} mode={dataMode()} />
+      {modelPrediction && (
+        <ModelMetadata
+          modelVariantUsed={modelPrediction.modelVariantUsed}
+          calibrationUsed={modelPrediction.calibrationUsed}
+          configSource={modelPrediction.configSource}
+          warnings={modelPrediction.warnings}
+        />
+      )}
 
       <Card>
         <CardHeader>
@@ -92,7 +101,7 @@ export default async function MatchDetail({ params }: { params: { id: string } }
           <CardHeader><CardTitle className="text-base">Cómo leer esto</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             <p><strong className="text-foreground">Prob. implícita</strong>: lo que la cuota da por probable (1/cuota), ajustada por el margen de la casa.</p>
-            <p><strong className="text-foreground">Prob. modelo</strong>: estimación final anclada al mercado, con señal Poisson, rating base de selecciones y contexto mundialista.</p>
+            <p><strong className="text-foreground">Prob. final</strong>: estimación anclada al mercado, con señal del stat-model, rating base de selecciones y contexto mundialista.</p>
             <p><strong className="text-foreground">Edge</strong> = modelo − implícita. <strong className="text-foreground">EV</strong> = modelo × cuota − 1.</p>
             {!preMatchEligible && (
               <p className="rounded-md bg-warning/10 p-3 text-warning">
@@ -107,9 +116,9 @@ export default async function MatchDetail({ params }: { params: { id: string } }
       {modelPrediction && (
         <section className="space-y-3">
           <div>
-            <h2 className="text-lg font-semibold">Contexto Poisson del partido</h2>
+            <h2 className="text-lg font-semibold">Modelo estadístico del partido</h2>
             <p className="text-sm text-muted-foreground">
-              Matriz de marcadores para leer xG, 1X2, goles y doble oportunidad. Es modelo estadístico,
+              Matriz de marcadores para leer xG, 1X2, goles y doble oportunidad. Es un modelo estadístico,
               no edge apostable sin cuota.
             </p>
           </div>

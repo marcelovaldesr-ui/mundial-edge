@@ -8,6 +8,7 @@ export * from "./market-calibration";
 export * from "./market-types";
 export * from "./match-prediction";
 export * from "./model-variant";
+export * from "./model-labels";
 export * from "./prediction-config";
 export * from "./rating-snapshots";
 export * from "./score-matrix";

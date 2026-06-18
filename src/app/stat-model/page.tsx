@@ -8,6 +8,7 @@ import { buildScoreMatricesByMatchId } from "@/lib/stat-model";
 import { filterPreMatchMatches } from "@/lib/matches/pre-match-eligibility";
 import { WorldCupGroupsSimulation } from "@/components/world-cup-groups-simulation";
 import { createWorldCup2026GroupsUiData } from "@/lib/tournament";
+import { ModelMetadata } from "@/components/model-metadata";
 
 export const dynamic = "force-dynamic";
 
@@ -27,12 +28,12 @@ export default async function StatModelPage() {
           <div className="max-w-3xl space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline">Motor Mundial 2026</Badge>
-              <Badge variant="muted">Poisson score matrix v1</Badge>
+              <Badge variant="muted">Score matrix v1</Badge>
               {lowConfidence > 0 && <Badge variant="warning">Muestra baja en {lowConfidence} partidos</Badge>}
             </div>
             <h1 className="text-3xl font-bold tracking-tight">Modelo Mundial Edge</h1>
             <p className="text-sm text-muted-foreground">
-              Probabilidades para partidos pre-partido del Mundial 2026 derivadas de matriz Poisson,
+              Probabilidades para partidos pre-partido del Mundial 2026 derivadas de una matriz de marcadores,
               rating base por selección, stats reales del torneo y contexto de grupos. Esta vista explica el modelo:
               no convierte una probabilidad en edge apostable si no hay cuota real comparable.
             </p>
@@ -40,6 +41,15 @@ export default async function StatModelPage() {
           <LastUpdated at={sync.at} source={sync.source} mode={dataMode()} />
         </div>
       </section>
+
+      {model.predictions[0] && (
+        <ModelMetadata
+          modelVariantUsed={model.predictions[0].modelVariantUsed}
+          calibrationUsed={model.predictions[0].calibrationUsed}
+          configSource={model.predictions[0].configSource}
+          warnings={model.coverage.issues.map((issue) => `${issue.matchId}: ${issue.reason}`)}
+        />
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Metric label="Partidos pre-partido" value={model.coverage.totalPreMatch} helper="universo evaluado" />

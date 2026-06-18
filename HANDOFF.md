@@ -1370,3 +1370,49 @@ Con datos actuales, varios partidos usan priors similares por baja muestra:
 - Antes de Monte Carlo o promocion: sustituir las estimaciones manuales por una
   serie Elo/ranking pre-torneo con licencia y metodología verificables, y
   repetir evaluación out-of-sample/bootstrap.
+
+---
+
+## ACTUALIZACION - calibracion formal por mercado
+
+### Implementacion
+- Se incorporo Platt Scaling 1X2: cada probabilidad `p` se transforma con
+  `sigmoid(a * logit(p) + b)` y luego home/draw/away se renormalizan a 1.
+- Hay clamps numericos para `p=0/1`, validacion de finitud/rango y metadata con
+  probabilidades raw, valores calibrados antes de normalizar y factor de
+  normalizacion.
+- Los tipos y presets admiten `over25` y `btts`, pero no se ajustaron porque el
+  backtest historico disponible tiene targets completos solo para 1X2.
+- `STAT_MODEL_CALIBRATION=none | experimental-platt`; ausencia o valor invalido
+  cae a `none`. El preset experimental solo se aplica a `xg-v2.1-prior8`.
+- No se modificaron UI, schema ni mercados. No se implemento Monte Carlo.
+
+### Estado y parametros
+- `none` es identity/no-op y continua como default productivo.
+- `experimental-platt` es un preset manual versionado desde el ajuste del corpus
+  completo 1998-2022; sigue marcado experimental, no es promocionable todavia.
+- Parametros `(a, b)`: homeWin `(3.5497, 1.0475)`, draw
+  `(10.1698, 10.0091)`, awayWin `(3.3941, 1.1929)`.
+
+### Diagnostico (448 partidos)
+- prior8 raw: Brier `0.6000`, Log Loss `1.0075`, RPS `0.2024`, Accuracy `56.0%`.
+- prior8 calibrado in-sample: Brier `0.5503`, Log Loss `0.9293`, RPS `0.1801`,
+  Accuracy `56.0%`.
+- Leave-one-world-cup-out agregado: Brier `0.6000 -> 0.5535`, Log Loss
+  `1.0075 -> 0.9374`, RPS `0.2024 -> 0.1811`, Accuracy `56.0% -> 54.7%`.
+- La calibracion mejora las metricas probabilisticas LOOWC, pero reduce Accuracy
+  `1.3 pp`; en 2022 mejora Brier/RPS pero empeora ligeramente Log Loss.
+- Tasa de empate prior8 raw/calibrada/real: `25.2% / 26.7% / 26.8%`.
+- Probabilidad media del favorito raw/calibrada y frecuencia real:
+  `44.2% / 56.2% / 55.9%`.
+- Reporte reproducible: `reports/calibration-diagnostic.md` con buckets 0-100%,
+  parametros por fold y guardrails.
+
+### Recomendacion y proximos pasos
+- Mantener `legacy-neutral` y calibracion `none` como defaults.
+- Usar Platt solamente como experimento asociado a prior8 y decidir cualquier
+  promocion por validacion temporal/out-of-sample, no por el fit global.
+- Versionar un pipeline de entrenamiento, reemplazar ratings pseudo-historicos
+  por una fuente independiente y medir estabilidad de coeficientes/bootstrap.
+- Despues, evaluar Monte Carlo como mecanismo de simulacion/distribucion; no
+  mezclarlo con el ajuste de calibracion ni crear mercados nuevos en esa fase.

@@ -8,6 +8,8 @@ import { createScoreMatrix, type ScoreMatrix } from "./score-matrix";
 import { applyDixonColesAdjustment } from "./dixon-coles";
 import { calculatePredictionConfidence, type ConfidenceResult } from "./confidence-score";
 import { getActiveStatModelVariant, type StatModelVariant, type StatModelVariantStatus } from "./model-variant";
+import { getActiveStatModelCalibration, type StatModelCalibrationMode } from "./calibration-presets";
+import { calibrateOneXTwoProbabilities, type CalibrationMetadata } from "./market-calibration";
 import type { TeamStrengthRating } from "./team-strength-ratings";
 import { getWorldCupGroupContext, type WorldCupGroupContext } from "../world-cup/group-context";
 
@@ -40,6 +42,8 @@ export interface MatchStatModelPrediction {
   neutralVenue: boolean;
   modelVariant: StatModelVariant;
   modelVariantStatus: StatModelVariantStatus;
+  calibrationMode: StatModelCalibrationMode;
+  calibrationMetadata?: CalibrationMetadata;
 }
 
 export interface MatrixBuildIssue {
@@ -65,6 +69,8 @@ export interface BuildScoreMatrixOptions {
   ratingModel?: ExpectedGoalsRatingModel;
   /** Feature flag. Defaults to legacy-neutral; ratingModel remains as a compatibility override. */
   modelVariant?: StatModelVariant;
+  /** Optional calibration flag. Defaults/fails closed to none. */
+  calibration?: StatModelCalibrationMode | string;
 }
 
 export interface BuildScoreMatricesResult {
@@ -108,7 +114,25 @@ export function buildScoreMatrixForMatch(
   const scoreMatrix = variant.dixonColesRho == null
     ? poissonMatrix
     : applyDixonColesAdjustment(poissonMatrix, variant.dixonColesRho).matrix;
-  const marketProbabilities = deriveMarketProbabilities(scoreMatrix);
+  const rawMarketProbabilities = deriveMarketProbabilities(scoreMatrix);
+  const calibrationPreset = getActiveStatModelCalibration(options.calibration);
+  const calibrationEnabled = calibrationPreset.id === "experimental-platt" && variant.id === "xg-v2.1-prior8";
+  const rawOneXTwo = {
+    homeWin: rawMarketProbabilities.find((row) => row.selection === "home_win")!.probability,
+    draw: rawMarketProbabilities.find((row) => row.selection === "draw")!.probability,
+    awayWin: rawMarketProbabilities.find((row) => row.selection === "away_win")!.probability,
+  };
+  const calibratedOneXTwo = calibrationEnabled
+    ? calibrateOneXTwoProbabilities(rawOneXTwo, calibrationPreset.calibration)
+    : null;
+  const marketProbabilities = calibratedOneXTwo
+    ? rawMarketProbabilities.map((row) => {
+      if (row.selection === "home_win") return { ...row, probability: calibratedOneXTwo.homeWin };
+      if (row.selection === "draw") return { ...row, probability: calibratedOneXTwo.draw };
+      if (row.selection === "away_win") return { ...row, probability: calibratedOneXTwo.awayWin };
+      return row;
+    })
+    : rawMarketProbabilities;
   const minGames = Math.min(homeStats.matches_played, awayStats.matches_played);
   const priorWeight = variant.priorStrength != null
     ? variant.priorStrength / (minGames + variant.priorStrength)
@@ -151,6 +175,8 @@ export function buildScoreMatrixForMatch(
     neutralVenue: xg.neutralVenue,
     modelVariant: variant.id,
     modelVariantStatus: variant.status,
+    calibrationMode: calibrationEnabled ? calibrationPreset.id : "none",
+    calibrationMetadata: calibratedOneXTwo?.metadata,
   };
 }
 

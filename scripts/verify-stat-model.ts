@@ -10,6 +10,16 @@ import { createScoreMatrix, poissonProbability, scoreMatrixTotalProbability } fr
 import { applyDixonColesAdjustment } from "../src/lib/stat-model/dixon-coles";
 import { calculatePredictionConfidence, labelForScore } from "../src/lib/stat-model/confidence-score";
 import { getActiveStatModelVariant, resolveStatModelVariant } from "../src/lib/stat-model/model-variant";
+import {
+  calibrateMarketProbability,
+  calibrateOneXTwoProbabilities,
+  probabilityLogit,
+  sigmoid,
+} from "../src/lib/stat-model/market-calibration";
+import {
+  IDENTITY_CALIBRATION_PRESET,
+  resolveStatModelCalibration,
+} from "../src/lib/stat-model/calibration-presets";
 import type { Match, TeamStats } from "../src/lib/types";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -96,6 +106,25 @@ function predicatesAndJoint() {
 function calibration() {
   const anchored = anchorProbability({ modelProbPoisson: 0.4, marketProbNoVig: 0.5, marketWeight: 0.78 });
   near(anchored.anchoredProb, 0.478);
+
+  for (const probability of [0.01, 0.2, 0.5, 0.8, 0.99]) {
+    near(sigmoid(probabilityLogit(probability)), probability, 0.000000001);
+  }
+  assert(Number.isFinite(calibrateMarketProbability(0, { a: 1, b: 0 })), "p=0 must remain numerically safe.");
+  assert(Number.isFinite(calibrateMarketProbability(1, { a: 1, b: 0 })), "p=1 must remain numerically safe.");
+  assert(calibrateMarketProbability(0.7, { a: 1.5, b: 0 }) > 0.7, "a > 1 must sharpen a probability above 0.5.");
+  assert(calibrateMarketProbability(0.7, { a: 0.5, b: 0 }) < 0.7, "a < 1 must soften a probability above 0.5.");
+
+  const raw = { homeWin: 0.51, draw: 0.27, awayWin: 0.22 };
+  const identity = calibrateOneXTwoProbabilities(raw, IDENTITY_CALIBRATION_PRESET.calibration);
+  near(identity.homeWin, raw.homeWin, 0.000000001);
+  near(identity.draw, raw.draw, 0.000000001);
+  near(identity.awayWin, raw.awayWin, 0.000000001);
+  near(identity.homeWin + identity.draw + identity.awayWin, 1, 0.000000001);
+  assert(Object.values(identity.metadata.calibratedBeforeNormalization).every(Number.isFinite), "Calibration metadata must be finite.");
+  assert(resolveStatModelCalibration().id === "none", "Calibration must default to none.");
+  assert(resolveStatModelCalibration("invalid").id === "none", "Invalid calibration flags must fail closed to none.");
+  assert(resolveStatModelCalibration("experimental-platt").status === "experimental", "Experimental Platt flag must resolve explicitly.");
 }
 
 function confidenceScore() {
@@ -162,6 +191,7 @@ function matchPrediction() {
   assert(prediction.marketProbabilities.length > 10, "Expected market probabilities");
   assert(prediction.confidenceResult.score >= 0 && prediction.confidenceResult.score <= 100, "Expected bounded confidence score");
   assert(prediction.modelVariant === "legacy-neutral", "Production default must remain Legacy neutral.");
+  assert(prediction.calibrationMode === "none" && prediction.calibrationMetadata == null, "Calibration must remain disabled by default.");
   assert(!("anchoredProb" in prediction), "Stat-model prediction must not apply market anchoring");
 
   const low = buildScoreMatrixForMatch(match, { ...homeStats, matches_played: 0, recent_form: [] }, awayStats);
@@ -170,6 +200,21 @@ function matchPrediction() {
 
   const missing = buildScoreMatrixForMatch(match, undefined, awayStats);
   assert(!("scoreMatrix" in missing), "Expected controlled issue for missing stats");
+
+  const calibrated = buildScoreMatrixForMatch(match, homeStats, awayStats, {
+    modelVariant: "xg-v2.1-prior8",
+    calibration: "experimental-platt",
+  });
+  assert("scoreMatrix" in calibrated && calibrated.calibrationMode === "experimental-platt", "Explicit flag must enable calibration for prior8.");
+  assert("scoreMatrix" in calibrated && calibrated.calibrationMetadata != null, "Enabled calibration must expose metadata.");
+  assert("scoreMatrix" in calibrated && Math.abs(
+    calibrated.marketProbabilities.filter((row) => row.market === "1x2").reduce((sum, row) => sum + row.probability, 0) - 1
+  ) < 0.000000001, "Calibrated prediction 1X2 must sum to one.");
+  const invalidCalibration = buildScoreMatrixForMatch(match, homeStats, awayStats, {
+    modelVariant: "xg-v2.1-prior8",
+    calibration: "invalid",
+  });
+  assert("scoreMatrix" in invalidCalibration && invalidCalibration.calibrationMode === "none", "Invalid calibration flag must fail closed.");
 
   const matrices = buildScoreMatricesByMatchId([match], [homeStats, awayStats]);
   assert(matrices.scoreMatricesByMatchId.m1, "Expected score matrix keyed by match id");

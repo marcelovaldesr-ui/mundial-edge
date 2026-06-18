@@ -1505,3 +1505,55 @@ Con datos actuales, varios partidos usan priors similares por baja muestra:
 - No iniciar Monte Carlo todavia: validar blend-25 con ratings historicos
   independientes y mas ventanas temporales antes de usarlo como distribucion
   base de simulacion.
+
+---
+
+## ACTUALIZACION - Monte Carlo de fase de grupos v1
+
+### Implementacion
+- Nuevo motor puro en `src/lib/tournament/group-simulation.ts`, exportado desde
+  `src/lib/tournament/index.ts`.
+- Recibe grupo, cuatro equipos, partidos jugados/restantes, numero de
+  simulaciones, variante, calibracion y seed opcionales.
+- Los stats se reconstruyen solo desde partidos terminados. Para cada partido
+  restante se reutiliza el motor de xG/matriz de marcador existente.
+- Si hay calibracion 1X2, primero se muestrea home/draw/away con esas
+  probabilidades y despues un marcador condicionado a ese outcome desde la
+  matriz Poisson. Asi `platt-blend-25` afecta resultados sin inventar una nueva
+  distribucion de goles ni un mercado.
+- Las matrices se calculan una vez desde el estado real actual y se reutilizan
+  en todas las iteraciones. Los resultados simulados actualizan la tabla, pero
+  no reentrenan xG ni recalculan partidos posteriores.
+- PRNG deterministico con seed; seed default `20260611`. Misma entrada y seed
+  producen exactamente el mismo output.
+
+### Tabla y output
+- Cada simulacion actualiza puntos, GF, GC, diferencia, victorias, empates y
+  derrotas para los partidos restantes, partiendo de los resultados jugados.
+- Orden simplificado: puntos, diferencia de gol, goles a favor y fallback
+  deterministico derivado de `seed + teamId`.
+- Por equipo: puntos esperados, probabilidad de avanzar/ganar grupo/terminar
+  2o/3o/4o, y promedios de diferencia, GF y GC.
+- Output global: groupId, simulaciones, variante/calibracion efectivas, seed,
+  warnings y version `group-monte-carlo-v1`.
+- Un grupo terminado devuelve posiciones y acumulados deterministas sin
+  importar cuantas simulaciones se soliciten.
+
+### Uso y validacion
+- Ejecutar `npm run verify:group-simulation`.
+- El ejemplo usa 10.000 simulaciones con
+  `xg-v2.1-prior8 + platt-blend-25` y valida suma de posiciones por equipo,
+  exactamente dos clasificados esperados, ausencia de NaN, seed reproducible,
+  equipo con seis puntos y grupo terminado.
+- Defaults del motor y del producto permanecen `legacy-neutral + none`; la
+  configuracion experimental debe solicitarse explicitamente.
+
+### Limitaciones y siguientes pasos
+- Solo grupos de cuatro equipos; no hay bracket, mejores terceros ni cruces.
+- Desempate FIFA simplificado: faltan enfrentamientos directos, fair play y
+  sorteo oficial. El fallback seeded solo garantiza reproducibilidad.
+- No modela lesiones, alineaciones, correlacion entre partidos ni actualizacion
+  dinamica de fuerza dentro de una trayectoria simulada.
+- Siguiente paso: validar Monte Carlo contra torneos historicos completos;
+  despues implementar reglas oficiales de terceros/desempate y, recien luego,
+  un motor de bracket separado. No exponer en UI hasta cerrar esas validaciones.

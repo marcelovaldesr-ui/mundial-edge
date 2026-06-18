@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { dataMode, getLastSync, getMatches, getTeamStats } from "@/lib/data/repository";
 import { buildScoreMatricesByMatchId } from "@/lib/stat-model";
 import { filterPreMatchMatches } from "@/lib/matches/pre-match-eligibility";
+import { GroupSimulationCard } from "@/components/group-simulation-card";
+import { createGroupSimulationPreview } from "@/lib/tournament";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +18,7 @@ export default async function StatModelPage() {
   const lowConfidence = model.predictions.filter((prediction) => prediction.confidence === "low").length;
   const eligibleMatches = filterPreMatchMatches(matches);
   const nonEligibleMatches = matches.length - eligibleMatches.length;
+  const groupSimulationPreview = createGroupSimulationPreview();
 
   return (
     <div className="space-y-7">
@@ -51,6 +54,16 @@ export default async function StatModelPage() {
           cuando haya más resultados reales del Mundial, `team_stats` ganará peso. Esta pantalla separa modelo estadístico de edge apostable.
         </p>
       </ExplanationBox>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-xl font-semibold">Simulación de fase de grupos</h2>
+          <p className="text-sm text-muted-foreground">
+            Primera integración visual del motor Monte Carlo. Esta sección usa un fixture aislado de demostración.
+          </p>
+        </div>
+        <GroupSimulationCard result={groupSimulationPreview} preview />
+      </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
         {predictions.map((prediction) => (

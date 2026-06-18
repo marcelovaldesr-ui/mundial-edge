@@ -1557,3 +1557,112 @@ Con datos actuales, varios partidos usan priors similares por baja muestra:
 - Siguiente paso: validar Monte Carlo contra torneos historicos completos;
   despues implementar reglas oficiales de terceros/desempate y, recien luego,
   un motor de bracket separado. No exponer en UI hasta cerrar esas validaciones.
+
+---
+
+## ACTUALIZACION - service/adapter de simulacion de grupos
+
+### Que hace
+- `src/lib/tournament/group-simulation-service.ts` expone
+  `simulateGroupFromSchedule(input)` como frontera estable entre datos de
+  calendario y el motor Monte Carlo.
+- Recibe `groupId`, cuatro equipos, un unico array de partidos, simulaciones,
+  seed y flags opcionales. Normaliza joins, valida pertenencia al grupo y
+  separa partidos terminados/restantes por `status` antes de llamar a
+  `simulateGroup`.
+- Devuelve metadata lista para consumo: configuracion efectiva, seed,
+  `generatedAt`, warnings, versiones y `standings` ordenado por probabilidad de
+  avanzar, ganar grupo, puntos esperados y codigo como fallback estable.
+- Helpers publicos: `normalizeGroupMatch`,
+  `splitPlayedAndRemainingMatches` y `validateGroupSimulationInput`.
+
+### Engine vs service
+- **Engine (`group-simulation.ts`)**: matematica y Monte Carlo. Exige datos ya
+  separados, construye matrices, muestrea marcadores y acumula posiciones.
+- **Service (`group-simulation-service.ts`)**: adaptacion/validacion. Trabaja
+  con el schedule crudo, resuelve equipos por id, genera warnings recuperables
+  y forma el read model que una UI futura puede consumir.
+- Ambos son puros respecto de persistencia: no leen Supabase, no escriben
+  schema y no dependen de componentes React.
+
+### Validaciones y warnings
+- Falla temprano ante grupo distinto de cuatro equipos, ids duplicados,
+  partidos de otro grupo/equipos ausentes, seed/simulaciones no finitos o
+  partidos terminados sin marcador valido.
+- Los pendientes no requieren marcador. Scores opcionales, si existen, deben
+  ser enteros no negativos; partidos live se simulan completos y lo advierten.
+- Emite warnings por joins ausentes resueltos por id, metadata de grupo ausente,
+  menos de seis cruces unicos y limitaciones heredadas del engine/modelo.
+- Valida que el output no contenga NaN/Infinity.
+
+### Como verificar
+- `npm run verify:group-simulation-service` construye un grupo demo, llama al
+  service, imprime standings y comprueba reproducibilidad, suma de avance igual
+  a 2, posiciones 1-4 iguales a 1 por equipo, warnings y errores controlados.
+- El verificador del engine sigue separado en
+  `npm run verify:group-simulation`.
+
+### Limitaciones y proximo paso
+- Mantiene las limitaciones de Monte Carlo v1: cuatro equipos, desempate FIFA
+  simplificado, sin mejores terceros/bracket y sin recalculo dinamico de xG.
+- No interpreta un marcador live como estado parcial; lo trata como partido
+  pendiente completo con warning.
+- Proximo paso recomendado: crear un componente UI de grupos que consuma este
+  read model, sin duplicar logica de separacion/orden y manteniendo inicialmente
+  la metadata de modelo efectiva visible para auditoria.
+
+### Default especifico del service de simulacion
+- El default **global/productivo** no cambia: `model-variant.ts` conserva
+  `legacy-neutral` y la calibracion global conserva `none` como fallback.
+- Solo `simulateGroupFromSchedule` aplica por defecto el modelo recomendado para
+  simulaciones cuando ambos flags se omiten:
+  `xg-v2.1-prior8 + platt-blend-25`.
+- Un override explicito se respeta. `legacy-neutral + none` sigue disponible y
+  se valida en `verify:group-simulation-service`. Si se especifica Legacy sin
+  calibracion, el service completa coherentemente con `none`.
+- El output expone `modelVariant`, `calibration`,
+  `usesRecommendedSimulationModel` y `modelSelection`; tambien agrega un warning
+  con la configuracion efectiva para que una UI futura pueda mostrarla.
+- Dixon-Coles esta prohibido en este service y produce error controlado; no se
+  usa como default, fallback ni alternativa Monte Carlo.
+
+---
+
+## ACTUALIZACION - primera UI Monte Carlo de grupos
+
+### Ubicacion y componente
+- Nuevo componente presentacional
+  `src/components/group-simulation-card.tsx` integrado en `/stat-model`, antes
+  de las tarjetas de partidos del modelo.
+- Recibe directamente `GroupSimulationServiceResult`; no importa el engine, no
+  calcula matrices ni ejecuta simulaciones.
+- Muestra grupo, numero de simulaciones, modelo/calibracion efectivos, origen
+  de seleccion, warnings desplegables y tabla responsive con puntos esperados,
+  clasificacion y probabilidades de posiciones 1-4.
+- Incluye estado vacio y prop `preview` para mostrar badge/aviso visible.
+
+### Datos mostrados
+- La primera integracion usa exclusivamente
+  `src/lib/tournament/group-simulation-demo.ts`: fixture aislado de cuatro
+  equipos y seis cruces, con dos resultados ilustrativos.
+- Esta marcado **Demo / Preview** y declara que no representa grupos ni datos
+  productivos reales del Mundial 2026. No se mezcla con `getMatches()` ni con
+  datos persistidos.
+- El helper llama al service sin overrides, por lo que la tarjeta muestra el
+  default local recomendado: `xg-v2.1-prior8 + platt-blend-25` y
+  `recommended-simulation-default`. El default global sigue Legacy + none.
+
+### Responsive y limitaciones
+- La tabla usa el componente UI existente y scroll horizontal en mobile; badges,
+  porcentajes y valores usan estilos/tipografia tabular consistentes con la app.
+- `Gana grupo` y `1.o` muestran hoy la misma probabilidad del contrato del
+  engine; ambas columnas se conservan para expresar los dos conceptos pedidos.
+- Sigue siendo una preview sincronica: no hay selector de grupo, controles de
+  simulaciones, loading interactivo, cache ni conexion a calendario real.
+- Warnings del modelo se presentan colapsados para no dominar la pantalla.
+
+### Proximo paso recomendado
+- Reemplazar el helper demo por un adapter de repositorio que agrupe los
+  fixtures reales por `groupId` y entregue cada schedule al service; despues
+  agregar selector de grupo y estados loading/error sin replicar matematica en
+  React. Mantener la etiqueta Preview hasta validar el calendario real completo.

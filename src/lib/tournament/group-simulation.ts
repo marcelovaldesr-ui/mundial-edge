@@ -158,6 +158,9 @@ export function simulateGroupStage(input: GroupSimulationInput): GroupSimulation
   };
 }
 
+/** Stable short name used by tournament adapters/services. */
+export const simulateGroup = simulateGroupStage;
+
 function validateInput(input: GroupSimulationInput): void {
   if (!input.groupId.trim()) throw new RangeError("groupId is required.");
   if (input.teams.length !== 4) throw new RangeError("Group simulation v1 requires exactly four teams.");

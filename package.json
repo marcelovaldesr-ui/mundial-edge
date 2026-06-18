@@ -16,7 +16,11 @@
     "verify:final-probability": "tsc scripts/verify-final-probability.ts --outDir .tmp/final-probability-check --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict && node .tmp/final-probability-check/scripts/verify-final-probability.js",
     "verify:backtesting": "tsc scripts/verify-backtesting.ts --outDir .tmp/backtesting-check --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict && node .tmp/backtesting-check/scripts/verify-backtesting.js",
     "verify:parlays": "tsc scripts/verify-parlays.ts --outDir .tmp/parlay-check --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict && node .tmp/parlay-check/scripts/verify-parlays.js",
-    "verify:stat-model": "tsc scripts/verify-stat-model.ts --outDir .tmp/stat-model-check --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict && node .tmp/stat-model-check/scripts/verify-stat-model.js"
+    "verify:stat-model": "tsc scripts/verify-stat-model.ts --outDir .tmp/stat-model-check --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict && node .tmp/stat-model-check/scripts/verify-stat-model.js",
+    "verify:world-cup-backtest": "tsc scripts/verify-world-cup-backtest.ts --outDir .tmp/world-cup-backtest-check --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict && node .tmp/world-cup-backtest-check/scripts/verify-world-cup-backtest.js",
+    "backtest:worldcups": "tsc scripts/backtest-world-cups.ts --outDir .tmp/world-cup-backtest --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict && node .tmp/world-cup-backtest/scripts/backtest-world-cups.js",
+    "diagnose:xg-v2": "tsc scripts/diagnose-xg-v2.ts --outDir .tmp/xg-v2-diagnostic --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict && node .tmp/xg-v2-diagnostic/scripts/diagnose-xg-v2.js",
+    "diagnose:dixon-coles": "tsc scripts/diagnose-dixon-coles.ts --outDir .tmp/dixon-coles-diagnostic --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --strict && node .tmp/dixon-coles-diagnostic/scripts/diagnose-dixon-coles.js"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.1.0",

@@ -4,8 +4,14 @@ export type TeamRatingSource = "manual_seed" | "neutral_fallback";
 export interface TeamStrengthRating {
   teamCode: string;
   teamName: string;
+  overall: number;
+  attack: number;
+  defense: number;
+  /** @deprecated Use overall. Kept for compatibility with existing consumers. */
   overallRating: number;
+  /** @deprecated Use attack. Kept for compatibility with existing consumers. */
   attackRating: number;
+  /** @deprecated Use defense. Kept for compatibility with existing consumers. */
   defenseRating: number;
   formRating?: number;
   tournamentExperience?: number;
@@ -17,8 +23,10 @@ export interface TeamStrengthRating {
 
 const UPDATED_AT = "2026-06-17";
 
-// Seed prudente para arrancar el Mundial con priors diferenciados. No representa
-// una verdad absoluta ni reemplaza stats reales del torneo.
+// Seed prudente para arrancar el Mundial con priors diferenciados. Attack y
+// defense se mantienen cerca de overall (normalmente +/- 5). Los ajustes
+// moderados reflejan perfiles conocidos: Francia/Portugal mas ofensivos;
+// Marruecos/Croacia/Suiza mas defensivos. No son ratings historicos ni live.
 export const TEAM_STRENGTH_RATINGS: TeamStrengthRating[] = [
   rating("ARG", "Argentina", 92, 91, 88, 88, 95),
   rating("FRA", "Francia", 92, 92, 87, 86, 92),
@@ -85,6 +93,9 @@ export function neutralTeamStrengthRating(teamCode: string, teamName: string): T
   return {
     teamCode: normalizeTeamCode(teamCode),
     teamName,
+    overall: 74,
+    attack: 74,
+    defense: 74,
     overallRating: 74,
     attackRating: 74,
     defenseRating: 74,
@@ -95,6 +106,18 @@ export function neutralTeamStrengthRating(teamCode: string, teamName: string): T
     source: "neutral_fallback",
     updatedAt: UPDATED_AT,
   };
+}
+
+export function getOverallStrength(rating: TeamStrengthRating): number {
+  return rating.overall ?? rating.overallRating;
+}
+
+export function getAttackStrength(rating: TeamStrengthRating): number {
+  return rating.attack ?? rating.attackRating;
+}
+
+export function getDefenseStrength(rating: TeamStrengthRating): number {
+  return rating.defense ?? rating.defenseRating;
 }
 
 function rating(
@@ -109,6 +132,9 @@ function rating(
   return {
     teamCode,
     teamName,
+    overall: overallRating,
+    attack: attackRating,
+    defense: defenseRating,
     overallRating,
     attackRating,
     defenseRating,

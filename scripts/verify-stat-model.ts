@@ -7,6 +7,9 @@ import {
   selectionToScorePredicate,
 } from "../src/lib/stat-model/market-probabilities";
 import { createScoreMatrix, poissonProbability, scoreMatrixTotalProbability } from "../src/lib/stat-model/score-matrix";
+import { applyDixonColesAdjustment } from "../src/lib/stat-model/dixon-coles";
+import { calculatePredictionConfidence, labelForScore } from "../src/lib/stat-model/confidence-score";
+import { getActiveStatModelVariant, resolveStatModelVariant } from "../src/lib/stat-model/model-variant";
 import type { Match, TeamStats } from "../src/lib/types";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -45,6 +48,27 @@ function matrixAndMarkets() {
   );
 }
 
+function dixonColes() {
+  const matrix = createScoreMatrix({ homeExpectedGoals: 1.5, awayExpectedGoals: 1.1, maxGoals: 12 });
+  const identity = applyDixonColesAdjustment(matrix, 0);
+  assert(identity.matrix.entries.every((entry, index) => entry.probability === matrix.entries[index].probability), "rho 0 must preserve every matrix probability.");
+  assert(identity.metadata.adjustedCells.length === 4, "Exactly four cells must receive Dixon-Coles tau metadata.");
+  assert(identity.matrix.entries.length === matrix.entries.length, "Adjusted matrix must preserve dimensions.");
+
+  const adjusted = applyDixonColesAdjustment(matrix, -0.15);
+  near(scoreMatrixTotalProbability(adjusted.matrix), 1, 0.000000001);
+  assert(adjusted.matrix.entries.every((entry) => entry.probability >= 0), "Adjusted probabilities must be non-negative.");
+  assert(adjusted.matrix.entries.length === matrix.entries.length, "Adjusted matrix must preserve dimensions.");
+  assert(adjusted.metadata.adjustedCells.map((cell) => `${cell.homeGoals}-${cell.awayGoals}`).sort().join(",") === "0-0,0-1,1-0,1-1", "Only four low-score cells may be adjusted.");
+  const ordinaryBefore = matrix.entries.find((entry) => entry.homeGoals === 2 && entry.awayGoals === 2)!;
+  const ordinaryAfter = adjusted.matrix.entries.find((entry) => entry.homeGoals === 2 && entry.awayGoals === 2)!;
+  near(ordinaryAfter.probability / ordinaryBefore.probability, adjusted.metadata.normalizationFactor, 0.000000001);
+  assert(adjusted.metadata.adjustedCells.every((cell) => Math.abs(cell.probabilityAfter / cell.probabilityBefore - adjusted.metadata.normalizationFactor) > 0.000001), "Only low-score cells may receive a tau beyond global normalization.");
+  const positiveRho = applyDixonColesAdjustment(createScoreMatrix({ homeExpectedGoals: 4.5, awayExpectedGoals: 4.5, maxGoals: 12 }), 0.05);
+  assert(positiveRho.matrix.entries.every((entry) => entry.probability >= 0), "Positive configured rho must also remain non-negative at xG guardrails.");
+  near(scoreMatrixTotalProbability(positiveRho.matrix), 1, 0.000000001);
+}
+
 function predicatesAndJoint() {
   const homeWin = selectionToScorePredicate("home_win");
   const over25 = selectionToScorePredicate("over_2_5");
@@ -72,6 +96,30 @@ function predicatesAndJoint() {
 function calibration() {
   const anchored = anchorProbability({ modelProbPoisson: 0.4, marketProbNoVig: 0.5, marketWeight: 0.78 });
   near(anchored.anchoredProb, 0.478);
+}
+
+function confidenceScore() {
+  const matrix = createScoreMatrix({ homeExpectedGoals: 1.5, awayExpectedGoals: 1.1, maxGoals: 12 });
+  const base = {
+    homeGamesPlayed: 4, awayGamesPlayed: 4, priorWeight: 0.25, scoreMatrix: matrix,
+    homeRatingFallback: false, awayRatingFallback: false,
+  };
+  const uncertain = calculatePredictionConfidence({ ...base, probabilities: { home: 0.35, draw: 0.33, away: 0.32 } });
+  const concentrated = calculatePredictionConfidence({ ...base, probabilities: { home: 0.72, draw: 0.18, away: 0.10 } });
+  assert([uncertain.score, concentrated.score].every((score) => score >= 0 && score <= 100), "Confidence must remain between 0 and 100.");
+  assert(concentrated.score > uncertain.score, "Concentrated probabilities must increase confidence.");
+  const fallback = calculatePredictionConfidence({ ...base, probabilities: { home: 0.72, draw: 0.18, away: 0.10 }, homeRatingFallback: true });
+  assert(fallback.score < concentrated.score, "Fallback ratings must reduce confidence.");
+  const smallSample = calculatePredictionConfidence({ ...base, probabilities: { home: 0.72, draw: 0.18, away: 0.10 }, homeGamesPlayed: 0, awayGamesPlayed: 1, priorWeight: 0.9 });
+  assert(smallSample.score < concentrated.score, "Small samples must reduce confidence.");
+  const warned = calculatePredictionConfidence({ ...base, probabilities: { home: 0.72, draw: 0.18, away: 0.10 }, modelWarnings: ["warning one", "warning two"] });
+  assert(warned.score < concentrated.score, "Warnings must reduce confidence.");
+  assert(labelForScore(20) === "low" && labelForScore(55) === "medium" && labelForScore(80) === "high", "Confidence labels must follow thresholds.");
+  assert(resolveStatModelVariant().id === "legacy-neutral", "Feature flag must fail closed to Legacy.");
+  assert(resolveStatModelVariant("xg-v2.1-prior8").status === "candidate", "prior8 must be a candidate model.");
+  assert(resolveStatModelVariant("experimental-dixon-coles").notRecommended, "Dixon-Coles must be marked not recommended.");
+  assert(getActiveStatModelVariant(undefined, "xg-v2.1-prior8").id === "xg-v2.1-prior8", "Environment feature flag must select the candidate.");
+  assert(getActiveStatModelVariant(undefined, "invalid").id === "legacy-neutral", "Invalid feature flags must fail closed to Legacy.");
 }
 
 function matchPrediction() {
@@ -112,7 +160,8 @@ function matchPrediction() {
   assert("scoreMatrix" in prediction, "Expected prediction with complete stats");
   assert(prediction.matchId === "m1", "Expected match id to be preserved");
   assert(prediction.marketProbabilities.length > 10, "Expected market probabilities");
-  assert(prediction.confidence === "medium", "Expected medium confidence for 3-match sample");
+  assert(prediction.confidenceResult.score >= 0 && prediction.confidenceResult.score <= 100, "Expected bounded confidence score");
+  assert(prediction.modelVariant === "legacy-neutral", "Production default must remain Legacy neutral.");
   assert(!("anchoredProb" in prediction), "Stat-model prediction must not apply market anchoring");
 
   const low = buildScoreMatrixForMatch(match, { ...homeStats, matches_played: 0, recent_form: [] }, awayStats);
@@ -129,8 +178,10 @@ function matchPrediction() {
 
 poisson();
 matrixAndMarkets();
+dixonColes();
 predicatesAndJoint();
 calibration();
+confidenceScore();
 matchPrediction();
 
 console.log("Stat model verification passed");

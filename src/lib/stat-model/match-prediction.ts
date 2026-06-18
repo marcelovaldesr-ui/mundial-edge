@@ -1,9 +1,13 @@
 import type { Match, TeamStats } from "../types";
 import { filterPreMatchMatches } from "../matches/pre-match-eligibility";
 import { estimateExpectedGoals } from "./expected-goals";
+import type { ExpectedGoalsRatingModel } from "./expected-goals";
 import { deriveMarketProbabilities } from "./market-probabilities";
 import type { ModelMarketProbability } from "./market-types";
 import { createScoreMatrix, type ScoreMatrix } from "./score-matrix";
+import { applyDixonColesAdjustment } from "./dixon-coles";
+import { calculatePredictionConfidence, type ConfidenceResult } from "./confidence-score";
+import { getActiveStatModelVariant, type StatModelVariant, type StatModelVariantStatus } from "./model-variant";
 import type { TeamStrengthRating } from "./team-strength-ratings";
 import { getWorldCupGroupContext, type WorldCupGroupContext } from "../world-cup/group-context";
 
@@ -18,6 +22,7 @@ export interface MatchStatModelPrediction {
   scoreMatrix: ScoreMatrix;
   marketProbabilities: ModelMarketProbability[];
   confidence: StatModelConfidence;
+  confidenceResult: ConfidenceResult;
   warnings: string[];
   generatedAt: string;
   modelVersion: "poisson-score-matrix-v1";
@@ -31,6 +36,10 @@ export interface MatchStatModelPrediction {
   homeRating: TeamStrengthRating | null;
   awayRating: TeamStrengthRating | null;
   groupContext?: WorldCupGroupContext;
+  expectedGoalsRatingModel: ExpectedGoalsRatingModel;
+  neutralVenue: boolean;
+  modelVariant: StatModelVariant;
+  modelVariantStatus: StatModelVariantStatus;
 }
 
 export interface MatrixBuildIssue {
@@ -52,6 +61,10 @@ export interface BuildScoreMatrixOptions {
   generatedAt?: string;
   groupContext?: WorldCupGroupContext;
   allMatches?: Match[];
+  neutralVenue?: boolean;
+  ratingModel?: ExpectedGoalsRatingModel;
+  /** Feature flag. Defaults to legacy-neutral; ratingModel remains as a compatibility override. */
+  modelVariant?: StatModelVariant;
 }
 
 export interface BuildScoreMatricesResult {
@@ -74,6 +87,7 @@ export function buildScoreMatrixForMatch(
   }
 
   const groupContext = options.groupContext ?? (options.allMatches ? getWorldCupGroupContext(match, options.allMatches) : undefined);
+  const variant = getActiveStatModelVariant(options.modelVariant);
   const xg = estimateExpectedGoals({
     home: homeStats,
     away: awayStats,
@@ -81,13 +95,38 @@ export function buildScoreMatrixForMatch(
     awayTeam: match.away_team,
     leagueAvgGoals: options.leagueAvgGoals,
     groupContext,
+    neutralVenue: options.neutralVenue ?? variant.neutralVenue ?? match.neutralVenue ?? false,
+    ratingModel: options.ratingModel ?? variant.expectedGoalsRatingModel,
+    priorStrength: options.ratingModel ? undefined : variant.priorStrength ?? undefined,
   });
   const warnings = confidenceWarnings(homeStats, awayStats, xg.homeRating, xg.awayRating, groupContext);
-  const confidence = confidenceFromInputs(homeStats, awayStats, xg.homeRating, xg.awayRating);
-  const scoreMatrix = createScoreMatrix({
+  const poissonMatrix = createScoreMatrix({
     homeExpectedGoals: xg.homeExpectedGoals,
     awayExpectedGoals: xg.awayExpectedGoals,
     maxGoals: options.maxGoals ?? 12,
+  });
+  const scoreMatrix = variant.dixonColesRho == null
+    ? poissonMatrix
+    : applyDixonColesAdjustment(poissonMatrix, variant.dixonColesRho).matrix;
+  const marketProbabilities = deriveMarketProbabilities(scoreMatrix);
+  const minGames = Math.min(homeStats.matches_played, awayStats.matches_played);
+  const priorWeight = variant.priorStrength != null
+    ? variant.priorStrength / (minGames + variant.priorStrength)
+    : (xg.blend.homeRatingWeight + xg.blend.awayRatingWeight) / 2;
+  const confidenceResult = calculatePredictionConfidence({
+    probabilities: {
+      home: marketProbabilities.find((row) => row.selection === "home_win")!.probability,
+      draw: marketProbabilities.find((row) => row.selection === "draw")!.probability,
+      away: marketProbabilities.find((row) => row.selection === "away_win")!.probability,
+    },
+    homeGamesPlayed: homeStats.matches_played,
+    awayGamesPlayed: awayStats.matches_played,
+    priorWeight,
+    scoreMatrix,
+    modelWarnings: warnings.filter((warning) => !warning.startsWith("Rating base Mundial Edge")),
+    homeRatingFallback: xg.homeRating?.source === "neutral_fallback",
+    awayRatingFallback: xg.awayRating?.source === "neutral_fallback",
+    groupContext,
   });
 
   return {
@@ -97,9 +136,10 @@ export function buildScoreMatrixForMatch(
     homeExpectedGoals: xg.homeExpectedGoals,
     awayExpectedGoals: xg.awayExpectedGoals,
     scoreMatrix,
-    marketProbabilities: deriveMarketProbabilities(scoreMatrix),
-    confidence,
-    warnings: [...warnings, ...xg.assumptions],
+    marketProbabilities,
+    confidence: confidenceResult.label,
+    confidenceResult,
+    warnings: [...new Set([...warnings, ...confidenceResult.warnings, ...xg.assumptions])],
     generatedAt: options.generatedAt ?? new Date().toISOString(),
     modelVersion: "poisson-score-matrix-v1",
     expectedGoalsSource: xg.source,
@@ -107,6 +147,10 @@ export function buildScoreMatrixForMatch(
     homeRating: xg.homeRating,
     awayRating: xg.awayRating,
     groupContext,
+    expectedGoalsRatingModel: xg.ratingModel,
+    neutralVenue: xg.neutralVenue,
+    modelVariant: variant.id,
+    modelVariantStatus: variant.status,
   };
 }
 

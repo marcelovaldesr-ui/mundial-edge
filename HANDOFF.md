@@ -843,3 +843,395 @@ Con datos actuales, varios partidos usan priors similares por baja muestra:
 - La probabilidad final no es edge por sí sola: edge apostable sigue requiriendo
   cuota real, comparación contra probabilidad implícita y partido pre-match
   elegible.
+
+---
+
+## ACTUALIZACION - sesion 15
+
+### Estado: backtesting historico de Mundiales ampliado
+- Nuevo comando `npm run backtest:worldcups`.
+- El runner evalua probabilidades 1X2 del modelo estadistico, sin cuotas ni
+  mercados nuevos, y compara tres variantes:
+  - modelo actual completo;
+  - modelo sin contexto de grupo;
+  - modelo sin ratings base.
+- Metricas globales, por Mundial y por stage:
+  - Brier Score multiclase (suma sobre home/draw/away);
+  - Log Loss multiclase;
+  - Ranked Probability Score (orden home/draw/away, normalizado por 2);
+  - accuracy del outcome 1X2 con mayor probabilidad.
+- El pipeline procesa cada torneo cronologicamente. Las stats y la tabla de
+  grupo de cada prediccion solo incluyen partidos anteriores para evitar
+  leakage del resultado.
+- El reporte muestra deltas contra el modelo completo y el numero de partidos
+  de cada bucket (`ALL`, `GROUP`, `KNOCKOUT` y cada ronda eliminatoria).
+
+### Datos actuales
+- Corpus completo y versionado desde `openfootball/worldcup.json` (CC0):
+  - Mundial 2018: 64 partidos (48 de grupo + 16 eliminatorios);
+  - Mundial 2022: 64 partidos (48 de grupo + 16 eliminatorios);
+  - total: 128 partidos.
+- Cada fixture conserva year, stage, group, equipos, marcador, fecha/orden,
+  sede neutral y `scoreBasis: REGULATION_90`.
+- En eliminatorias se usa el resultado a 90 minutos; prorroga y penales no
+  forman parte del mercado 1X2 evaluado.
+- Los fixtures declaran sede neutral, pero el estimador actual conserva sus
+  factores home (`1.07` stats / `1.04` ratings). Se documenta como limitacion y
+  no se cambia en esta fase para no alterar el modelo bajo evaluacion.
+- `ratingSet` y `ratingSnapshotYear` dejan preparada la inyeccion futura de
+  ratings pre-torneo. Hoy solo existen seeds 2026 y fallback neutral explicito,
+  por lo que persiste sesgo temporal retrospectivo.
+- No hay cuotas historicas, por lo que no se calculan edge, EV ni ROI.
+
+### Interpretacion de metricas
+- Brier Score: error cuadratico de las tres probabilidades 1X2; menor es mejor.
+- Log Loss: penaliza especialmente probabilidades altas asignadas al resultado
+  equivocado; menor es mejor.
+- RPS: compara probabilidades acumuladas respetando el orden home/draw/away;
+  menor es mejor.
+- Accuracy: porcentaje en que el outcome con mayor probabilidad fue correcto;
+  mayor es mejor, pero no mide calibracion ni calidad de toda la distribucion.
+
+### Implementacion y verificacion
+- Nuevo motor puro en `src/lib/backtesting/world-cup-backtest.ts`.
+- `estimateExpectedGoals()` acepta `useBaseRatings: false` exclusivamente como
+  hook opt-in de ablacion; el comportamiento productivo por defecto no cambia.
+- `estimateExpectedGoals()` acepta un `ratingResolver` inyectable para futuros
+  snapshots historicos; produccion conserva el resolver actual por defecto.
+- `npm run verify:world-cup-backtest` cubre formulas, 128 fixtures, resultados,
+  probabilidad finita/normalizada, ratings/fallback y aislamiento del contexto:
+  en knockout completo y sin contexto deben ser identicos.
+
+### Proximos pasos recomendados
+- Incorporar fixtures completos 2014, 2010, 2006, 2002 y 1998.
+- Conseguir snapshots pre-torneo verificables por Mundial antes de concluir
+  sobre el aporte de ratings.
+- Agregar intervalos de confianza o bootstrap para medir si las diferencias
+  entre variantes son estadisticamente estables.
+- Solo despues decidir cambios del modelo como Dixon-Coles, ratings ofensivos/
+  defensivos o Elo dinamico.
+
+---
+
+## ACTUALIZACION - sesion 16
+
+### Estado: xG v2 con ataque/defensa y sedes neutrales
+- `TeamStrengthRating` ahora expone como contrato canonico:
+  - `overall`: fuerza general;
+  - `attack`: capacidad ofensiva, donde mayor rating aumenta xG propio;
+  - `defense`: resistencia defensiva, donde mayor rating reduce el xG rival.
+- Los aliases `overallRating`, `attackRating` y `defenseRating` se conservan
+  para compatibilidad con UI y consumidores existentes.
+- Los seeds se mantienen cerca del overall, normalmente dentro de +/-5 puntos.
+  Los perfiles ofensivos/defensivos ya existentes se documentan como ajustes
+  manuales moderados, no como datos historicos ni live.
+- Equipos sin seed reciben fallback neutral explicito `74/74/74`.
+
+### Expected Goals v2
+- `estimateExpectedGoals()` permite `ratingModel`:
+  - `legacy_v1`: formula congelada para baseline reproducible;
+  - `attack_defense_v2`: ataque propio + defensa rival + overall, mezclados con
+    stats observadas y contexto de grupo.
+- v2 diferencia correctamente `0 partidos` de una tasa observada de `0 goles`;
+  la formula legacy conserva el comportamiento anterior para comparacion.
+- Los xG permanecen acotados a `[0.2, 4.5]`.
+- `neutralVenue: true` elimina ambos factores de localia del estimador:
+  - stats: `1.07 -> 1.00`;
+  - componente rating: `1.04 -> 1.00`.
+- `Match.neutralVenue` es metadata runtime opcional y no implica cambio de
+  schema. Partidos no neutrales conservan la ventaja legacy.
+
+### Backtest comparativo
+- Cuatro variantes sobre los 128 partidos completos de 2018 y 2022:
+  - modelo actual completo (`legacy_v1`, factor home, contexto);
+  - actual + sede neutral (`legacy_v1`, neutral, contexto);
+  - ataque/defensa v2 neutral sin contexto;
+  - ataque/defensa v2 neutral con contexto.
+- Resultado global contra baseline:
+  - neutral: Brier `-0.0008`, Log Loss `-0.0011`, RPS `-0.0006`, Accuracy `-0.8 pp`;
+  - v2 sin contexto: Brier `+0.0139`, Log Loss `+0.0199`, RPS `+0.0039`, Accuracy `-3.9 pp`;
+  - v2 con contexto: Brier `+0.0111`, Log Loss `+0.0143`, RPS `+0.0026`, Accuracy `-3.1 pp`.
+- v2 con contexto mejora claramente respecto de v2 sin contexto, pero no supera
+  la baseline global. Por Mundial es inestable: mejora errores en 2018 y los
+  empeora en 2022.
+- En knockout, v2 con/sin contexto es identico, confirmando que groupContext no
+  se filtra a eliminatorias.
+
+### Guardrails y tests
+- Cada prediccion valida xG finito dentro de `[0.2, 4.5]` y probabilidades 1X2
+  finitas, no negativas y normalizadas.
+- `verify:team-ratings` cubre aliases legacy, fallback, neutralVenue y direccion
+  correcta de attack/defense.
+- `verify:world-cup-backtest` cubre las cuatro variantes, flags aplicados,
+  aislamiento de contexto y guardrails de xG/probabilidad.
+
+### Limitaciones y proximos pasos
+- Solo hay Mundiales 2018/2022 y seeds 2026 retrospectivos; no promover ajustes
+  adicionales por estas diferencias pequenas/inestables.
+- Incorporar 2014-1998 y ratings pre-torneo antes de calibrar la formula v2.
+- Agregar bootstrap/intervalos de confianza y estudiar regularizacion de stats
+  tempranas; despues evaluar Dixon-Coles. Elo dinamico sigue fuera de alcance.
+
+---
+
+## ACTUALIZACION - sesion 17
+
+### Estado: auditoria Legacy neutral vs xG v2 con contexto
+- Nuevo comando reproducible: `npm run diagnose:xg-v2`.
+- Genera `reports/xg-v2-diagnostic.md` desde los 128 partidos del backtest, sin
+  tocar parametros productivos, UI, schema ni mercados.
+- Nuevo modulo puro `src/lib/backtesting/xg-v2-diagnostic.ts` para:
+  - score por partido (Brier, Log Loss y RPS);
+  - cortes por Mundial, fase, ronda, diferencia de rating, favorito/upset,
+    empate, goles y muestra observada;
+  - calibracion por confianza, draw y favoritos claros;
+  - top 10 mejoras y top 10 deterioros;
+  - diagnostico heuristico de causas y guardrails.
+- La salida interna del backtest agrega metadata diagnostica por fixture:
+  equipos/marcador, ratings attack/defense/overall, muestra previa, xG y flags
+  de contexto/neutralidad. Esto no cambia el calculo del modelo.
+
+### Conclusion tecnica
+- Legacy neutral sigue siendo la baseline recomendada:
+  - Brier `0.6462` vs `0.6581`;
+  - Log Loss `1.0821` vs `1.0975`;
+  - RPS `0.2371` vs `0.2402`;
+  - Accuracy `48.4%` vs `46.1%`.
+- xG v2 mejora 69 partidos y empeora 59 por Brier, pero sus deterioros son mas
+  costosos y se concentran en grupos, favoritos claros, upsets y pocos goles.
+- La causa principal probable es stats observadas sin suficiente regularizacion
+  tras 1-2 partidos, especialmente tasas cero:
+  - en 2018 esos casos mejoran Brier medio `-0.0188`;
+  - en 2022 empeoran `+0.1044`.
+- Empates: v2 no los infravalora globalmente; predice `25.8%` draw frente a
+  `22.7%` real y `24.5%` Legacy. Hay cinco casos puntuales de draw reducido.
+- Favoritos: la probabilidad media del favorito claro no sube globalmente, pero
+  v2 empeora fuerte en upsets y tiene sobreconfianza localizada.
+- Contexto es mixto y pequeno; ayuda a v2 agregado, pero no compensa la formula.
+- No hay NaN, probabilidades fuera de rango, masa 1X2 incorrecta ni lambdas
+  tocando los guardrails. La conversion Poisson no muestra un fallo aritmetico.
+
+### Recomendacion
+- No promover xG v2 a baseline ni modificar produccion con esta auditoria.
+- Mantenerlo experimental y probar regularizacion de stats tempranas en una
+  variante separada, despues de ampliar Mundiales/snapshots y agregar bootstrap.
+
+---
+
+## ACTUALIZACION - sesion 18
+
+### Estado: xG v2.1 con shrinkage bayesiano
+- Se agrego una variante exclusivamente experimental de xG v2. No cambia el
+  modelo productivo, UI, schema ni mercados.
+- `estimateExpectedGoals()` acepta el hook opt-in `priorStrength`; si se omite,
+  xG v2 conserva exactamente su camino sin regularizacion.
+- La regularizacion usa:
+  - `weight = gamesPlayed / (gamesPlayed + priorStrength)`;
+  - `blendedMetric = weight * observedMetric + (1 - weight) * priorMetric`.
+- Se aplica en tres niveles:
+  - tasa de ataque observada (goles a favor por partido) hacia el prior de
+    ataque del rating;
+  - tasa de defensa observada (goles recibidos por partido) hacia el prior de
+    concesion derivado del rating defensivo;
+  - xG derivado hacia el xG del rating. Para este ultimo se usa como muestra el
+    minimo de partidos previos de ambos equipos, evitando que una sola muestra
+    madura domine un cruce con rival sin datos.
+- Se evaluan `priorStrength` 2, 4, 6 y 8. Un valor mayor conserva mas peso del
+  prior: tras un partido, el peso observado es 33.3%, 20.0%, 14.3% y 11.1%,
+  respectivamente.
+
+### Variantes y baseline
+- El backtest/diagnostico ahora compara exactamente:
+  - `legacy-neutral` (baseline);
+  - `xg-v2`;
+  - `xg-v2.1-prior2`;
+  - `xg-v2.1-prior4`;
+  - `xg-v2.1-prior6`;
+  - `xg-v2.1-prior8`.
+- Todas usan sede neutral y contexto solo en fase de grupos. Los deltas se
+  calculan siempre contra `legacy-neutral`.
+- El reporte reproducible sigue en `reports/xg-v2-diagnostic.md` y cubre Brier,
+  Log Loss, RPS y Accuracy global, grupos, eliminatorias, partidos con favorito,
+  upsets y partidos de 0-2 goles.
+
+### Resultados (128 partidos, 2018 + 2022)
+- Baseline global `legacy-neutral`: Brier `0.6462`, Log Loss `1.0821`, RPS
+  `0.2371`, Accuracy `48.4%`.
+- xG v2 sin regularizar confirma el deterioro: deltas `+0.0119`, `+0.0154`,
+  `+0.0031` y `-2.3 pp`.
+- Todas las variantes v2.1 superan el baseline en las cuatro metricas globales:
+  - prior2: Brier `0.6097` (`-0.0365`), Accuracy `52.3%` (`+3.9 pp`);
+  - prior4: Brier `0.6049` (`-0.0414`), Accuracy `53.1%` (`+4.7 pp`);
+  - prior6: Brier `0.6036` (`-0.0427`), Accuracy `56.3%` (`+7.8 pp`);
+  - prior8: Brier `0.6030` (`-0.0432`), Log Loss `1.0097` (`-0.0724`),
+    RPS `0.2141` (`-0.0230`) y Accuracy `55.5%` (`+7.0 pp`).
+- `prior8` es el mejor por Brier/Log Loss/RPS global; `prior6` es el mejor por
+  Accuracy global.
+- `prior8` mejora Brier tanto en grupos (`-0.0453`) como eliminatorias
+  (`-0.0371`), partidos con favorito (`-0.0401`) y 0-2 goles (`-0.0568`).
+- En upsets, `prior8` reduce Brier (`-0.0775`), Log Loss (`-0.1574`) y RPS
+  (`-0.0393`), pero la Accuracy cae de `21.1%` a `0.0%`: asigna una distribucion
+  menos costosa sin convertir al no favorito en pick principal. Esta tension
+  impide leer la mejora agregada como victoria definitiva.
+
+### Guardrails y regresiones
+- Cero probabilidades invalidas o masas 1X2 fuera de tolerancia.
+- Cero valores no finitos y cero xG fuera de `[0.2, 4.5]`.
+- Todos los fixtures aplican sede neutral y todo rating tiene seed o fallback
+  neutral explicito.
+- La regresion valida que una tasa cero tras un partido queda mas cerca del
+  prior con `prior8` que con `prior2`, que `priorStrength` invalido falla de
+  forma explicita y que el camino productivo/default conserva `null`.
+
+### Recomendacion y proximos pasos
+- **Si supera el baseline en este corpus:** si; las cuatro variantes v2.1 lo
+  superan globalmente en las cuatro metricas y prior8 lidera los errores.
+- **No promover todavia:** el corpus contiene solo dos Mundiales, usa ratings
+  2026 retrospectivos y muestra una perdida de Accuracy en upsets pese a mejorar
+  calibracion. Legacy neutral debe seguir como baseline y produccion no cambia.
+- Siguiente paso: incorporar Mundiales 2014-1998 y snapshots pre-torneo, agregar
+  bootstrap/intervalos por torneo y estudiar un criterio compuesto entre prior6
+  y prior8 antes de considerar una promocion.
+
+---
+
+## ACTUALIZACION - sesion 19
+
+### Estado: Dixon-Coles experimental para marcadores bajos
+- Nuevo modulo puro `src/lib/stat-model/dixon-coles.ts`.
+- `applyDixonColesAdjustment(matrix, rho)` devuelve una matriz nueva y metadata;
+  no muta la matriz Poisson de entrada ni cambia el camino productivo.
+- Implementa la correccion clasica tau solo en `0-0`, `1-0`, `0-1` y `1-1`:
+  - 0-0: `1 - lambdaHome * lambdaAway * rho`;
+  - 1-0: `1 + lambdaAway * rho`;
+  - 0-1: `1 + lambdaHome * rho`;
+  - 1-1: `1 - rho`.
+- Los factores se acotan a cero para impedir probabilidades negativas y toda la
+  matriz se renormaliza despues. La metadata expone `rho`, las cuatro
+  `adjustedCells` y `normalizationFactor`.
+- Rho permitido: `-0.15`, `-0.10`, `-0.05`, `0.00`, `0.05`. Rho cero devuelve
+  probabilidades identicas y factor de normalizacion 1.
+
+### Integracion y diagnostico
+- Dixon-Coles solo se aplica en variantes de backtest. UI, schema, mercados y
+  modelo productivo permanecen intactos.
+- Nuevo reporte `reports/dixon-coles-diagnostic.md`, generado también por
+  `npm run diagnose:xg-v2` para conservar un unico runner reproducible.
+- Compara exactamente las ocho variantes solicitadas:
+  - legacy-neutral y rho `-0.15/-0.10/-0.05`;
+  - xG v2.1 prior8 y rho `-0.15/-0.10/-0.05`.
+- Reporta Brier, Log Loss, RPS, Accuracy, correct score top-1, cortes de 0-2
+  goles y empates, draw Brier, probabilidad media de empate y buckets de
+  calibracion. Cada fila incluye deltas contra legacy-neutral y prior8.
+
+### Resultados (128 partidos, 2018 + 2022)
+- **Global:** ningun rho mejora Brier sobre su modelo base.
+  - Mejor DC sobre Legacy: rho `-0.05`, Brier `0.6470`, delta `+0.0007`;
+    Log Loss delta `+0.0028`; Accuracy mejora `+0.8 pp`.
+  - Mejor DC sobre prior8: rho `-0.05`, Brier `0.6040`, delta `+0.0010`;
+    Log Loss delta `+0.0012`; Accuracy no cambia.
+- **Partidos de 0-2 goles:** la correccion si ayuda.
+  - Legacy rho `-0.15`: Brier `-0.0051`, Log Loss `-0.0036`, Accuracy
+    `+4.3 pp` frente a Legacy.
+  - prior8 rho `-0.15`: Brier `-0.0055`, Log Loss `-0.0105`, RPS `-0.0009`;
+    Accuracy y correct score top-1 no cambian frente a prior8.
+- **Empates:** rho `-0.15` mejora mucho el score condicionado a partidos que
+  terminaron empatados.
+  - Legacy: Brier `-0.0727`, Log Loss `-0.1225`, Accuracy `+10.3 pp`.
+  - prior8: Brier `-0.0789`, Log Loss `-0.1328`; Accuracy no cambia.
+- **Calibracion global de draw:** empeora, porque el corpus ya sobrepredice
+  empates.
+  - Tasa real: `22.7%`.
+  - Legacy: `24.5%`; con rho `-0.15`: `27.7%`.
+  - prior8: `25.2%`; con rho `-0.15`: `28.8%`.
+  - Draw Brier global aumenta para todos los rho negativos evaluados.
+- **Correct score top-1:** no mejora globalmente. Legacy cae de `12.5%` a
+  `10.2%/9.4%`; prior8 permanece en `10.2%` con los tres rho.
+
+### Tests y guardrails
+- Rho cero conserva todas las probabilidades exactamente.
+- La masa ajustada suma 1 y ninguna probabilidad es negativa, incluido rho
+  positivo con lambdas en el guardrail `4.5/4.5`.
+- La matriz conserva dimensiones y solo las cuatro celdas bajas reciben tau;
+  el resto solo cambia por el factor global de renormalizacion.
+- El backtest verifica metadata DC, rho aplicados, correct score top-1 y las 8
+  filas del diagnostico.
+
+### Recomendacion
+- **No promover Dixon-Coles.** Con rho negativos mejora los partidos bajos y
+  los empates observados, pero degrada el rendimiento global y empeora la
+  calibracion de draw por sobreprediccion.
+- Si se retoma, estimar rho sobre un corpus mas amplio y out-of-sample en vez de
+  elegirlo manualmente; incluir Mundiales 1998-2014 y ratings pre-torneo.
+- Mantener `legacy-neutral` como baseline y prior8 como lider experimental de
+  Brier, sin cambios productivos.
+
+---
+
+## ACTUALIZACION - sesion 20
+
+### Feature flag y estado de modelos
+- Nuevo registro canonico en `src/lib/stat-model/model-variant.ts`.
+- Variantes seleccionables:
+  - `legacy-neutral`: estado `production`, default y unica recomendada hoy;
+  - `xg-v2.1-prior8`: estado `candidate`, disponible detras del flag;
+  - `experimental-dixon-coles`: estado `experimental`, con
+    `notRecommended: true`.
+- Feature flag server-side: `STAT_MODEL_VARIANT`. Tambien puede pasarse
+  `modelVariant` explicitamente a `buildScoreMatrixForMatch()` y
+  `buildScoreMatricesByMatchId()`; la opcion explicita tiene precedencia.
+- Un valor ausente o invalido falla cerrado a `legacy-neutral`.
+- prior8 usa `attack_defense_v2`, `priorStrength=8`, sede neutral y no aplica
+  Dixon-Coles. La variante DC experimental usa prior8 + rho `-0.15` solo para
+  facilitar evaluacion; sigue expresamente no recomendada.
+- No se modificaron UI, schema ni mercados.
+
+### Confidence Score real
+- Nuevo modulo puro `src/lib/stat-model/confidence-score.ts` con
+  `calculatePredictionConfidence(input)`.
+- Resultado:
+  - `score` entero entre 0 y 100;
+  - `label`: low `<45`, medium `45-69`, high `>=70`;
+  - `drivers` positivos y `warnings` explicitos.
+- Señales utilizadas sin leakage del resultado:
+  - concentracion de probabilidades 1X2;
+  - margen entre pick top y segunda opcion;
+  - minimo de partidos observados de ambos equipos;
+  - proporcion observada frente al peso del prior;
+  - entropia normalizada de la score matrix;
+  - warnings del modelo;
+  - uno o dos ratings fallback;
+  - contexto fuerte de fase de grupos.
+- `match-prediction` conserva el campo compatible `confidence` y agrega
+  `confidenceResult`, `modelVariant` y `modelVariantStatus`. Las antiguas
+  funciones heuristicas exportadas se conservan por compatibilidad, pero el
+  pipeline principal ya usa el score nuevo.
+
+### Diagnostico de confidence
+- Nuevo reporte reproducible `reports/confidence-diagnostic.md`, generado por
+  `npm run diagnose:xg-v2`.
+- Legacy neutral:
+  - low: 18 partidos (14.1%), Accuracy `33.3%`, Brier `0.6710`, margen top-2
+    `4.5%`;
+  - medium: 65 (50.8%), Accuracy `49.2%`, Brier `0.6459`;
+  - high: 45 (35.2%), Accuracy `53.3%`, Brier `0.6367`, margen `44.2%`.
+- xG v2.1 prior8:
+  - low: 24 (18.8%), Accuracy `45.8%`, Brier `0.6357`, margen `4.9%`;
+  - medium: 98 (76.6%), Accuracy `55.1%`, Brier `0.6077`;
+  - high: 6 (4.7%), Accuracy `100%`, Brier `0.3956`, margen `22.1%`.
+- En ambos modelos la Accuracy no decrece al subir de bucket y low concentra
+  probabilidades top/margenes menores. Es una señal favorable, no una prueba
+  concluyente: high de prior8 solo tiene 6 partidos.
+
+### Tests y limitaciones
+- Tests cubren score `[0,100]`, aumento por probabilidades concentradas,
+  penalizaciones por fallback, muestra corta y warnings, thresholds de labels,
+  default Legacy, selección del candidate y fail-closed del flag.
+- El score no es una probabilidad de acierto, no usa resultados reales y no
+  reemplaza Brier/calibracion.
+- Pesos y thresholds son heuristicas transparentes iniciales, todavía no
+  calibradas contra varios Mundiales ni validadas out-of-sample.
+- Coverage high pequeña, ratings 2026 retrospectivos y corpus de solo 2018/2022
+  obligan a mantener prior8 como candidato, no como modelo productivo.
+- Dixon-Coles no se promueve porque mejora empates/0-2 condicionados pero
+  degrada global y agrava la sobreprediccion de draws.

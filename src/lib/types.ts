@@ -21,6 +21,8 @@ export interface Match {
   status: MatchStatus;
   home_score: number | null;
   away_score: number | null;
+  // metadata runtime opcional; no requiere columna nueva en Supabase
+  neutralVenue?: boolean;
   // joins (opcionales, completados por la capa de datos)
   home_team?: Team;
   away_team?: Team;

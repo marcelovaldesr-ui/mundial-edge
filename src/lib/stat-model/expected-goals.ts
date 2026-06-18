@@ -1,7 +1,16 @@
 import type { Team, TeamStats } from "../types";
-import { expectedGoals as currentExpectedGoals } from "../model/expected-goals";
+import { expectedGoals as currentExpectedGoals, formFactor } from "../model/expected-goals";
 import type { WorldCupGroupContext } from "../world-cup/group-context";
-import { getTeamStrengthRating, neutralTeamStrengthRating, type TeamStrengthRating } from "./team-strength-ratings";
+import {
+  getAttackStrength,
+  getDefenseStrength,
+  getOverallStrength,
+  getTeamStrengthRating,
+  neutralTeamStrengthRating,
+  type TeamStrengthRating,
+} from "./team-strength-ratings";
+
+export type ExpectedGoalsRatingModel = "legacy_v1" | "attack_defense_v2";
 
 export interface StatExpectedGoalsInput {
   home: TeamStats;
@@ -10,6 +19,14 @@ export interface StatExpectedGoalsInput {
   awayTeam?: Team;
   leagueAvgGoals?: number;
   groupContext?: WorldCupGroupContext;
+  /** Ablation hook for offline evaluation. Production behavior defaults to true. */
+  useBaseRatings?: boolean;
+  /** Injectable rating snapshot for offline backtests. Production uses the current seed. */
+  ratingResolver?: (team: Team) => TeamStrengthRating | null;
+  neutralVenue?: boolean;
+  ratingModel?: ExpectedGoalsRatingModel;
+  /** Experimental Bayesian regularization for observed World Cup stats. Opt-in only. */
+  priorStrength?: number;
 }
 
 export interface StatExpectedGoalsResult {
@@ -25,18 +42,62 @@ export interface StatExpectedGoalsResult {
     awayStatsWeight: number;
   };
   assumptions: string[];
+  ratingModel: ExpectedGoalsRatingModel;
+  neutralVenue: boolean;
+  priorStrength: number | null;
 }
 
 export function estimateExpectedGoals(input: StatExpectedGoalsInput): StatExpectedGoalsResult {
   const leagueAvg = input.leagueAvgGoals ?? 1.35;
-  const { lambdaHome, lambdaAway } = currentExpectedGoals({
-    home: input.home,
-    away: input.away,
-    leagueAvgGoals: leagueAvg,
-  });
+  const neutralVenue = input.neutralVenue ?? false;
+  const ratingModel = input.ratingModel ?? "attack_defense_v2";
+  const rawObserved = ratingModel === "legacy_v1"
+    ? currentExpectedGoals({
+      home: input.home,
+      away: input.away,
+      leagueAvgGoals: leagueAvg,
+      homeAdvantage: neutralVenue ? 1 : 1.07,
+    })
+    : observedStatsExpectedGoals(input.home, input.away, leagueAvg, neutralVenue ? 1 : 1.07);
 
-  const homeRating = resolveRating(input.homeTeam);
-  const awayRating = resolveRating(input.awayTeam);
+  const useBaseRatings = input.useBaseRatings ?? true;
+  const homeRating = useBaseRatings ? resolveRating(input.homeTeam, input.ratingResolver) : null;
+  const awayRating = useBaseRatings ? resolveRating(input.awayTeam, input.ratingResolver) : null;
+  const priorStrength = validatePriorStrength(input.priorStrength);
+  const regularized = ratingModel === "attack_defense_v2" && priorStrength != null && homeRating && awayRating
+    ? bayesianObservedExpectedGoals({
+      home: input.home,
+      away: input.away,
+      homeRating,
+      awayRating,
+      leagueAvg,
+      homeAdvantage: neutralVenue ? 1 : 1.07,
+      priorStrength,
+    })
+    : rawObserved;
+  const { lambdaHome, lambdaAway } = regularized;
+  if (!useBaseRatings) {
+    return {
+      homeExpectedGoals: clamp(lambdaHome * contextModifier("home", input.groupContext), 0.2, 4.5),
+      awayExpectedGoals: clamp(lambdaAway * contextModifier("away", input.groupContext), 0.2, 4.5),
+      source: "team_stats_expected_goals_v1",
+      homeRating: null,
+      awayRating: null,
+      blend: {
+        homeRatingWeight: 0,
+        awayRatingWeight: 0,
+        homeStatsWeight: 1,
+        awayStatsWeight: 1,
+      },
+      assumptions: baseAssumptions([
+        "Ablation offline: ratings base desactivados.",
+        input.groupContext ? "Contexto de grupo conservado en la ablacion." : "Sin contexto de grupo aplicado.",
+      ]),
+      ratingModel,
+      neutralVenue,
+      priorStrength,
+    };
+  }
   if (!homeRating || !awayRating) {
     return {
       homeExpectedGoals: lambdaHome,
@@ -53,6 +114,9 @@ export function estimateExpectedGoals(input: StatExpectedGoalsInput): StatExpect
       assumptions: baseAssumptions([
         "Sin rating base completo para una o ambas selecciones; se usa el estimador por team_stats.",
       ]),
+      ratingModel,
+      neutralVenue,
+      priorStrength,
     };
   }
 
@@ -60,13 +124,15 @@ export function estimateExpectedGoals(input: StatExpectedGoalsInput): StatExpect
     own: homeRating,
     opponent: awayRating,
     leagueAvgGoals: leagueAvg,
-    homeAdvantage: 1.04,
+    homeAdvantage: neutralVenue ? 1 : 1.04,
+    model: ratingModel,
   });
   const ratingAway = ratingExpectedGoals({
     own: awayRating,
     opponent: homeRating,
     leagueAvgGoals: leagueAvg,
     homeAdvantage: 1,
+    model: ratingModel,
   });
   const homeRatingWeight = ratingWeight(input.home.matches_played, homeRating);
   const awayRatingWeight = ratingWeight(input.away.matches_played, awayRating);
@@ -105,12 +171,31 @@ export function estimateExpectedGoals(input: StatExpectedGoalsInput): StatExpect
       homeRating.source === "neutral_fallback" || awayRating.source === "neutral_fallback"
         ? "Sin rating específico para una selección; usando prior neutral."
         : "Rating base específico disponible para ambas selecciones.",
+      ratingModel === "attack_defense_v2"
+        ? priorStrength == null
+          ? "xG v2: ataque propio aumenta xG y defensa rival alta reduce concesion esperada."
+          : `xG v2.1 experimental: stats observadas regularizadas con priorStrength=${priorStrength}.`
+        : "Formula legacy v1 conservada para comparacion reproducible.",
+      neutralVenue ? "Sede neutral: no se aplica ventaja de localia." : "Sede no neutral: se conserva ventaja de localia.",
     ]),
+    ratingModel,
+    neutralVenue,
+    priorStrength,
   };
 }
 
-function resolveRating(team: Team | undefined): TeamStrengthRating | null {
+function validatePriorStrength(value: number | undefined): number | null {
+  if (value == null) return null;
+  if (![2, 4, 6, 8].includes(value)) throw new Error(`priorStrength must be one of 2, 4, 6 or 8; received ${value}.`);
+  return value;
+}
+
+function resolveRating(
+  team: Team | undefined,
+  ratingResolver?: (team: Team) => TeamStrengthRating | null
+): TeamStrengthRating | null {
   if (!team) return null;
+  if (ratingResolver) return ratingResolver(team);
   return getTeamStrengthRating(team.code) ?? neutralTeamStrengthRating(team.code, team.name);
 }
 
@@ -119,17 +204,86 @@ function ratingExpectedGoals(input: {
   opponent: TeamStrengthRating;
   leagueAvgGoals: number;
   homeAdvantage: number;
+  model: ExpectedGoalsRatingModel;
 }): number {
-  const attackFactor = 0.68 + input.own.attackRating / 100 * 0.64;
-  const defenseResistance = 1.32 - input.opponent.defenseRating / 100 * 0.64;
-  const overallTilt = 1 + clamp(input.own.overallRating - input.opponent.overallRating, -25, 25) / 180;
-  return clamp(input.leagueAvgGoals * attackFactor * defenseResistance * overallTilt * input.homeAdvantage, 0.2, 4.5);
+  if (input.model === "legacy_v1") {
+    const attackFactor = 0.68 + input.own.attackRating / 100 * 0.64;
+    const defenseResistance = 1.32 - input.opponent.defenseRating / 100 * 0.64;
+    const overallTilt = 1 + clamp(input.own.overallRating - input.opponent.overallRating, -25, 25) / 180;
+    return clamp(input.leagueAvgGoals * attackFactor * defenseResistance * overallTilt * input.homeAdvantage, 0.2, 4.5);
+  }
+
+  const attackFactor = clamp(1 + (getAttackStrength(input.own) - 75) / 100, 0.78, 1.25);
+  // Una defensa mayor representa mas resistencia y, por tanto, menos xG rival.
+  const defenseConcession = clamp(1 - (getDefenseStrength(input.opponent) - 75) / 100, 0.78, 1.25);
+  const overallTilt = 1 + clamp(getOverallStrength(input.own) - getOverallStrength(input.opponent), -25, 25) / 300;
+  return clamp(input.leagueAvgGoals * attackFactor * defenseConcession * overallTilt * input.homeAdvantage, 0.2, 4.5);
 }
 
 function ratingWeight(matchesPlayed: number, rating: TeamStrengthRating): number {
   if (rating.source === "neutral_fallback") return Math.max(0.15, 0.45 - matchesPlayed * 0.12);
   const base = rating.confidence === "medium" ? 0.68 : 0.55;
   return clamp(base - Math.min(matchesPlayed, 5) * 0.13, 0.12, base);
+}
+
+function observedStatsExpectedGoals(
+  home: TeamStats,
+  away: TeamStats,
+  leagueAvg: number,
+  homeAdvantage: number
+): { lambdaHome: number; lambdaAway: number } {
+  const homeFor = observedRate(home.gf_per_game, home.matches_played, leagueAvg);
+  const homeAgainst = observedRate(home.ga_per_game, home.matches_played, leagueAvg);
+  const awayFor = observedRate(away.gf_per_game, away.matches_played, leagueAvg);
+  const awayAgainst = observedRate(away.ga_per_game, away.matches_played, leagueAvg);
+  const homeAttack = homeFor / leagueAvg;
+  const homeDefense = homeAgainst / leagueAvg;
+  const awayAttack = awayFor / leagueAvg;
+  const awayDefense = awayAgainst / leagueAvg;
+  const gdHome = 1 + clamp(home.goal_diff, -15, 15) / 100;
+  const gdAway = 1 + clamp(away.goal_diff, -15, 15) / 100;
+  return {
+    lambdaHome: clamp(leagueAvg * homeAttack * awayDefense * formFactor(home.recent_form) * gdHome * homeAdvantage, 0.2, 4.5),
+    lambdaAway: clamp(leagueAvg * awayAttack * homeDefense * formFactor(away.recent_form) * gdAway, 0.2, 4.5),
+  };
+}
+
+function bayesianObservedExpectedGoals(input: {
+  home: TeamStats;
+  away: TeamStats;
+  homeRating: TeamStrengthRating;
+  awayRating: TeamStrengthRating;
+  leagueAvg: number;
+  homeAdvantage: number;
+  priorStrength: number;
+}): { lambdaHome: number; lambdaAway: number } {
+  const { home, away, homeRating, awayRating, leagueAvg, homeAdvantage, priorStrength } = input;
+  const homeAttackPrior = leagueAvg * clamp(1 + (getAttackStrength(homeRating) - 75) / 100, 0.78, 1.25);
+  const awayAttackPrior = leagueAvg * clamp(1 + (getAttackStrength(awayRating) - 75) / 100, 0.78, 1.25);
+  const homeDefensePrior = leagueAvg * clamp(1 - (getDefenseStrength(homeRating) - 75) / 100, 0.78, 1.25);
+  const awayDefensePrior = leagueAvg * clamp(1 - (getDefenseStrength(awayRating) - 75) / 100, 0.78, 1.25);
+  const homeFor = bayesianMetric(observedRate(home.gf_per_game, home.matches_played, leagueAvg), homeAttackPrior, home.matches_played, priorStrength);
+  const awayFor = bayesianMetric(observedRate(away.gf_per_game, away.matches_played, leagueAvg), awayAttackPrior, away.matches_played, priorStrength);
+  const homeAgainst = bayesianMetric(observedRate(home.ga_per_game, home.matches_played, leagueAvg), homeDefensePrior, home.matches_played, priorStrength);
+  const awayAgainst = bayesianMetric(observedRate(away.ga_per_game, away.matches_played, leagueAvg), awayDefensePrior, away.matches_played, priorStrength);
+  const rawHome = leagueAvg * (homeFor / leagueAvg) * (awayAgainst / leagueAvg) * formFactor(home.recent_form) * (1 + clamp(home.goal_diff, -15, 15) / 100) * homeAdvantage;
+  const rawAway = leagueAvg * (awayFor / leagueAvg) * (homeAgainst / leagueAvg) * formFactor(away.recent_form) * (1 + clamp(away.goal_diff, -15, 15) / 100);
+  const priorHome = ratingExpectedGoals({ own: homeRating, opponent: awayRating, leagueAvgGoals: leagueAvg, homeAdvantage, model: "attack_defense_v2" });
+  const priorAway = ratingExpectedGoals({ own: awayRating, opponent: homeRating, leagueAvgGoals: leagueAvg, homeAdvantage: 1, model: "attack_defense_v2" });
+  const sharedGames = Math.min(home.matches_played, away.matches_played);
+  return {
+    lambdaHome: clamp(bayesianMetric(rawHome, priorHome, sharedGames, priorStrength), 0.2, 4.5),
+    lambdaAway: clamp(bayesianMetric(rawAway, priorAway, sharedGames, priorStrength), 0.2, 4.5),
+  };
+}
+
+function bayesianMetric(observed: number, prior: number, gamesPlayed: number, priorStrength: number): number {
+  const weight = gamesPlayed / (gamesPlayed + priorStrength);
+  return weight * observed + (1 - weight) * prior;
+}
+
+function observedRate(rate: number, matchesPlayed: number, leagueAvg: number): number {
+  return matchesPlayed > 0 && Number.isFinite(rate) && rate >= 0 ? rate : leagueAvg;
 }
 
 function contextModifier(side: "home" | "away", context?: WorldCupGroupContext): number {

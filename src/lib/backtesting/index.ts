@@ -7,3 +7,5 @@ export * from "./calibration-diagnostic";
 export * from "./expanded-world-cup-diagnostic";
 export * from "./world-cup-fixtures";
 export * from "./xg-v2-diagnostic";
+export * from "./xg-distribution-diagnostic";
+export * from "./xg-v22-mismatch-diagnostic";

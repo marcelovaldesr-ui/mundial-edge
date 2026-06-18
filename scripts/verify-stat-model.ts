@@ -10,6 +10,7 @@ import { createScoreMatrix, getTopScorelines, poissonProbability, scoreMatrixTot
 import { applyDixonColesAdjustment } from "../src/lib/stat-model/dixon-coles";
 import { calculatePredictionConfidence, labelForScore } from "../src/lib/stat-model/confidence-score";
 import { getActiveStatModelVariant, resolveStatModelVariant } from "../src/lib/stat-model/model-variant";
+import { estimateExpectedGoals } from "../src/lib/stat-model/expected-goals";
 import {
   calibrateMarketProbability,
   calibrateOneXTwoProbabilities,
@@ -254,6 +255,13 @@ function matchPrediction() {
     calibration: "platt-blend-25",
   });
   assert("scoreMatrix" in conservativeCalibration && conservativeCalibration.calibrationMode === "platt-blend-25", "Conservative calibration must be selectable explicitly.");
+  const v22Calibrated = buildScoreMatrixForMatch(match, homeStats, awayStats, {
+    modelVariant: "xg-v2.2-mismatch-spread",
+    calibration: "platt-blend-25",
+  });
+  assert("scoreMatrix" in v22Calibrated && v22Calibrated.modelVariant === "xg-v2.2-mismatch-spread", "v2.2 must be selectable explicitly.");
+  assert("scoreMatrix" in v22Calibrated && v22Calibrated.expectedGoalsRatingModel === "attack_defense_v2_mismatch_spread", "v2.2 must route to its expected-goals implementation.");
+  assert("scoreMatrix" in v22Calibrated && v22Calibrated.calibrationMode === "platt-blend-25" && v22Calibrated.calibrationMetadata != null, "v2.2 must accept conservative calibration.");
 
   const matrices = buildScoreMatricesByMatchId([match], [homeStats, awayStats]);
   assert(matrices.scoreMatricesByMatchId.m1, "Expected score matrix keyed by match id");
@@ -276,6 +284,31 @@ function matchPrediction() {
   assert(secondMatrix.homeExpectedGoals === twoMatches.predictions.find((row) => row.matchId === "m2")!.homeExpectedGoals, "Matrix m2 must use its prediction lambda.");
 }
 
+function mismatchSpreadExperiment() {
+  const empty = (team_id: string): TeamStats => ({
+    team_id, matches_played: 0, goals_for: 0, goals_against: 0, goal_diff: 0,
+    recent_form: [], gf_per_game: 0, ga_per_game: 0,
+  });
+  const common = {
+    home: empty("bra"),
+    away: empty("hai"),
+    homeTeam: { id: "bra", name: "Brazil", code: "BRA", group: null },
+    awayTeam: { id: "hai", name: "Haiti", code: "HAI", group: null },
+    neutralVenue: true,
+    priorStrength: 8,
+  } as const;
+  const prior8 = estimateExpectedGoals({ ...common, ratingModel: "attack_defense_v2" });
+  const experimental = estimateExpectedGoals({ ...common, ratingModel: "attack_defense_v2_mismatch_spread" });
+  assert(experimental.ratingModel === "attack_defense_v2_mismatch_spread", "v2.2 must remain explicitly experimental.");
+  assert(experimental.diagnostic.home.ratingBlendWeight === 0 && experimental.diagnostic.away.ratingBlendWeight === 0, "v2.2 must remove the redundant outer rating blend.");
+  near(experimental.diagnostic.home.experimentalMismatchAdjustment + experimental.diagnostic.away.experimentalMismatchAdjustment, 0, 0.000000001);
+  near(experimental.homeExpectedGoals + experimental.awayExpectedGoals, prior8.homeExpectedGoals + prior8.awayExpectedGoals, 0.000000001);
+  assert(Math.abs(experimental.homeExpectedGoals - experimental.awayExpectedGoals) > Math.abs(prior8.homeExpectedGoals - prior8.awayExpectedGoals), "v2.2 must increase lambda separation for a clear mismatch.");
+  assert([experimental.homeExpectedGoals, experimental.awayExpectedGoals].every((value) => value >= 0.2 && value <= 4.5), "v2.2 must preserve xG guardrails.");
+  const registered = resolveStatModelVariant("xg-v2.2-mismatch-spread");
+  assert(registered.id === "xg-v2.2-mismatch-spread" && registered.status === "candidate" && !registered.recommended, "v2.2 must resolve as a non-recommended candidate.");
+}
+
 poisson();
 matrixAndMarkets();
 topScorelines();
@@ -284,5 +317,6 @@ predicatesAndJoint();
 calibration();
 confidenceScore();
 matchPrediction();
+mismatchSpreadExperiment();
 
 console.log("Stat model verification passed");

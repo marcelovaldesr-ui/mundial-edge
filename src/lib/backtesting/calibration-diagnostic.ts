@@ -24,6 +24,8 @@ export type CalibrationDiagnosticVariant =
   | "legacy-neutral calibrated"
   | "prior8 raw"
   | "prior8 Platt full"
+  | "v2.2 raw"
+  | "v2.2 + platt-blend-25 (prior8 preset)"
   | "platt-blend-25"
   | "platt-blend-50"
   | "platt-blend-75"
@@ -94,7 +96,7 @@ export interface CalibrationDiagnostic {
   tournaments: number[];
   presetStatus: "experimental/manual-full-corpus-fit";
   fullCorpusFits: { prior8: MarketCalibrationSet; legacy: MarketCalibrationSet };
-  /** Primary comparison: calibrated rows are strictly out-of-fold. */
+  /** Primary Legacy/prior8 comparison is out-of-fold; v2.2 preset reuse is explicitly exploratory. */
   variants: CalibrationDiagnosticRow[];
   segments: CalibrationSegmentResult[];
   leaveOneWorldCupOut: LeaveOneWorldCupOutResult[];
@@ -169,7 +171,8 @@ export function fitOneXTwoPlattCalibration(rows: WorldCupBacktestPrediction[]): 
 export function diagnoseCalibration(report: WorldCupBacktestReport): CalibrationDiagnostic {
   const legacyRows = report.predictions.filter((row) => row.variant === "legacy-neutral");
   const prior8Rows = report.predictions.filter((row) => row.variant === "xg-v2.1-prior8");
-  if (!legacyRows.length || !prior8Rows.length) throw new Error("Calibration diagnostic requires Legacy and prior8 predictions.");
+  const v22Rows = report.predictions.filter((row) => row.variant === "xg-v2.2-mismatch-spread");
+  if (!legacyRows.length || !prior8Rows.length || !v22Rows.length) throw new Error("Calibration diagnostic requires Legacy, prior8 and v2.2 predictions.");
 
   const prior8Loocv = buildLoocv(prior8Rows, report.tournaments);
   const legacyLoocv = buildLoocv(legacyRows, report.tournaments);
@@ -178,11 +181,19 @@ export function diagnoseCalibration(report: WorldCupBacktestReport): Calibration
   const blend75 = applyLoocvStrategy(prior8Loocv, { type: "blend", blend: 0.75 });
   const favoriteCap65 = applyLoocvStrategy(prior8Loocv, { type: "raw-top-threshold", threshold: 0.65 });
   const favoriteMaxBoost08 = applyLoocvStrategy(prior8Loocv, { type: "favorite-max-boost", maxBoost: 0.08 });
+  const v22Raw = v22Rows.map(toDiagnosticPrediction);
+  const v22Blend25 = v22Rows.map((row) => calibratePrediction(
+    row,
+    XG_V21_PRIOR8_EXPERIMENTAL_PLATT_PRESET.calibration,
+    { type: "blend", blend: 0.25 }
+  ));
   const variantPredictions: Record<CalibrationDiagnosticVariant, DiagnosticPrediction[]> = {
     "legacy-neutral raw": legacyLoocv.raw,
     "legacy-neutral calibrated": legacyLoocv.calibrated,
     "prior8 raw": prior8Loocv.raw,
     "prior8 Platt full": prior8Loocv.calibrated,
+    "v2.2 raw": v22Raw,
+    "v2.2 + platt-blend-25 (prior8 preset)": v22Blend25,
     "platt-blend-25": blend25,
     "platt-blend-50": blend50,
     "platt-blend-75": blend75,
@@ -210,7 +221,7 @@ export function diagnoseCalibration(report: WorldCupBacktestReport): Calibration
       },
     };
   });
-  const calibratedRows = [...prior8Loocv.calibrated, ...legacyLoocv.calibrated];
+  const calibratedRows = [...prior8Loocv.calibrated, ...legacyLoocv.calibrated, ...v22Blend25];
   const reliabilityDiagram = variants.map((row) => ({
     variant: row.variant,
     buckets: row.buckets.map((bucket) => ({
@@ -266,6 +277,8 @@ Conclusion: el ajuste Platt LOOWC no usa resultados del Mundial excluido. Esto e
 ## Comparacion global fuera de muestra
 
 ${metricTable(diagnostic.variants)}
+
+Las filas Legacy/prior8 calibradas son LOOWC. La fila **v2.2 + platt-blend-25 (prior8 preset)** es exploratoria: reutiliza el preset conservador vigente, entrenado sobre prior8, y por tanto no demuestra calibracion propia ni independencia out-of-sample para v2.2.
 
 Prior8 LOOWC: Brier ${num(prior8.raw.brierScore)} -> ${num(prior8.calibrated.brierScore)}, Log Loss ${num(prior8.raw.logLoss)} -> ${num(prior8.calibrated.logLoss)}, RPS ${num(prior8.raw.rankedProbabilityScore)} -> ${num(prior8.calibrated.rankedProbabilityScore)}, Accuracy ${pct(prior8.raw.accuracy)} -> ${pct(prior8.calibrated.accuracy)}.
 

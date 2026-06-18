@@ -65,9 +65,9 @@ export function resolvePredictionConfig(input?: PredictionConfigInput): Predicti
     warnings.push(`calibration=${String(requestedCalibration)} no es valida; se uso ${calibration.id}.`);
   }
 
-  const effectiveCalibration = variant.id === "xg-v2.1-prior8" ? calibration.id : "none";
+  const effectiveCalibration = variant.calibrationEligible ? calibration.id : "none";
   if (calibration.id !== effectiveCalibration) {
-    warnings.push(`calibration=${calibration.id} solo aplica a xg-v2.1-prior8; se uso none.`);
+    warnings.push(`calibration=${calibration.id} no aplica a modelVariant=${variant.id}; se uso none.`);
   }
   if (variant.notRecommended) {
     warnings.push(`modelVariant=${variant.id} es experimental y no es el modelo recomendado.`);

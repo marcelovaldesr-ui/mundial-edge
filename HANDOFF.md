@@ -1830,3 +1830,147 @@ Con datos actuales, varios partidos usan priors similares por baja muestra:
 - Próximo paso: implementar el mapping oficial de bracket para las combinaciones
   de ocho terceros clasificados y enriquecer desempates cuando haya tarjetas o
   metadata FIFA disponible.
+
+---
+
+## ACTUALIZACION - auditoria de distribucion xG (sin retuning)
+
+### Alcance y artefactos
+- `scripts/diagnose-xg-distribution.ts` carga la fuente 2026 configurada
+  (`supabase-live` cuando `DATA_MODE=live`, mock como fallback), construye el
+  modelo recomendado y reproduce el backtest completo 1998-2022 con
+  `xg-v2.1-prior8`. El comando es `npm run diagnose:xg-distribution`.
+- `src/lib/backtesting/xg-distribution-diagnostic.ts` genera filas por partido,
+  resumen global, buckets de `ratingDiff`, top 5 scorelines y warnings
+  automáticos. El resultado queda en
+  `reports/xg-distribution-diagnostic.md`.
+- `estimateExpectedGoals()` expone metadata diagnóstica runtime, no persistida:
+  componente rating, stats raw, stats regularizadas, promedio de torneo,
+  pesos Bayes/blend, contexto, xG final y caps activados. No hubo cambios de
+  schema, mercados ni parámetros del modelo.
+
+### Hallazgos reproducidos el 2026-06-18
+- Universo efectivo: 48 partidos pre-match 2026 con matriz de 72 filas live
+  disponibles, más 448 partidos históricos (7 Mundiales). No hubo issues de
+  construcción de matrices.
+- 2026: home xG medio 1.401, away 1.382, total 2.783, `abs(xgDiff)` medio 0.277;
+  58.3% queda bajo 0.25 y 85.4% bajo 0.50. El favorito queda bajo 1.7 xG en
+  87.5% y el underdog supera 1.0 xG en 100%.
+- Histórico: `abs(xgDiff)` medio 0.296; 83.9% queda bajo 0.50. El underdog
+  supera 1.0 xG en 99.6%.
+- El modal es 1-1 en 100% de 2026 y 99.6% del histórico. Es un efecto
+  estructural: casi ambos lambdas permanecen en [1, 2), cuyo modo marginal
+  Poisson es 1. No significa que el empate sea necesariamente el outcome 1X2
+  más probable.
+- En BRA-HAI se reproduce xG 1.638-1.127, favorito calibrado 54.9% y modal 1-1.
+  Haiti usa `neutral_fallback=74`; 16/48 partidos 2026 usan al menos un fallback.
+- El prior8 da peso observado compartido `games/(games+8)`: tras un partido es
+  11.1%. Ese componente regularizado hacia rating se mezcla después otra vez
+  con el rating (`ratingWeight` típico 0.55 para seed con un partido), por lo
+  que la señal observada efectiva puede quedar cerca de 5%. Esta doble
+  atracción al prior es una explicación plausible de la compresión; no se
+  modificó todavía.
+- Por bucket 2026, el xGDiff favorito medio crece de 0.084 (0-5) a 0.815 (20+),
+  pero incluso el único 20+ mantiene al underdog en 1.044 y modal 1-1.
+
+### Coherencia 1X2 / score matrix y warnings
+- Confirmado en código: la matriz se crea con los xG finales raw. Después
+  `platt-blend-25` reemplaza sólo `home_win`, `draw` y `away_win` en
+  `marketProbabilities`; no existen lambdas calibrados y los scorelines no se
+  recalculan. Por eso la UI puede mostrar favorito >50% junto a modal raw 1-1.
+- Umbrales documentados: mismatch `ratingDiff >= 15`; `compressionWarning` si
+  xGDiff favorito <0.50; `underdogInflationWarning` si underdog xG >1.10;
+  `modalScoreWarning` si modal 1-1 y favorito >50%.
+- Conteos combinados: 1 compression, 13 underdog inflation y 168 modal score.
+  Son señales diagnósticas para futuras ablaciones, no ajustes aplicados.
+
+---
+
+## ACTUALIZACION - experimento xG v2.2 mismatch spread
+
+### Causa y cambio aislado
+- La doble atracción estaba dentro de `estimateExpectedGoals`: primero
+  `bayesianObservedExpectedGoals` regulariza ataque, defensa y lambda derivado
+  contra el prior de rating; después el resultado ya regularizado volvía a
+  mezclarse con `ratingExpectedGoals` mediante `ratingWeight`.
+- `attack_defense_v2_mismatch_spread` conserva `priorStrength=8` y elimina sólo
+  ese segundo blend. La implementación matemática nueva vive en
+  `src/lib/stat-model/expected-goals.ts`; el resto es plumbing de backtest y
+  diagnóstico. No se agregó a `StatModelVariant`, por lo que no se puede activar
+  como modelo productivo y los defaults siguen intactos.
+- El spread transfiere xG del underdog al favorito sin sumar goles: 0 hasta
+  ratingDiff 10; 0.012/punto entre 10-15; 0.018/punto entre 15-20;
+  0.025/punto sobre 20; cap 0.30. Respeta xG [0.2, 4.5].
+
+### Backtest 1998-2022
+- Reporte: `reports/xg-v2.2-mismatch-diagnostic.md`, generado por
+  `npm run diagnose:xg-v2.2-mismatch`. Compara Legacy, prior8 y v2.2 en 448
+  partidos y no reutiliza calibración Platt: el 1X2 raw aísla el cambio de
+  lambdas.
+- Resultado automático: **CANDIDATE**. Contra prior8, Brier mejora 0.0067
+  (0.6000 -> 0.5933), Log Loss mejora 0.0090 (1.0075 -> 0.9984), RPS mejora
+  0.0031 (0.2024 -> 0.1993) y Accuracy baja 0.4 pp (56.0% -> 55.6%).
+- Pasa los tres guardrails: delta Brier <= +0.005, delta Log Loss <= +0.01 y
+  caída de Accuracy menor a 1 pp. No es PROMOTE porque Accuracy no mejora.
+- `abs(xgDiff)` medio sube 0.2959 -> 0.3372 y modal 1-1 baja 99.6% -> 92.4%.
+  En favoritos claros, el modal 1-1 baja 98.7% -> 78.2%, Brier mejora
+  0.5024 -> 0.4843 y Accuracy se mantiene 75.0%.
+- Tradeoff visible: en los 35 upsets reales Brier empeora 0.7778 -> 0.8038;
+  en 120 empates empeora levemente 0.8421 -> 0.8454. Esto justifica mantener la
+  variante como candidate experimental.
+
+### Casos 2026
+- BRA-HAI: 1.638-1.127 -> 1.700-1.040; xGDiff 0.511 -> 0.661. El modal aún es
+  1-1, aunque 1-0 se acerca.
+- ARG-NZL (control sin fixture pre-match): 1.833-0.993 -> 2.112-0.742; modal
+  1-0 -> 2-0.
+- FRA-UND (control France-Jordan): 1.873-1.010 -> 2.161-0.752; modal 1-1 -> 2-0.
+- FRA-IRQ live: 1.731-1.112 -> 1.895-0.991; modal 1-1 -> 1-0.
+- Los deltas de total en casos live no son exactamente cero porque eliminar el
+  segundo blend cambia el punto de partida; la transferencia mismatch en sí es
+  exactamente simétrica. Los totales se mantienen aproximadamente en 2.7-2.9.
+
+### Recomendacion
+- Mantener **CANDIDATE**, sin UI, sin default y sin promoción. Siguiente paso si
+  se autoriza: evaluación out-of-sample/recalibración propia de v2.2 y ablación
+  separada (`sin segundo blend` vs `spread`) para atribuir la mejora.
+
+---
+
+## ACTUALIZACION - v2.2 registrada como candidate configurable
+
+### Registro y defaults
+- `xg-v2.2-mismatch-spread` ya pertenece a `StatModelVariant` con
+  `status=candidate`, `recommended=false`, `notRecommended=false`,
+  `priorStrength=8` y `calibrationEligible=true`.
+- Puede activarse con
+  `STAT_MODEL_VARIANT=xg-v2.2-mismatch-spread`. También acepta
+  `STAT_MODEL_CALIBRATION=platt-blend-25`; `prediction-config`, predicción por
+  partido y simulación de grupos usan la misma metadata de elegibilidad.
+- No cambiaron los contratos por defecto: global sigue en
+  `legacy-neutral + none`; `recommended` sigue en
+  `xg-v2.1-prior8 + platt-blend-25`. v2.2 no está recommended ni se muestra en UI.
+- `scripts/verify-model-variants.ts` / `npm run verify:model-variants` valida
+  resolución de Legacy, prior8, v2.2, Dixon-Coles, fallback inválido, defaults,
+  recommended y la combinación v2.2 + blend-25.
+
+### Diagnósticos configurables y calibración
+- `npm run diagnose:xg-distribution` usa recommended si no hay flags. Con los
+  dos flags anteriores evalúa v2.2 + blend-25 tanto sobre 2026 como sobre el
+  backtest histórico. En esa ejecución: abs(xgDiff) 2026 = 0.329, modal 1-1 =
+  91.7%, `compressionWarning` = 0 e `underdogInflationWarning` = 1.
+- La auditoría de calibración incorpora una comparación exploratoria del preset
+  prior8 aplicado a v2.2: raw Brier/LogLoss/RPS/Accuracy
+  0.5933/0.9984/0.1993/55.6% frente a blend-25
+  0.5730/0.9685/0.1902/56.7%.
+- Esa comparación no es una calibración propia ni LOOWC de v2.2: reutiliza el
+  fit global construido para prior8. Mejora el agregado, pero agrava los 35
+  upsets (Brier 0.8038 -> 0.9041), por lo que no justifica promoción.
+
+### Cuándo usarla y próximo paso
+- Usar v2.2 sólo para staging, diagnósticos y comparaciones controladas cuando
+  interese reducir compresión en mismatches. No asumir que el preset prior8 es
+  óptimo para ella.
+- Próximo paso: comparar out-of-sample v2.2 + calibración conservadora propia
+  contra v2.1 + blend-25, incluyendo upsets, empates y estabilidad por Mundial,
+  antes de considerar cambiar `recommended`.

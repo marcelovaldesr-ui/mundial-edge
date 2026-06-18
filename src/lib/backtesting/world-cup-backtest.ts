@@ -1,4 +1,4 @@
-import { estimateExpectedGoals, type ExpectedGoalsRatingModel } from "../stat-model/expected-goals";
+import { estimateExpectedGoals, type ExpectedGoalsDiagnosticBreakdown, type ExpectedGoalsRatingModel } from "../stat-model/expected-goals";
 import { applyDixonColesAdjustment, type DixonColesRho } from "../stat-model/dixon-coles";
 import { calculatePredictionConfidence, type PredictionConfidenceLabel } from "../stat-model/confidence-score";
 import { probabilityForSelection } from "../stat-model/market-probabilities";
@@ -27,6 +27,7 @@ export type BacktestVariant =
   | "xg-v2.1-prior4"
   | "xg-v2.1-prior6"
   | "xg-v2.1-prior8"
+  | "xg-v2.2-mismatch-spread"
   | "legacy-neutral-dc-rho-0.15"
   | "legacy-neutral-dc-rho-0.10"
   | "legacy-neutral-dc-rho-0.05"
@@ -88,6 +89,7 @@ export interface WorldCupBacktestPrediction {
   homeGoalsAgainstBefore: number;
   awayGoalsForBefore: number;
   awayGoalsAgainstBefore: number;
+  expectedGoalsDiagnostic?: ExpectedGoalsDiagnosticBreakdown;
 }
 
 export interface MulticlassMetrics {
@@ -142,6 +144,7 @@ export const BACKTEST_VARIANTS: BacktestVariant[] = [
   "xg-v2.1-prior4",
   "xg-v2.1-prior6",
   "xg-v2.1-prior8",
+  "xg-v2.2-mismatch-spread",
   "legacy-neutral-dc-rho-0.15",
   "legacy-neutral-dc-rho-0.10",
   "legacy-neutral-dc-rho-0.05",
@@ -369,6 +372,7 @@ function evaluateTournament(
       homeGoalsAgainstBefore: homeStats.goals_against,
       awayGoalsForBefore: awayStats.goals_for,
       awayGoalsAgainstBefore: awayStats.goals_against,
+      expectedGoalsDiagnostic: xg.diagnostic,
     });
     updateStats(stats, fixture);
     match.status = "finished";
@@ -391,6 +395,15 @@ function variantConfig(variant: BacktestVariant): {
   }
   if (variant === "xg-v2") {
     return { useNeutralVenue: true, useGroupContext: true, ratingModel: "attack_defense_v2", priorStrength: null, dixonColesRho: null };
+  }
+  if (variant === "xg-v2.2-mismatch-spread") {
+    return {
+      useNeutralVenue: true,
+      useGroupContext: true,
+      ratingModel: "attack_defense_v2_mismatch_spread",
+      priorStrength: 8,
+      dixonColesRho: null,
+    };
   }
   const priorStrength = variant.includes("prior8") ? 8 : Number(variant.slice("xg-v2.1-prior".length));
   return { useNeutralVenue: true, useGroupContext: true, ratingModel: "attack_defense_v2", priorStrength, dixonColesRho };

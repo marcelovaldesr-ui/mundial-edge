@@ -20,11 +20,15 @@ Conclusion: el ajuste Platt LOOWC no usa resultados del Mundial excluido. Esto e
 | legacy-neutral calibrated | 448 | 0.6336 | 1.0539 | 0.2183 | 46.9% | 26.8% | 26.8% | 42.2% | 55.9% |
 | prior8 raw | 448 | 0.6000 | 1.0075 | 0.2024 | 56.0% | 25.2% | 26.8% | 44.2% | 55.9% |
 | prior8 Platt full | 448 | 0.5535 | 0.9374 | 0.1811 | 54.7% | 26.7% | 26.8% | 56.2% | 55.9% |
+| v2.2 raw | 448 | 0.5933 | 0.9984 | 0.1993 | 55.6% | 25.1% | 26.8% | 45.1% | 55.9% |
+| v2.2 + platt-blend-25 (prior8 preset) | 448 | 0.5730 | 0.9685 | 0.1902 | 56.7% | 25.2% | 26.8% | 48.3% | 55.9% |
 | platt-blend-25 | 448 | 0.5792 | 0.9774 | 0.1929 | 56.9% | 25.6% | 26.8% | 47.2% | 55.9% |
 | platt-blend-50 | 448 | 0.5646 | 0.9546 | 0.1862 | 56.7% | 25.9% | 26.8% | 50.2% | 55.9% |
 | platt-blend-75 | 448 | 0.5560 | 0.9399 | 0.1823 | 56.0% | 26.3% | 26.8% | 53.2% | 55.9% |
 | favorite-cap-65 | 448 | 0.5535 | 0.9374 | 0.1811 | 54.7% | 26.7% | 26.8% | 56.2% | 55.9% |
 | favorite-max-boost-08 | 448 | 0.5706 | 0.9595 | 0.1864 | 54.7% | 31.1% | 26.8% | 49.7% | 55.9% |
+
+Las filas Legacy/prior8 calibradas son LOOWC. La fila **v2.2 + platt-blend-25 (prior8 preset)** es exploratoria: reutiliza el preset conservador vigente, entrenado sobre prior8, y por tanto no demuestra calibracion propia ni independencia out-of-sample para v2.2.
 
 Prior8 LOOWC: Brier 0.6000 -> 0.5535, Log Loss 1.0075 -> 0.9374, RPS 0.2024 -> 0.1811, Accuracy 56.0% -> 54.7%.
 
@@ -61,6 +65,8 @@ Definiciones: favorito claro = diferencia absoluta de rating >= 5; upset = gana 
 | CLEAR_FAVORITES | legacy-neutral calibrated | 301 | 0.6013 | 1.0073 | 0.2078 | 55.1% |
 | CLEAR_FAVORITES | prior8 raw | 301 | 0.5677 | 0.9625 | 0.1926 | 64.1% |
 | CLEAR_FAVORITES | prior8 Platt full | 301 | 0.5029 | 0.8675 | 0.1627 | 63.8% |
+| CLEAR_FAVORITES | v2.2 raw | 301 | 0.5576 | 0.9490 | 0.1879 | 63.8% |
+| CLEAR_FAVORITES | v2.2 + platt-blend-25 (prior8 preset) | 301 | 0.5298 | 0.9084 | 0.1753 | 64.1% |
 | CLEAR_FAVORITES | platt-blend-25 | 301 | 0.5394 | 0.9221 | 0.1794 | 64.1% |
 | CLEAR_FAVORITES | platt-blend-50 | 301 | 0.5191 | 0.8911 | 0.1700 | 64.1% |
 | CLEAR_FAVORITES | platt-blend-75 | 301 | 0.5070 | 0.8709 | 0.1645 | 64.1% |
@@ -70,6 +76,8 @@ Definiciones: favorito claro = diferencia absoluta de rating >= 5; upset = gana 
 | UPSETS | legacy-neutral calibrated | 35 | 0.7898 | 1.2903 | 0.3587 | 17.1% |
 | UPSETS | prior8 raw | 35 | 0.7778 | 1.2398 | 0.3574 | 0.0% |
 | UPSETS | prior8 Platt full | 35 | 1.2184 | 2.1537 | 0.5762 | 0.0% |
+| UPSETS | v2.2 raw | 35 | 0.8038 | 1.2820 | 0.3709 | 0.0% |
+| UPSETS | v2.2 + platt-blend-25 (prior8 preset) | 35 | 0.9041 | 1.4392 | 0.4214 | 0.0% |
 | UPSETS | platt-blend-25 | 35 | 0.8767 | 1.3928 | 0.4067 | 0.0% |
 | UPSETS | platt-blend-50 | 35 | 0.9831 | 1.5771 | 0.4596 | 0.0% |
 | UPSETS | platt-blend-75 | 35 | 1.0970 | 1.8119 | 0.5161 | 0.0% |
@@ -79,6 +87,8 @@ Definiciones: favorito claro = diferencia absoluta de rating >= 5; upset = gana 
 | DRAWS | legacy-neutral calibrated | 120 | 0.8302 | 1.3240 | 0.1467 | 0.8% |
 | DRAWS | prior8 raw | 120 | 0.8421 | 1.3686 | 0.1432 | 0.0% |
 | DRAWS | prior8 Platt full | 120 | 0.8447 | 1.2784 | 0.1652 | 4.2% |
+| DRAWS | v2.2 raw | 120 | 0.8454 | 1.3712 | 0.1443 | 0.0% |
+| DRAWS | v2.2 + platt-blend-25 (prior8 preset) | 120 | 0.8413 | 1.3467 | 0.1475 | 0.0% |
 | DRAWS | platt-blend-25 | 120 | 0.8356 | 1.3413 | 0.1455 | 0.0% |
 | DRAWS | platt-blend-50 | 120 | 0.8339 | 1.3171 | 0.1499 | 1.7% |
 | DRAWS | platt-blend-75 | 120 | 0.8369 | 1.2961 | 0.1565 | 1.7% |
@@ -88,6 +98,8 @@ Definiciones: favorito claro = diferencia absoluta de rating >= 5; upset = gana 
 | GROUP | legacy-neutral calibrated | 336 | 0.6343 | 1.0547 | 0.2235 | 48.5% |
 | GROUP | prior8 raw | 336 | 0.5914 | 0.9951 | 0.2033 | 57.4% |
 | GROUP | prior8 Platt full | 336 | 0.5412 | 0.9259 | 0.1809 | 56.8% |
+| GROUP | v2.2 raw | 336 | 0.5836 | 0.9848 | 0.1998 | 57.1% |
+| GROUP | v2.2 + platt-blend-25 (prior8 preset) | 336 | 0.5620 | 0.9536 | 0.1902 | 58.0% |
 | GROUP | platt-blend-25 | 336 | 0.5693 | 0.9639 | 0.1933 | 57.7% |
 | GROUP | platt-blend-50 | 336 | 0.5536 | 0.9405 | 0.1862 | 57.7% |
 | GROUP | platt-blend-75 | 336 | 0.5443 | 0.9261 | 0.1821 | 57.7% |
@@ -97,6 +109,8 @@ Definiciones: favorito claro = diferencia absoluta de rating >= 5; upset = gana 
 | KNOCKOUT | legacy-neutral calibrated | 112 | 0.6315 | 1.0518 | 0.2026 | 42.0% |
 | KNOCKOUT | prior8 raw | 112 | 0.6259 | 1.0445 | 0.1996 | 51.8% |
 | KNOCKOUT | prior8 Platt full | 112 | 0.5902 | 0.9718 | 0.1816 | 48.2% |
+| KNOCKOUT | v2.2 raw | 112 | 0.6223 | 1.0393 | 0.1978 | 50.9% |
+| KNOCKOUT | v2.2 + platt-blend-25 (prior8 preset) | 112 | 0.6059 | 1.0131 | 0.1902 | 52.7% |
 | KNOCKOUT | platt-blend-25 | 112 | 0.6090 | 1.0178 | 0.1918 | 54.5% |
 | KNOCKOUT | platt-blend-50 | 112 | 0.5974 | 0.9967 | 0.1862 | 53.6% |
 | KNOCKOUT | platt-blend-75 | 112 | 0.5911 | 0.9812 | 0.1828 | 50.9% |
@@ -106,6 +120,8 @@ Definiciones: favorito claro = diferencia absoluta de rating >= 5; upset = gana 
 | LOW_GOALS_0_2 | legacy-neutral calibrated | 243 | 0.6708 | 1.1043 | 0.2078 | 38.3% |
 | LOW_GOALS_0_2 | prior8 raw | 243 | 0.6473 | 1.0770 | 0.1947 | 46.1% |
 | LOW_GOALS_0_2 | prior8 Platt full | 243 | 0.6199 | 1.0225 | 0.1856 | 46.5% |
+| LOW_GOALS_0_2 | v2.2 raw | 243 | 0.6440 | 1.0721 | 0.1931 | 45.7% |
+| LOW_GOALS_0_2 | v2.2 + platt-blend-25 (prior8 preset) | 243 | 0.6292 | 1.0470 | 0.1873 | 47.3% |
 | LOW_GOALS_0_2 | platt-blend-25 | 243 | 0.6317 | 1.0511 | 0.1884 | 48.1% |
 | LOW_GOALS_0_2 | platt-blend-50 | 243 | 0.6219 | 1.0320 | 0.1848 | 48.6% |
 | LOW_GOALS_0_2 | platt-blend-75 | 243 | 0.6180 | 1.0210 | 0.1838 | 48.1% |
@@ -189,6 +205,26 @@ Cada partido aporta tres observaciones binarias (home/draw/away). El JSON machin
 | prior8 Platt full | 70-80% | 59 | 74.6% | 79.7% |
 | prior8 Platt full | 80-90% | 27 | 83.4% | 85.2% |
 | prior8 Platt full | 90-100% | 1 | 92.3% | 100.0% |
+| v2.2 raw | 0-10% | 0 | - | - |
+| v2.2 raw | 10-20% | 29 | 17.8% | 10.3% |
+| v2.2 raw | 20-30% | 624 | 25.5% | 22.4% |
+| v2.2 raw | 30-40% | 348 | 35.1% | 27.9% |
+| v2.2 raw | 40-50% | 258 | 44.3% | 54.7% |
+| v2.2 raw | 50-60% | 73 | 54.0% | 76.7% |
+| v2.2 raw | 60-70% | 11 | 62.9% | 90.9% |
+| v2.2 raw | 70-80% | 1 | 70.0% | 100.0% |
+| v2.2 raw | 80-90% | 0 | - | - |
+| v2.2 raw | 90-100% | 0 | - | - |
+| v2.2 + platt-blend-25 (prior8 preset) | 0-10% | 2 | 9.1% | 0.0% |
+| v2.2 + platt-blend-25 (prior8 preset) | 10-20% | 104 | 17.2% | 5.8% |
+| v2.2 + platt-blend-25 (prior8 preset) | 20-30% | 629 | 25.5% | 22.9% |
+| v2.2 + platt-blend-25 (prior8 preset) | 30-40% | 243 | 34.6% | 34.2% |
+| v2.2 + platt-blend-25 (prior8 preset) | 40-50% | 200 | 44.7% | 47.5% |
+| v2.2 + platt-blend-25 (prior8 preset) | 50-60% | 114 | 54.1% | 66.7% |
+| v2.2 + platt-blend-25 (prior8 preset) | 60-70% | 45 | 64.4% | 84.4% |
+| v2.2 + platt-blend-25 (prior8 preset) | 70-80% | 7 | 73.4% | 85.7% |
+| v2.2 + platt-blend-25 (prior8 preset) | 80-90% | 0 | - | - |
+| v2.2 + platt-blend-25 (prior8 preset) | 90-100% | 0 | - | - |
 | platt-blend-25 | 0-10% | 0 | - | - |
 | platt-blend-25 | 10-20% | 48 | 18.6% | 10.4% |
 | platt-blend-25 | 20-30% | 687 | 25.5% | 21.3% |

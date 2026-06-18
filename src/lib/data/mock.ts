@@ -1,4 +1,4 @@
-import type { Team, Match, TeamStats, Odd } from "@/lib/types";
+import type { Team, Match, TeamStats, Odd } from "../types";
 
 // ─── Dataset mock (datos ilustrativos, NO oficiales) ─────────────
 // Fechas ancladas al periodo del Mundial 2026 para una demo coherente.

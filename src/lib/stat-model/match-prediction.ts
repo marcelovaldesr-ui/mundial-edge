@@ -1,7 +1,7 @@
 import type { Match, TeamStats } from "../types";
 import { filterPreMatchMatches } from "../matches/pre-match-eligibility";
 import { estimateExpectedGoals } from "./expected-goals";
-import type { ExpectedGoalsRatingModel } from "./expected-goals";
+import type { ExpectedGoalsDiagnosticBreakdown, ExpectedGoalsRatingModel } from "./expected-goals";
 import { deriveMarketProbabilities } from "./market-probabilities";
 import type { ModelMarketProbability } from "./market-types";
 import { createScoreMatrix, type ScoreMatrix } from "./score-matrix";
@@ -40,6 +40,7 @@ export interface MatchStatModelPrediction {
     homeStatsWeight: number;
     awayStatsWeight: number;
   };
+  expectedGoalsDiagnostic: ExpectedGoalsDiagnosticBreakdown;
   homeRating: TeamStrengthRating | null;
   awayRating: TeamStrengthRating | null;
   groupContext?: WorldCupGroupContext;
@@ -105,7 +106,12 @@ export function buildScoreMatrixForMatch(
   const groupContext = options.groupContext ?? (options.allMatches ? getWorldCupGroupContext(match, options.allMatches) : undefined);
   const config = options.modelVariant != null || options.calibration != null
     ? resolvePredictionConfig({ modelVariant: options.modelVariant, calibration: options.calibration })
-    : resolvePredictionConfig(options.predictionConfig);
+    : options.predictionConfig != null
+      ? resolvePredictionConfig(options.predictionConfig)
+      : resolvePredictionConfig({
+        modelVariant: getActiveStatModelVariant(undefined).id,
+        calibration: getActiveStatModelCalibration(undefined).id,
+      });
   const variant = getActiveStatModelVariant(config.modelVariant, undefined);
   const xg = estimateExpectedGoals({
     home: homeStats,
@@ -129,7 +135,7 @@ export function buildScoreMatrixForMatch(
     : applyDixonColesAdjustment(poissonMatrix, variant.dixonColesRho).matrix;
   const rawMarketProbabilities = deriveMarketProbabilities(scoreMatrix);
   const calibrationPreset = getActiveStatModelCalibration(config.calibration, undefined);
-  const calibrationEnabled = calibrationPreset.id !== "none" && variant.id === "xg-v2.1-prior8";
+  const calibrationEnabled = calibrationPreset.id !== "none" && variant.calibrationEligible;
   const rawOneXTwo = {
     homeWin: rawMarketProbabilities.find((row) => row.selection === "home_win")!.probability,
     draw: rawMarketProbabilities.find((row) => row.selection === "draw")!.probability,
@@ -181,6 +187,7 @@ export function buildScoreMatrixForMatch(
     modelVersion: "poisson-score-matrix-v1",
     expectedGoalsSource: xg.source,
     expectedGoalsBlend: xg.blend,
+    expectedGoalsDiagnostic: xg.diagnostic,
     homeRating: xg.homeRating,
     awayRating: xg.awayRating,
     groupContext,

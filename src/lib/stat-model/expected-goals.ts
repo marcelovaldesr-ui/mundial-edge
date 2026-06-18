@@ -10,7 +10,7 @@ import {
   type TeamStrengthRating,
 } from "./team-strength-ratings";
 
-export type ExpectedGoalsRatingModel = "legacy_v1" | "attack_defense_v2";
+export type ExpectedGoalsRatingModel = "legacy_v1" | "attack_defense_v2" | "attack_defense_v2_mismatch_spread";
 
 export interface StatExpectedGoalsInput {
   home: TeamStats;
@@ -45,6 +45,28 @@ export interface StatExpectedGoalsResult {
   ratingModel: ExpectedGoalsRatingModel;
   neutralVenue: boolean;
   priorStrength: number | null;
+  diagnostic: ExpectedGoalsDiagnosticBreakdown;
+}
+
+export interface ExpectedGoalsSideBreakdown {
+  priorRatingComponent: number | null;
+  observedStatsComponent: number;
+  bayesianAdjustedObservedComponent: number;
+  tournamentAverageComponent: number;
+  contextAdjustment: number;
+  bayesianObservedWeight: number | null;
+  ratingBlendWeight: number;
+  statsBlendWeight: number;
+  preContextXg: number;
+  experimentalMismatchAdjustment: number;
+  finalXg: number;
+  capsApplied: string[];
+}
+
+export interface ExpectedGoalsDiagnosticBreakdown {
+  home: ExpectedGoalsSideBreakdown;
+  away: ExpectedGoalsSideBreakdown;
+  guardrails: { minXg: 0.2; maxXg: 4.5; contextMin: 0.94; contextMax: 1.06 };
 }
 
 export function estimateExpectedGoals(input: StatExpectedGoalsInput): StatExpectedGoalsResult {
@@ -64,7 +86,7 @@ export function estimateExpectedGoals(input: StatExpectedGoalsInput): StatExpect
   const homeRating = useBaseRatings ? resolveRating(input.homeTeam, input.ratingResolver) : null;
   const awayRating = useBaseRatings ? resolveRating(input.awayTeam, input.ratingResolver) : null;
   const priorStrength = validatePriorStrength(input.priorStrength);
-  const regularized = ratingModel === "attack_defense_v2" && priorStrength != null && homeRating && awayRating
+  const regularized = ratingModel !== "legacy_v1" && priorStrength != null && homeRating && awayRating
     ? bayesianObservedExpectedGoals({
       home: input.home,
       away: input.away,
@@ -77,9 +99,13 @@ export function estimateExpectedGoals(input: StatExpectedGoalsInput): StatExpect
     : rawObserved;
   const { lambdaHome, lambdaAway } = regularized;
   if (!useBaseRatings) {
+    const homeContext = contextModifier("home", input.groupContext);
+    const awayContext = contextModifier("away", input.groupContext);
+    const homeExpectedGoals = clamp(lambdaHome * homeContext, 0.2, 4.5);
+    const awayExpectedGoals = clamp(lambdaAway * awayContext, 0.2, 4.5);
     return {
-      homeExpectedGoals: clamp(lambdaHome * contextModifier("home", input.groupContext), 0.2, 4.5),
-      awayExpectedGoals: clamp(lambdaAway * contextModifier("away", input.groupContext), 0.2, 4.5),
+      homeExpectedGoals,
+      awayExpectedGoals,
       source: "team_stats_expected_goals_v1",
       homeRating: null,
       awayRating: null,
@@ -96,6 +122,15 @@ export function estimateExpectedGoals(input: StatExpectedGoalsInput): StatExpect
       ratingModel,
       neutralVenue,
       priorStrength,
+      diagnostic: diagnosticBreakdown({
+        rawObserved, regularized, leagueAvg, homeContext, awayContext,
+        homeRatingComponent: null, awayRatingComponent: null,
+        homeRatingWeight: 0, awayRatingWeight: 0,
+        homeExpectedGoals, awayExpectedGoals,
+        homeMismatchAdjustment: 0, awayMismatchAdjustment: 0,
+        homeMatches: input.home.matches_played, awayMatches: input.away.matches_played,
+        priorStrength,
+      }),
     };
   }
   if (!homeRating || !awayRating) {
@@ -117,6 +152,15 @@ export function estimateExpectedGoals(input: StatExpectedGoalsInput): StatExpect
       ratingModel,
       neutralVenue,
       priorStrength,
+      diagnostic: diagnosticBreakdown({
+        rawObserved, regularized, leagueAvg, homeContext: 1, awayContext: 1,
+        homeRatingComponent: null, awayRatingComponent: null,
+        homeRatingWeight: 0, awayRatingWeight: 0,
+        homeExpectedGoals: lambdaHome, awayExpectedGoals: lambdaAway,
+        homeMismatchAdjustment: 0, awayMismatchAdjustment: 0,
+        homeMatches: input.home.matches_played, awayMatches: input.away.matches_played,
+        priorStrength,
+      }),
     };
   }
 
@@ -134,21 +178,30 @@ export function estimateExpectedGoals(input: StatExpectedGoalsInput): StatExpect
     homeAdvantage: 1,
     model: ratingModel,
   });
-  const homeRatingWeight = ratingWeight(input.home.matches_played, homeRating);
-  const awayRatingWeight = ratingWeight(input.away.matches_played, awayRating);
+  // v2.1 first shrinks observed rates/xG toward the rating prior and then blends
+  // that already-regularized result with the same rating a second time. v2.2 is
+  // experimental: prior8 remains, but this redundant outer attraction is removed.
+  const removeRedundantRatingBlend = ratingModel === "attack_defense_v2_mismatch_spread";
+  const homeRatingWeight = removeRedundantRatingBlend ? 0 : ratingWeight(input.home.matches_played, homeRating);
+  const awayRatingWeight = removeRedundantRatingBlend ? 0 : ratingWeight(input.away.matches_played, awayRating);
   const homeContext = contextModifier("home", input.groupContext);
   const awayContext = contextModifier("away", input.groupContext);
 
-  const homeExpectedGoals = clamp(
+  const homeBeforeMismatch = clamp(
     blend(lambdaHome, ratingHome, homeRatingWeight) * homeContext,
     0.2,
     4.5
   );
-  const awayExpectedGoals = clamp(
+  const awayBeforeMismatch = clamp(
     blend(lambdaAway, ratingAway, awayRatingWeight) * awayContext,
     0.2,
     4.5
   );
+  const mismatch = removeRedundantRatingBlend
+    ? applyExperimentalMismatchSpread(homeBeforeMismatch, awayBeforeMismatch, homeRating, awayRating)
+    : { homeExpectedGoals: homeBeforeMismatch, awayExpectedGoals: awayBeforeMismatch, homeAdjustment: 0, awayAdjustment: 0 };
+  const homeExpectedGoals = mismatch.homeExpectedGoals;
+  const awayExpectedGoals = mismatch.awayExpectedGoals;
 
   return {
     homeExpectedGoals,
@@ -171,16 +224,94 @@ export function estimateExpectedGoals(input: StatExpectedGoalsInput): StatExpect
       homeRating.source === "neutral_fallback" || awayRating.source === "neutral_fallback"
         ? "Sin rating específico para una selección; usando prior neutral."
         : "Rating base específico disponible para ambas selecciones.",
-      ratingModel === "attack_defense_v2"
+      ratingModel !== "legacy_v1"
         ? priorStrength == null
           ? "xG v2: ataque propio aumenta xG y defensa rival alta reduce concesion esperada."
-          : `xG v2.1 experimental: stats observadas regularizadas con priorStrength=${priorStrength}.`
+          : removeRedundantRatingBlend
+            ? `xG v2.2 experimental: priorStrength=${priorStrength}, sin segundo blend rating y con mismatch spread conservando total.`
+            : `xG v2.1 experimental: stats observadas regularizadas con priorStrength=${priorStrength}.`
         : "Formula legacy v1 conservada para comparacion reproducible.",
       neutralVenue ? "Sede neutral: no se aplica ventaja de localia." : "Sede no neutral: se conserva ventaja de localia.",
     ]),
     ratingModel,
     neutralVenue,
     priorStrength,
+    diagnostic: diagnosticBreakdown({
+      rawObserved, regularized, leagueAvg, homeContext, awayContext,
+      homeRatingComponent: ratingHome, awayRatingComponent: ratingAway,
+      homeRatingWeight, awayRatingWeight,
+      homeExpectedGoals, awayExpectedGoals,
+      homeMismatchAdjustment: mismatch.homeAdjustment,
+      awayMismatchAdjustment: mismatch.awayAdjustment,
+      homeMatches: input.home.matches_played, awayMatches: input.away.matches_played,
+      priorStrength,
+    }),
+  };
+}
+
+function diagnosticBreakdown(input: {
+  rawObserved: { lambdaHome: number; lambdaAway: number };
+  regularized: { lambdaHome: number; lambdaAway: number };
+  leagueAvg: number;
+  homeContext: number;
+  awayContext: number;
+  homeRatingComponent: number | null;
+  awayRatingComponent: number | null;
+  homeRatingWeight: number;
+  awayRatingWeight: number;
+  homeExpectedGoals: number;
+  awayExpectedGoals: number;
+  homeMismatchAdjustment: number;
+  awayMismatchAdjustment: number;
+  homeMatches: number;
+  awayMatches: number;
+  priorStrength: number | null;
+}): ExpectedGoalsDiagnosticBreakdown {
+  const sharedGames = Math.min(input.homeMatches, input.awayMatches);
+  const bayesianObservedWeight = input.priorStrength == null
+    ? null
+    : sharedGames / (sharedGames + input.priorStrength);
+  const side = (
+    rawObserved: number,
+    regularized: number,
+    ratingComponent: number | null,
+    ratingWeight: number,
+    contextAdjustment: number,
+    mismatchAdjustment: number,
+    finalXg: number
+  ): ExpectedGoalsSideBreakdown => {
+    const preContextXg = ratingComponent == null
+      ? regularized
+      : blend(regularized, ratingComponent, ratingWeight);
+    const unclampedFinal = preContextXg * contextAdjustment + mismatchAdjustment;
+    const capsApplied: string[] = [];
+    if (rawObserved <= 0.2) capsApplied.push("observed-stats-min-0.2");
+    if (rawObserved >= 4.5) capsApplied.push("observed-stats-max-4.5");
+    if (regularized <= 0.2) capsApplied.push("bayesian-component-min-0.2");
+    if (regularized >= 4.5) capsApplied.push("bayesian-component-max-4.5");
+    if (unclampedFinal < 0.2) capsApplied.push("final-xg-min-0.2");
+    if (unclampedFinal > 4.5) capsApplied.push("final-xg-max-4.5");
+    if (contextAdjustment === 0.94) capsApplied.push("context-min-0.94");
+    if (contextAdjustment === 1.06) capsApplied.push("context-max-1.06");
+    return {
+      priorRatingComponent: ratingComponent,
+      observedStatsComponent: rawObserved,
+      bayesianAdjustedObservedComponent: regularized,
+      tournamentAverageComponent: input.leagueAvg,
+      contextAdjustment,
+      bayesianObservedWeight,
+      ratingBlendWeight: ratingWeight,
+      statsBlendWeight: 1 - ratingWeight,
+      preContextXg,
+      experimentalMismatchAdjustment: mismatchAdjustment,
+      finalXg,
+      capsApplied,
+    };
+  };
+  return {
+    home: side(input.rawObserved.lambdaHome, input.regularized.lambdaHome, input.homeRatingComponent, input.homeRatingWeight, input.homeContext, input.homeMismatchAdjustment, input.homeExpectedGoals),
+    away: side(input.rawObserved.lambdaAway, input.regularized.lambdaAway, input.awayRatingComponent, input.awayRatingWeight, input.awayContext, input.awayMismatchAdjustment, input.awayExpectedGoals),
+    guardrails: { minXg: 0.2, maxXg: 4.5, contextMin: 0.94, contextMax: 1.06 },
   };
 }
 
@@ -280,6 +411,39 @@ function bayesianObservedExpectedGoals(input: {
 function bayesianMetric(observed: number, prior: number, gamesPlayed: number, priorStrength: number): number {
   const weight = gamesPlayed / (gamesPlayed + priorStrength);
   return weight * observed + (1 - weight) * prior;
+}
+
+function applyExperimentalMismatchSpread(
+  homeXg: number,
+  awayXg: number,
+  homeRating: TeamStrengthRating,
+  awayRating: TeamStrengthRating
+): { homeExpectedGoals: number; awayExpectedGoals: number; homeAdjustment: number; awayAdjustment: number } {
+  const signedRatingDiff = getOverallStrength(homeRating) - getOverallStrength(awayRating);
+  const requestedTransfer = mismatchTransfer(Math.abs(signedRatingDiff));
+  if (signedRatingDiff === 0 || requestedTransfer === 0) {
+    return { homeExpectedGoals: homeXg, awayExpectedGoals: awayXg, homeAdjustment: 0, awayAdjustment: 0 };
+  }
+  const favoriteXg = signedRatingDiff > 0 ? homeXg : awayXg;
+  const underdogXg = signedRatingDiff > 0 ? awayXg : homeXg;
+  const transfer = Math.min(requestedTransfer, 4.5 - favoriteXg, underdogXg - 0.2);
+  const homeAdjustment = signedRatingDiff > 0 ? transfer : -transfer;
+  const awayAdjustment = -homeAdjustment;
+  return {
+    homeExpectedGoals: clamp(homeXg + homeAdjustment, 0.2, 4.5),
+    awayExpectedGoals: clamp(awayXg + awayAdjustment, 0.2, 4.5),
+    homeAdjustment,
+    awayAdjustment,
+  };
+}
+
+/** Continuous transfer: 0 at diff 10, 0.06 at 15, 0.15 at 20, capped at 0.30. */
+function mismatchTransfer(ratingDiff: number): number {
+  if (ratingDiff <= 10) return 0;
+  const tier10to15 = Math.min(ratingDiff - 10, 5) * 0.012;
+  const tier15to20 = Math.min(Math.max(ratingDiff - 15, 0), 5) * 0.018;
+  const tier20plus = Math.max(ratingDiff - 20, 0) * 0.025;
+  return Math.min(tier10to15 + tier15to20 + tier20plus, 0.3);
 }
 
 function observedRate(rate: number, matchesPlayed: number, leagueAvg: number): number {

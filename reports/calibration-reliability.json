@@ -264,6 +264,136 @@
       ]
     },
     {
+      "variant": "v2.2 raw",
+      "buckets": [
+        {
+          "bucket": "0-10%",
+          "predictedAverage": null,
+          "observedFrequency": null,
+          "count": 0
+        },
+        {
+          "bucket": "10-20%",
+          "predictedAverage": 0.1780210555513679,
+          "observedFrequency": 0.10344827586206896,
+          "count": 29
+        },
+        {
+          "bucket": "20-30%",
+          "predictedAverage": 0.255071538705209,
+          "observedFrequency": 0.22435897435897437,
+          "count": 624
+        },
+        {
+          "bucket": "30-40%",
+          "predictedAverage": 0.35117421964215567,
+          "observedFrequency": 0.27873563218390807,
+          "count": 348
+        },
+        {
+          "bucket": "40-50%",
+          "predictedAverage": 0.4434295575773165,
+          "observedFrequency": 0.5465116279069767,
+          "count": 258
+        },
+        {
+          "bucket": "50-60%",
+          "predictedAverage": 0.5403430581244666,
+          "observedFrequency": 0.7671232876712328,
+          "count": 73
+        },
+        {
+          "bucket": "60-70%",
+          "predictedAverage": 0.6285396925612549,
+          "observedFrequency": 0.9090909090909091,
+          "count": 11
+        },
+        {
+          "bucket": "70-80%",
+          "predictedAverage": 0.7003150852821551,
+          "observedFrequency": 1,
+          "count": 1
+        },
+        {
+          "bucket": "80-90%",
+          "predictedAverage": null,
+          "observedFrequency": null,
+          "count": 0
+        },
+        {
+          "bucket": "90-100%",
+          "predictedAverage": null,
+          "observedFrequency": null,
+          "count": 0
+        }
+      ]
+    },
+    {
+      "variant": "v2.2 + platt-blend-25 (prior8 preset)",
+      "buckets": [
+        {
+          "bucket": "0-10%",
+          "predictedAverage": 0.09078802549506032,
+          "observedFrequency": 0,
+          "count": 2
+        },
+        {
+          "bucket": "10-20%",
+          "predictedAverage": 0.17167339909824736,
+          "observedFrequency": 0.057692307692307696,
+          "count": 104
+        },
+        {
+          "bucket": "20-30%",
+          "predictedAverage": 0.25548185210703983,
+          "observedFrequency": 0.2289348171701113,
+          "count": 629
+        },
+        {
+          "bucket": "30-40%",
+          "predictedAverage": 0.3460127652449726,
+          "observedFrequency": 0.34156378600823045,
+          "count": 243
+        },
+        {
+          "bucket": "40-50%",
+          "predictedAverage": 0.44703006690120434,
+          "observedFrequency": 0.475,
+          "count": 200
+        },
+        {
+          "bucket": "50-60%",
+          "predictedAverage": 0.5409415852470841,
+          "observedFrequency": 0.6666666666666666,
+          "count": 114
+        },
+        {
+          "bucket": "60-70%",
+          "predictedAverage": 0.6438609817372433,
+          "observedFrequency": 0.8444444444444444,
+          "count": 45
+        },
+        {
+          "bucket": "70-80%",
+          "predictedAverage": 0.7340150337644965,
+          "observedFrequency": 0.8571428571428571,
+          "count": 7
+        },
+        {
+          "bucket": "80-90%",
+          "predictedAverage": null,
+          "observedFrequency": null,
+          "count": 0
+        },
+        {
+          "bucket": "90-100%",
+          "predictedAverage": null,
+          "observedFrequency": null,
+          "count": 0
+        }
+      ]
+    },
+    {
       "variant": "platt-blend-25",
       "buckets": [
         {

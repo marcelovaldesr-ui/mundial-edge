@@ -4,12 +4,11 @@ import {
   type MatchStatModelPrediction,
 } from "../stat-model/match-prediction";
 import {
-  DEFAULT_STAT_MODEL_VARIANT,
-  resolveStatModelVariant,
+  getActiveStatModelVariant,
   type StatModelVariant,
 } from "../stat-model/model-variant";
 import {
-  DEFAULT_STAT_MODEL_CALIBRATION,
+  getActiveStatModelCalibration,
   resolveStatModelCalibration,
   type StatModelCalibrationMode,
 } from "../stat-model/calibration-presets";
@@ -134,9 +133,9 @@ export function simulateGroupStage(input: GroupSimulationInput): GroupSimulation
 
 export function prepareGroupSimulation(input: GroupSimulationInput): PreparedGroupSimulation {
   validateInput(input);
-  const variant = resolveStatModelVariant(input.modelVariant ?? DEFAULT_STAT_MODEL_VARIANT);
-  const requestedCalibration = resolveStatModelCalibration(input.calibration ?? DEFAULT_STAT_MODEL_CALIBRATION);
-  const effectiveCalibration = variant.id === "xg-v2.1-prior8"
+  const variant = getActiveStatModelVariant(input.modelVariant);
+  const requestedCalibration = getActiveStatModelCalibration(input.calibration);
+  const effectiveCalibration = variant.calibrationEligible
     ? requestedCalibration
     : resolveStatModelCalibration("none");
   const seed = normalizeSeed(input.seed ?? DEFAULT_SEED);
@@ -150,7 +149,7 @@ export function prepareGroupSimulation(input: GroupSimulationInput): PreparedGro
     "Las matrices de partidos restantes se calculan una vez desde el estado actual; los resultados simulados no recalibran partidos posteriores.",
   ]);
   if (requestedCalibration.id !== effectiveCalibration.id) {
-    warnings.add(`La calibracion ${requestedCalibration.id} solo aplica a xg-v2.1-prior8; se uso none.`);
+    warnings.add(`La calibracion ${requestedCalibration.id} no aplica a ${variant.id}; se uso none.`);
   }
   const prepared = remainingMatches.map((match) => {
     const result = buildScoreMatrixForMatch(

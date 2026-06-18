@@ -3,8 +3,7 @@ import { LastUpdated } from "@/components/last-updated";
 import { ParlayWorkspace } from "@/components/parlay-workspace";
 import { Badge } from "@/components/ui/badge";
 import { getAllEdges, getEdges, getLastSync, dataMode, getMatches, getTeamStats } from "@/lib/data/repository";
-import { edgeToParlayPick, type ParlayProfile } from "@/lib/parlays";
-import { buildScoreMatricesByMatchId } from "@/lib/stat-model";
+import { buildParlayStatModel, edgeToParlayPick, type ParlayProfile } from "@/lib/parlays";
 import { decorateEdgesWithFinalProbability } from "@/lib/model/final-probability";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +26,7 @@ export default async function ParlaysPage({
   const profile = parseProfile(searchParams.profile);
   const debug = parseDebug(searchParams.debug);
   const [edges, allEdges, sync, matches, teamStats] = await Promise.all([getEdges(), getAllEdges(), getLastSync(), getMatches(), getTeamStats()]);
-  const statModel = buildScoreMatricesByMatchId(matches, teamStats);
+  const statModel = buildParlayStatModel(matches, teamStats, "recommended");
   const calibratedEdges = decorateEdgesWithFinalProbability(edges, statModel.predictions);
   const picks = calibratedEdges.filter((edge) => edge.qualifies).map(edgeToParlayPick);
   const excludedNonPreMatch = Math.max(0, allEdges.length - edges.length);
@@ -60,6 +59,12 @@ export default async function ParlaysPage({
         initialProfile={profile}
         initialDebug={debug}
         scoreMatricesByMatchId={statModel.scoreMatricesByMatchId}
+        predictionMetadata={{
+          modelVariantUsed: statModel.modelVariantUsed,
+          calibrationUsed: statModel.calibrationUsed,
+          configSource: statModel.configSource,
+          warnings: statModel.warnings,
+        }}
         coverage={statModel.coverage}
         excludedNonPreMatchEdges={excludedNonPreMatch}
       />

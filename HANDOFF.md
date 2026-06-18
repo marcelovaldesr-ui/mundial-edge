@@ -1666,3 +1666,45 @@ Con datos actuales, varios partidos usan priors similares por baja muestra:
   fixtures reales por `groupId` y entregue cada schedule al service; despues
   agregar selector de grupo y estados loading/error sin replicar matematica en
   React. Mantener la etiqueta Preview hasta validar el calendario real completo.
+
+---
+
+## ACTUALIZACION - consumidores del modelo recomendado
+
+### Configuracion central
+- `src/lib/stat-model/prediction-config.ts` centraliza
+  `getDefaultPredictionConfig()`, `getRecommendedPredictionConfig()` y
+  `resolvePredictionConfig(input)`.
+- El default global sigue siendo `legacy-neutral + none`. El par recomendado es
+  `xg-v2.1-prior8 + platt-blend-25`; Dixon-Coles permanece experimental y nunca
+  se resuelve como recommended.
+- Un override explicito de `modelVariant`/`calibration` sigue funcionando y los
+  valores invalidos o incompatibles fallan de forma conservadora con warnings.
+
+### Consumidores conectados
+- `match-prediction.ts` conserva sus firmas compatibles, acepta los dos campos
+  existentes o `predictionConfig`, y expone `modelVariantUsed`,
+  `calibrationUsed`, `configSource` y `warnings`.
+- Dashboard, `/edges`, `/stat-model` y detalle de partido activan explicitamente
+  `predictionConfig: "recommended"`. Las llamadas de libreria que no envian
+  configuracion mantienen el default global conservador.
+- `buildParlayStatModel()` es el adapter de combinadas: construye predicciones y
+  matrices desde el stat-model, admite default/recommended/override y entrega la
+  metadata efectiva. Dashboard y `/parlays` usan el adapter con `recommended`;
+  `decorateEdgesWithFinalProbability` consume esas mismas predicciones y el
+  engine usa sus matrices para correlacion same-match.
+- `parlay-engine` propaga la metadata a cada resultado. `ParlayCard` solo la
+  muestra dentro de Detalles tecnicos; no se agregaron mercados ni cambios de
+  schema persistido.
+
+### Activacion, verificacion y limites
+- Activar recommended: pasar `predictionConfig: "recommended"` a los builders,
+  o `"recommended"` como tercer argumento de `buildParlayStatModel()`.
+- Override: pasar `{ modelVariant, calibration }`; omitir configuracion conserva
+  `legacy-neutral + none`.
+- `npm run verify:prediction-consumers` cubre match prediction y adapter de
+  parlays en default/recommended, override explicito, simplex 1X2, finitud y la
+  exclusion de Dixon-Coles del recommended.
+- La calibracion solo modifica 1X2; los otros mercados siguen derivados de la
+  matriz de goles. Las probabilidades finales de picks continúan ancladas al
+  mercado por `final-probability`; no se convierten en edges sin cuotas reales.

@@ -5,13 +5,12 @@ import { LastUpdated } from "@/components/last-updated";
 import { Card, CardContent } from "@/components/ui/card";
 import { Disclaimer } from "@/components/disclaimer";
 import type { Edge } from "@/lib/types";
-import { edgeToParlayPick, generateParlays } from "@/lib/parlays";
+import { buildParlayStatModel, edgeToParlayPick, generateParlays } from "@/lib/parlays";
 import { ParlayCard } from "@/components/parlay-card";
 import { DashboardStats } from "@/components/dashboard-stats";
 import { OpportunityCard } from "@/components/opportunity-card";
 import { PickCard } from "@/components/pick-card";
 import { Badge } from "@/components/ui/badge";
-import { buildScoreMatricesByMatchId } from "@/lib/stat-model";
 import { filterPreMatchMatches } from "@/lib/matches/pre-match-eligibility";
 import { getWorldCupGroupContext } from "@/lib/world-cup";
 import { decorateEdgesWithFinalProbability } from "@/lib/model/final-probability";
@@ -21,7 +20,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const [matches, edges, sync, teamStats] = await Promise.all([getMatches(), getEdges(), getLastSync(), getTeamStats()]);
-  const statModel = buildScoreMatricesByMatchId(matches, teamStats);
+  const statModel = buildParlayStatModel(matches, teamStats, "recommended");
   const calibratedEdges = decorateEdgesWithFinalProbability(edges, statModel.predictions);
   const confidenceByMatchId = new Map(statModel.predictions.map((prediction) => [prediction.matchId, prediction.confidence]));
 
@@ -41,6 +40,12 @@ export default async function DashboardPage() {
     profile: "balanced",
     maxResults: 3,
     scoreMatricesByMatchId: statModel.scoreMatricesByMatchId,
+    predictionMetadata: {
+      modelVariantUsed: statModel.modelVariantUsed,
+      calibrationUsed: statModel.calibrationUsed,
+      configSource: statModel.configSource,
+      warnings: statModel.warnings,
+    },
   });
 
   const valueCount = quality.length;

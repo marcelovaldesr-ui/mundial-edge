@@ -1,5 +1,5 @@
 import type { Market, Match, MatchStatus, Outcome, ValueTier } from "../types";
-import type { ScoreMatrix } from "../stat-model";
+import type { PredictionConfigSource, ScoreMatrix, StatModelCalibrationMode, StatModelVariant } from "../stat-model";
 import type { FinalProbabilityResult } from "../model/final-probability";
 
 export type ParlayProfile = "conservative" | "balanced" | "aggressive";
@@ -75,6 +75,9 @@ export interface Parlay {
   score: number;
   explanation: string;
   warnings: string[];
+  modelVariantUsed?: StatModelVariant;
+  calibrationUsed?: StatModelCalibrationMode;
+  configSource?: PredictionConfigSource;
 }
 
 export interface RejectedParlayCandidate {
@@ -109,6 +112,12 @@ export interface GenerateParlaysOptions {
   maxLegs?: number;
   now?: Date | string;
   scoreMatricesByMatchId?: Record<string, ScoreMatrix>;
+  predictionMetadata?: {
+    modelVariantUsed: StatModelVariant;
+    calibrationUsed: StatModelCalibrationMode;
+    configSource: PredictionConfigSource;
+    warnings?: string[];
+  };
 }
 
 export interface ParlayFilters {

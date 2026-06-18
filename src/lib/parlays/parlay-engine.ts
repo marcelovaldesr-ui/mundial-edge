@@ -487,7 +487,13 @@ export function generateParlaysWithDebug(picks: ParlayPick[], options: GenerateP
         stakeReason: stake.reason,
         score: 0,
         explanation: explanationFor(options.profile, parlayBase),
-        warnings: buildWarnings(parlayBase),
+        warnings: [...new Set([
+          ...buildWarnings(parlayBase),
+          ...(options.predictionMetadata?.warnings ?? []),
+        ])],
+        modelVariantUsed: options.predictionMetadata?.modelVariantUsed,
+        calibrationUsed: options.predictionMetadata?.calibrationUsed,
+        configSource: options.predictionMetadata?.configSource,
       };
       parlay.score = scoreParlay({ ...parlay, profile: options.profile });
       parlays.push(parlay);

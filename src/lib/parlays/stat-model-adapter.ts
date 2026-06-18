@@ -1,5 +1,17 @@
-import type { Outcome } from "../types";
-import { jointProbabilityForSelections, probabilityForSelection, type ScoreMatrix, type StatSelectionKey } from "../stat-model";
+import type { Match, Outcome, TeamStats } from "../types";
+import {
+  buildScoreMatricesByMatchId,
+  jointProbabilityForSelections,
+  probabilityForSelection,
+  resolvePredictionConfig,
+  type BuildScoreMatricesResult,
+  type PredictionConfigInput,
+  type PredictionConfigSource,
+  type ScoreMatrix,
+  type StatModelCalibrationMode,
+  type StatModelVariant,
+  type StatSelectionKey,
+} from "../stat-model";
 import type { ParlayPick } from "./parlay-types";
 
 export interface MatrixJointResult {
@@ -9,6 +21,35 @@ export interface MatrixJointResult {
   isInvalid: boolean;
   reasons: string[];
   usedScoreMatrix: boolean;
+}
+
+export interface ParlayStatModelResult extends BuildScoreMatricesResult {
+  modelVariantUsed: StatModelVariant;
+  calibrationUsed: StatModelCalibrationMode;
+  configSource: PredictionConfigSource;
+  warnings: string[];
+}
+
+/** Builds the stat-model payload consumed by parlays, with auditable configuration metadata. */
+export function buildParlayStatModel(
+  matches: Match[],
+  teamStats: TeamStats[],
+  input?: PredictionConfigInput
+): ParlayStatModelResult {
+  const config = resolvePredictionConfig(input);
+  const result = buildScoreMatricesByMatchId(matches, teamStats, {
+    predictionConfig: config,
+  });
+  return {
+    ...result,
+    modelVariantUsed: config.modelVariant,
+    calibrationUsed: config.calibration,
+    configSource: config.configSource,
+    warnings: [...new Set([
+      ...config.warnings,
+      ...result.coverage.issues.map((issue) => `${issue.matchId}: ${issue.reason}`),
+    ])],
+  };
 }
 
 export function parlayPickToStatSelection(pick: ParlayPick): StatSelectionKey | null {

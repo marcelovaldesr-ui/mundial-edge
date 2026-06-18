@@ -21,11 +21,11 @@ export const STAT_MODEL_FEATURE_FLAG = "STAT_MODEL_VARIANT";
 export const STAT_MODEL_VARIANTS: Record<StatModelVariant, StatModelVariantConfig> = {
   "legacy-neutral": {
     id: "legacy-neutral", status: "production", expectedGoalsRatingModel: "legacy_v1",
-    priorStrength: null, neutralVenue: true, dixonColesRho: null, recommended: true, notRecommended: false,
+    priorStrength: null, neutralVenue: true, dixonColesRho: null, recommended: false, notRecommended: false,
   },
   "xg-v2.1-prior8": {
     id: "xg-v2.1-prior8", status: "candidate", expectedGoalsRatingModel: "attack_defense_v2",
-    priorStrength: 8, neutralVenue: true, dixonColesRho: null, recommended: false, notRecommended: false,
+    priorStrength: 8, neutralVenue: true, dixonColesRho: null, recommended: true, notRecommended: false,
   },
   "experimental-dixon-coles": {
     id: "experimental-dixon-coles", status: "experimental", expectedGoalsRatingModel: "attack_defense_v2",

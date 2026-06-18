@@ -1,6 +1,7 @@
 import type { Match, Team } from "../types";
 import type { StatModelVariant } from "../stat-model/model-variant";
 import type { StatModelCalibrationMode } from "../stat-model/calibration-presets";
+import { getRecommendedPredictionConfig } from "../stat-model/prediction-config";
 import {
   simulateGroup,
   type GroupSimulationResult,
@@ -38,10 +39,11 @@ export interface GroupSimulationServiceResult {
   usesRecommendedSimulationModel: boolean;
 }
 
-export const RECOMMENDED_GROUP_SIMULATION_MODEL = {
-  modelVariant: "xg-v2.1-prior8",
-  calibration: "platt-blend-25",
-} as const satisfies { modelVariant: StatModelVariant; calibration: StatModelCalibrationMode };
+const recommendedPredictionConfig = getRecommendedPredictionConfig();
+export const RECOMMENDED_GROUP_SIMULATION_MODEL = Object.freeze({
+  modelVariant: recommendedPredictionConfig.modelVariant,
+  calibration: recommendedPredictionConfig.calibration,
+}) satisfies { modelVariant: StatModelVariant; calibration: StatModelCalibrationMode };
 
 /**
  * Adapts a raw group schedule to the Monte Carlo engine and returns an ordered,

@@ -109,6 +109,9 @@ export function ParlayCard({ parlay, index }: { parlay: Parlay; index: number })
             <Tech label="EV" value={fmtEv(parlay.ev)} />
             <Tech label="Cuota" value={parlay.totalOdds.toFixed(2)} />
             <Tech label="Legs" value={String(parlay.picks.length)} />
+            {parlay.modelVariantUsed && <Tech label="Modelo" value={parlay.modelVariantUsed} />}
+            {parlay.calibrationUsed && <Tech label="Calibración" value={parlay.calibrationUsed} />}
+            {parlay.configSource && <Tech label="Config" value={parlay.configSource} />}
           </div>
         </details>
       </CardContent>

@@ -12,6 +12,11 @@ import { getActiveStatModelCalibration, type StatModelCalibrationMode } from "./
 import { applyOneXTwoCalibrationStrategy, type CalibrationMetadata } from "./market-calibration";
 import type { TeamStrengthRating } from "./team-strength-ratings";
 import { getWorldCupGroupContext, type WorldCupGroupContext } from "../world-cup/group-context";
+import {
+  resolvePredictionConfig,
+  type PredictionConfigInput,
+  type PredictionConfigSource,
+} from "./prediction-config";
 
 export type StatModelConfidence = "none" | "low" | "medium" | "high";
 
@@ -44,6 +49,9 @@ export interface MatchStatModelPrediction {
   modelVariantStatus: StatModelVariantStatus;
   calibrationMode: StatModelCalibrationMode;
   calibrationMetadata?: CalibrationMetadata;
+  modelVariantUsed: StatModelVariant;
+  calibrationUsed: StatModelCalibrationMode;
+  configSource: PredictionConfigSource;
 }
 
 export interface MatrixBuildIssue {
@@ -71,6 +79,8 @@ export interface BuildScoreMatrixOptions {
   modelVariant?: StatModelVariant;
   /** Optional calibration flag. Defaults/fails closed to none. */
   calibration?: StatModelCalibrationMode | string;
+  /** Named/default config. Direct modelVariant/calibration fields remain compatible and take precedence. */
+  predictionConfig?: PredictionConfigInput;
 }
 
 export interface BuildScoreMatricesResult {
@@ -93,7 +103,10 @@ export function buildScoreMatrixForMatch(
   }
 
   const groupContext = options.groupContext ?? (options.allMatches ? getWorldCupGroupContext(match, options.allMatches) : undefined);
-  const variant = getActiveStatModelVariant(options.modelVariant);
+  const config = options.modelVariant != null || options.calibration != null
+    ? resolvePredictionConfig({ modelVariant: options.modelVariant, calibration: options.calibration })
+    : resolvePredictionConfig(options.predictionConfig);
+  const variant = getActiveStatModelVariant(config.modelVariant, undefined);
   const xg = estimateExpectedGoals({
     home: homeStats,
     away: awayStats,
@@ -105,7 +118,7 @@ export function buildScoreMatrixForMatch(
     ratingModel: options.ratingModel ?? variant.expectedGoalsRatingModel,
     priorStrength: options.ratingModel ? undefined : variant.priorStrength ?? undefined,
   });
-  const warnings = confidenceWarnings(homeStats, awayStats, xg.homeRating, xg.awayRating, groupContext);
+  const warnings = [...config.warnings, ...confidenceWarnings(homeStats, awayStats, xg.homeRating, xg.awayRating, groupContext)];
   const poissonMatrix = createScoreMatrix({
     homeExpectedGoals: xg.homeExpectedGoals,
     awayExpectedGoals: xg.awayExpectedGoals,
@@ -115,7 +128,7 @@ export function buildScoreMatrixForMatch(
     ? poissonMatrix
     : applyDixonColesAdjustment(poissonMatrix, variant.dixonColesRho).matrix;
   const rawMarketProbabilities = deriveMarketProbabilities(scoreMatrix);
-  const calibrationPreset = getActiveStatModelCalibration(options.calibration);
+  const calibrationPreset = getActiveStatModelCalibration(config.calibration, undefined);
   const calibrationEnabled = calibrationPreset.id !== "none" && variant.id === "xg-v2.1-prior8";
   const rawOneXTwo = {
     homeWin: rawMarketProbabilities.find((row) => row.selection === "home_win")!.probability,
@@ -177,6 +190,9 @@ export function buildScoreMatrixForMatch(
     modelVariantStatus: variant.status,
     calibrationMode: calibrationEnabled ? calibrationPreset.id : "none",
     calibrationMetadata: calibratedOneXTwo?.metadata,
+    modelVariantUsed: variant.id,
+    calibrationUsed: calibrationEnabled ? calibrationPreset.id : "none",
+    configSource: config.configSource,
   };
 }
 

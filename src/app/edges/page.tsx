@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function EdgesPage() {
   const [edges, sync, matches, teamStats] = await Promise.all([getEdges(), getLastSync(), getMatches(), getTeamStats()]);
-  const statModel = buildScoreMatricesByMatchId(matches, teamStats);
+  const statModel = buildScoreMatricesByMatchId(matches, teamStats, { predictionConfig: "recommended" });
   const calibratedEdges = decorateEdgesWithFinalProbability(edges, statModel.predictions);
   return (
     <div className="space-y-5">

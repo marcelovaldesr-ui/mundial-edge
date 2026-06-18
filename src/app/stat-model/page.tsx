@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function StatModelPage() {
   const [matches, teamStats, sync] = await Promise.all([getMatches(), getTeamStats(), getLastSync()]);
-  const model = buildScoreMatricesByMatchId(matches, teamStats);
+  const model = buildScoreMatricesByMatchId(matches, teamStats, { predictionConfig: "recommended" });
   const predictions = model.predictions.slice(0, 12);
   const lowConfidence = model.predictions.filter((prediction) => prediction.confidence === "low").length;
   const eligibleMatches = filterPreMatchMatches(matches);

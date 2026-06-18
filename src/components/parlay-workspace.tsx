@@ -12,6 +12,7 @@ import {
   type ParlayFilters,
   type ParlayPick,
   type ParlayProfile,
+  type GenerateParlaysOptions,
   type ParlayRiskLevel,
   type ParlaySortKey,
   type RejectedParlayCandidate,
@@ -57,6 +58,7 @@ export function ParlayWorkspace({
   initialProfile,
   initialDebug,
   scoreMatricesByMatchId,
+  predictionMetadata,
   coverage,
   excludedNonPreMatchEdges,
 }: {
@@ -64,6 +66,7 @@ export function ParlayWorkspace({
   initialProfile: ParlayProfile;
   initialDebug?: boolean;
   scoreMatricesByMatchId?: Record<string, ScoreMatrix>;
+  predictionMetadata?: GenerateParlaysOptions["predictionMetadata"];
   coverage?: StatModelCoverage;
   excludedNonPreMatchEdges?: number;
 }) {
@@ -84,8 +87,8 @@ export function ParlayWorkspace({
   const rules = PARLAY_PROFILE_RULES[profile];
 
   const generated = useMemo(
-    () => generateParlaysWithDebug(picks, { profile, maxResults: 80, bankroll, scoreMatricesByMatchId }),
-    [picks, profile, bankroll, scoreMatricesByMatchId]
+    () => generateParlaysWithDebug(picks, { profile, maxResults: 80, bankroll, scoreMatricesByMatchId, predictionMetadata }),
+    [picks, profile, bankroll, scoreMatricesByMatchId, predictionMetadata]
   );
   const activeFilters = useMemo(() => parseFilters(filters), [filters]);
   const parlays = useMemo(

@@ -31,7 +31,7 @@ export default async function MatchDetail({ params }: { params: { id: string } }
     match,
     statMap.get(match.home_team_id),
     statMap.get(match.away_team_id),
-    { groupContext, allMatches }
+    { groupContext, allMatches, predictionConfig: "recommended" }
   );
   const modelPrediction = "scoreMatrix" in modelResult ? modelResult : null;
   const activeEdgesCalibrated = modelPrediction ? decorateEdgesWithFinalProbability(activeEdges, [modelPrediction]) : activeEdges;

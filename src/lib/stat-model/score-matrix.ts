@@ -67,6 +67,24 @@ export function scoreMatrixTotalProbability(matrix: ScoreMatrix): number {
   return matrix.entries.reduce((sum, entry) => sum + entry.probability, 0);
 }
 
+/** Returns a new, deterministic ranking without mutating or reusing the matrix entries array. */
+export function getTopScorelines(matrix: ScoreMatrix, limit = 3): ScoreMatrixEntry[] {
+  if (!Number.isInteger(limit) || limit < 1) return [];
+  const expectedGoalDifference = matrix.homeExpectedGoals - matrix.awayExpectedGoals;
+  const expectedTotal = matrix.homeExpectedGoals + matrix.awayExpectedGoals;
+  return [...matrix.entries]
+    .sort((a, b) => {
+      const probabilityDifference = b.probability - a.probability;
+      if (Math.abs(probabilityDifference) > 1e-12) return probabilityDifference;
+      return Math.abs((a.homeGoals + a.awayGoals) - expectedTotal) - Math.abs((b.homeGoals + b.awayGoals) - expectedTotal)
+        || Math.abs((a.homeGoals - a.awayGoals) - expectedGoalDifference) - Math.abs((b.homeGoals - b.awayGoals) - expectedGoalDifference)
+        || a.homeGoals - b.homeGoals
+        || a.awayGoals - b.awayGoals;
+    })
+    .slice(0, limit)
+    .map((entry) => ({ ...entry }));
+}
+
 function assertValidLambda(lambda: number) {
   if (!Number.isFinite(lambda) || lambda < 0 || lambda > 10) {
     throw new RangeError("lambda must be finite and between 0 and 10.");

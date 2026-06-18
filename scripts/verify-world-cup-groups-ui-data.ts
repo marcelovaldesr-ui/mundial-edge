@@ -56,7 +56,8 @@ assert(selectedA && selectedL && selectedA.schedule.groupId !== selectedL.schedu
 assert.equal(selectedA.schedule.metadata.dataStatus, "current");
 assert.equal(selectedA.simulation.modelVariant, "xg-v2.1-prior8");
 assert.equal(selectedA.simulation.calibration, "platt-blend-25");
-near(selectedA.simulation.standings.reduce((sum, row) => sum + row.probabilityAdvance, 0), 2, 1e-12);
+near(uiData.groups.flatMap((entry) => entry.simulation.standings).reduce((sum, row) => sum + row.probabilityAdvance, 0), 32, 1e-9);
+near(uiData.groups.flatMap((entry) => entry.simulation.standings).reduce((sum, row) => sum + row.probabilityAdvanceAsThird, 0), 8, 1e-9);
 for (const row of selectedA.simulation.standings) {
   near(row.probabilityWinGroup + row.probabilityFinishSecond + row.probabilityFinishThird + row.probabilityFinishFourth, 1, 1e-12);
   assert(Object.values(row).filter((value): value is number => typeof value === "number").every(Number.isFinite));

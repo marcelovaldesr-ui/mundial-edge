@@ -1791,3 +1791,42 @@ Con datos actuales, varios partidos usan priors similares por baja muestra:
 - Próximo paso: normalizar también la letra de grupo de API-Football durante el
   sync y añadir la capa conjunta de mejores terceros cuando el fixture oficial
   completo esté disponible.
+
+---
+
+## ACTUALIZACION - mejores terceros y formato Mundial 2026
+
+### Simulacion conjunta
+- `src/lib/tournament/best-third-places.ts` coordina los doce grupos en cada
+  iteracion Monte Carlo. Primero resuelve las posiciones A-L y luego ordena los
+  doce terceros por puntos, diferencia de gol, goles a favor y fallback seeded
+  deterministico.
+- El conteo correcto del formato es 24 clasificados como top-2 + 8 mejores
+  terceros = **32 clasificados** y **16 eliminados** entre 48 equipos. La cifra
+  24/12 no es compatible con doce grupos de cuatro y no se usa como invariante.
+- Cada iteracion valida exactamente 24 top-2, 8 terceros clasificados y 16
+  eliminados. Las matrices de cada grupo se preparan una sola vez y comparten un
+  PRNG reproducible durante la simulacion global.
+
+### Contratos y UI
+- `SimulatedGroupTeamResult` mantiene posiciones, ganar grupo y
+  `probabilityAdvance`, y agrega `probabilityAdvanceAsTop2`,
+  `probabilityAdvanceAsThird` y `probabilityEliminated`.
+- `simulateWorldCup2026FromSchedules()` es la frontera de service para los doce
+  schedules. El adapter/UI A-L usa esta salida global; el service individual se
+  conserva por compatibilidad y en ese contexto reporta solo clasificación
+  top-2 (mejor tercero = 0).
+- `GroupSimulationCard` muestra Clasifica, Como Top-2, Mejor 3.º y Eliminado,
+  además de puntos esperados y probabilidades de terminar 1.º-4.º. La UI de
+  grupos declara el formato 2026 sin añadir mercados ni persistencia.
+
+### Verificacion y limitaciones
+- `npm run verify:best-third-places` comprueba ranking, 24 top-2, 8 terceros, 32
+  clasificados, 16 eliminados, coherencia de probabilidades, simplex de
+  posiciones y ausencia de NaN.
+- El desempate de terceros no incluye fair play ni sorteo FIFA porque esos datos
+  no existen en el modelo. Tampoco se construyen todavía las combinaciones de
+  cruces de Round of 32 dependientes de qué grupos aportan terceros.
+- Próximo paso: implementar el mapping oficial de bracket para las combinaciones
+  de ocho terceros clasificados y enriquecer desempates cuando haya tarjetas o
+  metadata FIFA disponible.

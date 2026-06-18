@@ -1,6 +1,9 @@
 import type { Match, Team } from "../types";
 import { inferWorldCupPhase } from "../world-cup";
-import { simulateGroupFromSchedule, type GroupSimulationServiceResult } from "./group-simulation-service";
+import {
+  simulateWorldCup2026FromSchedules,
+  type GroupSimulationServiceResult,
+} from "./group-simulation-service";
 
 export const WORLD_CUP_2026_GROUP_IDS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"] as const;
 export type WorldCup2026GroupId = typeof WORLD_CUP_2026_GROUP_IDS[number];
@@ -91,9 +94,16 @@ export function buildWorldCup2026Groups(matches: Match[]): WorldCup2026GroupSche
 
 export function createWorldCup2026GroupsUiData(matches: Match[], simulations = 3_000): WorldCup2026GroupsUiData {
   const schedules = buildWorldCup2026Groups(matches);
-  const groups = schedules.map((schedule) => ({
+  const tournament = simulateWorldCup2026FromSchedules({
+    groups: schedules.map((schedule) => ({ groupId: schedule.groupId, teams: schedule.teams, matches: schedule.matches })),
+    simulations,
+  });
+  const groups = schedules.map((schedule, index) => ({
     schedule,
-    simulation: simulateSchedule(schedule, simulations),
+    simulation: {
+      ...tournament.groups[index],
+      warnings: [...new Set([...schedule.warnings, ...tournament.groups[index].warnings, ...tournament.warnings])],
+    },
   }));
   return {
     groups,
@@ -110,23 +120,15 @@ export function createWorldCup2026GroupSimulationView(
 ): WorldCup2026GroupSimulationView {
   const groups = buildWorldCup2026Groups(matches);
   const selected = groups.find((group) => group.groupId === requestedGroupId) ?? groups[0];
+  const uiData = createWorldCup2026GroupsUiData(matches, simulations);
+  const selectedResult = uiData.groups.find((entry) => entry.schedule.groupId === selected.groupId)!;
   return {
     dataStatus: selected.metadata.dataStatus,
     groups,
     selectedGroupId: selected.groupId,
-    result: simulateSchedule(selected, simulations),
+    result: selectedResult.simulation,
     warnings: selected.warnings,
   };
-}
-
-function simulateSchedule(schedule: WorldCup2026GroupSchedule, simulations: number): GroupSimulationServiceResult {
-  const result = simulateGroupFromSchedule({
-    groupId: schedule.groupId,
-    teams: schedule.teams,
-    matches: schedule.matches,
-    simulations,
-  });
-  return { ...result, warnings: [...new Set([...schedule.warnings, ...result.warnings])] };
 }
 
 function scheduleFor(

@@ -32,6 +32,9 @@ export interface SimulatedGroupTeamResult {
   teamName: string;
   expectedPoints: number;
   probabilityAdvance: number;
+  probabilityAdvanceAsTop2: number;
+  probabilityAdvanceAsThird: number;
+  probabilityEliminated: number;
   probabilityWinGroup: number;
   probabilityFinishSecond: number;
   probabilityFinishThird: number;
@@ -39,6 +42,27 @@ export interface SimulatedGroupTeamResult {
   averageGoalDifference: number;
   averageGoalsFor: number;
   averageGoalsAgainst: number;
+}
+
+export interface SimulatedGroupIterationTeam {
+  teamId: string;
+  teamCode: string;
+  teamName: string;
+  points: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+  position: 1 | 2 | 3 | 4;
+}
+
+export interface PreparedGroupSimulation {
+  groupId: string;
+  teams: Team[];
+  modelVariant: StatModelVariant;
+  calibration: StatModelCalibrationMode;
+  seed: number;
+  warnings: string[];
+  sample: (random: () => number) => SimulatedGroupIterationTeam[];
 }
 
 export interface GroupSimulationResult {
@@ -81,6 +105,34 @@ const DEFAULT_SEED = 20260611;
 const MAX_SIMULATIONS = 1_000_000;
 
 export function simulateGroupStage(input: GroupSimulationInput): GroupSimulationResult {
+  const preparedGroup = prepareGroupSimulation(input);
+  const accumulator = new Map(input.teams.map((team) => [team.id, emptyAccumulator()]));
+  const random = createSeededRandom(preparedGroup.seed);
+  for (let simulation = 0; simulation < input.simulations; simulation++) {
+    for (const row of preparedGroup.sample(random)) {
+      const totals = accumulator.get(row.teamId)!;
+      totals.points += row.points;
+      totals.goalsFor += row.goalsFor;
+      totals.goalsAgainst += row.goalsAgainst;
+      totals.goalDifference += row.goalDifference;
+      totals.finishes[row.position - 1]++;
+    }
+  }
+
+  const teams = input.teams.map((team) => summarize(team, accumulator.get(team.id)!, input.simulations));
+  return {
+    groupId: input.groupId,
+    simulations: input.simulations,
+    modelVariant: preparedGroup.modelVariant,
+    calibration: preparedGroup.calibration,
+    seed: preparedGroup.seed,
+    teams,
+    warnings: preparedGroup.warnings,
+    version: "group-monte-carlo-v1",
+  };
+}
+
+export function prepareGroupSimulation(input: GroupSimulationInput): PreparedGroupSimulation {
   validateInput(input);
   const variant = resolveStatModelVariant(input.modelVariant ?? DEFAULT_STAT_MODEL_VARIANT);
   const requestedCalibration = resolveStatModelCalibration(input.calibration ?? DEFAULT_STAT_MODEL_CALIBRATION);
@@ -125,36 +177,32 @@ export function simulateGroupStage(input: GroupSimulationInput): GroupSimulation
     };
   });
 
-  const accumulator = new Map(input.teams.map((team) => [team.id, emptyAccumulator()]));
-  const random = createSeededRandom(seed);
   const fallback = tieBreakValues(input.teams, seed);
-  for (let simulation = 0; simulation < input.simulations; simulation++) {
+  const sample = (random: () => number): SimulatedGroupIterationTeam[] => {
     const table = initialTable(input.teams, playedMatches);
     for (const item of prepared) {
       const score = sampleCalibratedScore(item, random);
       applyResult(table, item.match.home_team_id, item.match.away_team_id, score.homeGoals, score.awayGoals);
     }
-    const ordered = orderTable([...table.values()], fallback);
-    ordered.forEach((row, index) => {
-      const totals = accumulator.get(row.team.id)!;
-      totals.points += row.points;
-      totals.goalsFor += row.goalsFor;
-      totals.goalsAgainst += row.goalsAgainst;
-      totals.goalDifference += row.goalDifference;
-      totals.finishes[index]++;
-    });
-  }
-
-  const teams = input.teams.map((team) => summarize(team, accumulator.get(team.id)!, input.simulations));
+    return orderTable([...table.values()], fallback).map((row, index) => ({
+      teamId: row.team.id,
+      teamCode: row.team.code,
+      teamName: row.team.name,
+      points: row.points,
+      goalsFor: row.goalsFor,
+      goalsAgainst: row.goalsAgainst,
+      goalDifference: row.goalDifference,
+      position: (index + 1) as 1 | 2 | 3 | 4,
+    }));
+  };
   return {
     groupId: input.groupId,
-    simulations: input.simulations,
+    teams: input.teams,
     modelVariant: variant.id,
     calibration: effectiveCalibration.id,
     seed,
-    teams,
     warnings: [...warnings],
-    version: "group-monte-carlo-v1",
+    sample,
   };
 }
 
@@ -276,7 +324,7 @@ function tieBreakValues(teams: Team[], seed: number): Map<string, number> {
   return new Map(teams.map((team) => [team.id, hashString(`${seed}:${team.id}`)]));
 }
 
-function createSeededRandom(seed: number): () => number {
+export function createSeededRandom(seed: number): () => number {
   let state = seed >>> 0;
   return () => {
     state = (state + 0x6D2B79F5) >>> 0;
@@ -302,12 +350,16 @@ function normalizeSeed(seed: number): number {
 }
 
 function summarize(team: Team, total: TeamAccumulator, simulations: number): SimulatedGroupTeamResult {
+  const probabilityAdvanceAsTop2 = (total.finishes[0] + total.finishes[1]) / simulations;
   return {
     teamId: team.id,
     teamCode: team.code,
     teamName: team.name,
     expectedPoints: total.points / simulations,
-    probabilityAdvance: (total.finishes[0] + total.finishes[1]) / simulations,
+    probabilityAdvance: probabilityAdvanceAsTop2,
+    probabilityAdvanceAsTop2,
+    probabilityAdvanceAsThird: 0,
+    probabilityEliminated: 1 - probabilityAdvanceAsTop2,
     probabilityWinGroup: total.finishes[0] / simulations,
     probabilityFinishSecond: total.finishes[1] / simulations,
     probabilityFinishThird: total.finishes[2] / simulations,

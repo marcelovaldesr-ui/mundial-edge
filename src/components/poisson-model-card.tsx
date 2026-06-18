@@ -3,7 +3,7 @@ import { ExplanationBox } from "@/components/explanation-box";
 import { ProbabilityBar } from "@/components/probability-bar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { MatchStatModelPrediction, StatSelectionKey } from "@/lib/stat-model";
+import { getTopScorelines, type MatchStatModelPrediction, type StatSelectionKey } from "@/lib/stat-model";
 import { pct } from "@/lib/utils";
 
 export function PoissonModelCard({
@@ -13,7 +13,10 @@ export function PoissonModelCard({
   prediction: MatchStatModelPrediction;
   compact?: boolean;
 }) {
-  const likelyScore = mostLikelyScore(prediction);
+  const topScorelines = getTopScorelines(prediction.scoreMatrix);
+  const technicalTie = topScorelines.some((scoreline, index) =>
+    index > 0 && Math.abs(topScorelines[index - 1].probability - scoreline.probability) <= 0.0025
+  );
 
   return (
     <Card>
@@ -34,8 +37,17 @@ export function PoissonModelCard({
         <div className="grid grid-cols-2 gap-3">
           <Metric label={`xG ${prediction.homeTeam.code}`} value={prediction.homeExpectedGoals.toFixed(2)} />
           <Metric label={`xG ${prediction.awayTeam.code}`} value={prediction.awayExpectedGoals.toFixed(2)} />
-          <Metric label="Score probable" value={`${likelyScore.home}-${likelyScore.away}`} />
-          <Metric label="Prob. score" value={pct(likelyScore.probability)} />
+          <div className="col-span-2 rounded-md bg-muted/40 p-3">
+            <p className="text-xs text-muted-foreground">Marcadores más probables</p>
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 font-semibold tabular-nums">
+              {topScorelines.map((scoreline) => (
+                <span key={`${scoreline.homeGoals}-${scoreline.awayGoals}`}>
+                  {scoreline.homeGoals}-{scoreline.awayGoals} <span className="font-normal text-muted-foreground">{pct(scoreline.probability)}</span>
+                </span>
+              ))}
+            </div>
+            {technicalTie && <p className="mt-1 text-xs text-muted-foreground">Las primeras alternativas están en empate técnico.</p>}
+          </div>
           <Metric label={`Rating ${prediction.homeTeam.code}`} value={ratingValue(prediction.homeRating)} />
           <Metric label={`Rating ${prediction.awayTeam.code}`} value={ratingValue(prediction.awayRating)} />
         </div>
@@ -64,7 +76,9 @@ export function PoissonModelCard({
             {(prediction.expectedGoalsBlend.awayStatsWeight * 100).toFixed(0)}% stats.
           </p>
           {prediction.groupContext && <p>{prediction.groupContext.summary}</p>}
-          <p>Score más probable por celda de matriz: {likelyScore.home}-{likelyScore.away} ({pct(likelyScore.probability)}).</p>
+          <p>
+            Top de matriz: {topScorelines.map((scoreline) => `${scoreline.homeGoals}-${scoreline.awayGoals} (${pct(scoreline.probability)})`).join(", ")}.
+          </p>
           {prediction.warnings.slice(0, compact ? 1 : 3).map((warning) => (
             <p key={warning}>Aviso: {warning}</p>
           ))}
@@ -80,14 +94,6 @@ function prob(prediction: MatchStatModelPrediction, selection: StatSelectionKey)
 
 function probValue(prediction: MatchStatModelPrediction, selection: StatSelectionKey): number {
   return prediction.marketProbabilities.find((market) => market.selection === selection)?.probability ?? 0;
-}
-
-function mostLikelyScore(prediction: MatchStatModelPrediction) {
-  const best = prediction.scoreMatrix.entries.reduce(
-    (current, entry) => (entry.probability > current.probability ? entry : current),
-    prediction.scoreMatrix.entries[0]
-  );
-  return { home: best.homeGoals, away: best.awayGoals, probability: best.probability };
 }
 
 function sourceLabel(source: string): string {

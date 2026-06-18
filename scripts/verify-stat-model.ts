@@ -6,7 +6,7 @@ import {
   probabilityForSelection,
   selectionToScorePredicate,
 } from "../src/lib/stat-model/market-probabilities";
-import { createScoreMatrix, poissonProbability, scoreMatrixTotalProbability } from "../src/lib/stat-model/score-matrix";
+import { createScoreMatrix, getTopScorelines, poissonProbability, scoreMatrixTotalProbability } from "../src/lib/stat-model/score-matrix";
 import { applyDixonColesAdjustment } from "../src/lib/stat-model/dixon-coles";
 import { calculatePredictionConfidence, labelForScore } from "../src/lib/stat-model/confidence-score";
 import { getActiveStatModelVariant, resolveStatModelVariant } from "../src/lib/stat-model/model-variant";
@@ -57,6 +57,22 @@ function matrixAndMarkets() {
     probabilityForSelection(matrix, "home_win") + probabilityForSelection(matrix, "draw"),
     0.000001
   );
+}
+
+function topScorelines() {
+  const lowScoring = createScoreMatrix({ homeExpectedGoals: 0.45, awayExpectedGoals: 0.35, maxGoals: 12 });
+  const homeHeavy = createScoreMatrix({ homeExpectedGoals: 2.6, awayExpectedGoals: 0.55, maxGoals: 12 });
+  const lowTop = getTopScorelines(lowScoring, 5);
+  const heavyTop = getTopScorelines(homeHeavy, 5);
+  assert(lowTop[0].homeGoals === 0 && lowTop[0].awayGoals === 0, "Low lambdas should make 0-0 the top scoreline.");
+  assert(heavyTop[0].homeGoals === 2 && heavyTop[0].awayGoals === 0, "Different lambdas should produce a different top scoreline.");
+  assert(lowTop.every((entry, index) => index === 0 || lowTop[index - 1].probability >= entry.probability), "Top scorelines must be probability-sorted.");
+  assert(lowTop.length === 5 && getTopScorelines(lowScoring).length === 3, "Scoreline helper must respect limit/default.");
+  assert(lowScoring !== homeHeavy && lowScoring.entries !== homeHeavy.entries, "Different lambda inputs must create independent matrices.");
+  assert(getTopScorelines(lowScoring, 5)[0] !== lowScoring.entries[0], "Ranking must return copied entries instead of exposing matrix cells.");
+  const tiedModes = getTopScorelines(createScoreMatrix({ homeExpectedGoals: 2, awayExpectedGoals: 1, maxGoals: 12 }), 4);
+  assert(tiedModes[0].homeGoals === 2 && tiedModes[0].awayGoals === 1, "Technical ties must use lambda-aware ordering instead of row-order 1-1 bias.");
+  assert(Math.abs(tiedModes[0].probability - tiedModes[1].probability) < 1e-12, "Integer lambdas should preserve equally likely Poisson modes.");
 }
 
 function dixonColes() {
@@ -242,10 +258,27 @@ function matchPrediction() {
   const matrices = buildScoreMatricesByMatchId([match], [homeStats, awayStats]);
   assert(matrices.scoreMatricesByMatchId.m1, "Expected score matrix keyed by match id");
   assert(matrices.coverage.totalPreMatch === 1 && matrices.coverage.withScoreMatrix === 1, "Expected coverage counts");
+
+  const secondMatch: Match = {
+    ...match,
+    id: "m2",
+    home_team_id: "away",
+    away_team_id: "home",
+    home_team: match.away_team,
+    away_team: match.home_team,
+  };
+  const twoMatches = buildScoreMatricesByMatchId([match, secondMatch], [homeStats, awayStats]);
+  const firstMatrix = twoMatches.scoreMatricesByMatchId.m1;
+  const secondMatrix = twoMatches.scoreMatricesByMatchId.m2;
+  assert(firstMatrix !== secondMatrix, "Each match must own a distinct score matrix object.");
+  assert(firstMatrix.entries !== secondMatrix.entries, "Score matrix entries must not be reused across matches.");
+  assert(firstMatrix.homeExpectedGoals === twoMatches.predictions.find((row) => row.matchId === "m1")!.homeExpectedGoals, "Matrix m1 must use its prediction lambda.");
+  assert(secondMatrix.homeExpectedGoals === twoMatches.predictions.find((row) => row.matchId === "m2")!.homeExpectedGoals, "Matrix m2 must use its prediction lambda.");
 }
 
 poisson();
 matrixAndMarkets();
+topScorelines();
 dixonColes();
 predicatesAndJoint();
 calibration();

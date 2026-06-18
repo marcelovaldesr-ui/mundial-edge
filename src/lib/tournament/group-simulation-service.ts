@@ -7,6 +7,10 @@ import {
   type GroupSimulationResult,
   type SimulatedGroupTeamResult,
 } from "./group-simulation";
+import {
+  simulateWorldCup2026Groups,
+  type WorldCup2026GroupsSimulationResult,
+} from "./best-third-places";
 
 export interface SimulateGroupFromScheduleInput {
   groupId: string;
@@ -37,6 +41,26 @@ export interface GroupSimulationServiceResult {
   engineVersion: GroupSimulationResult["version"];
   modelSelection: "recommended-simulation-default" | "explicit-override";
   usesRecommendedSimulationModel: boolean;
+}
+
+export interface SimulateWorldCup2026FromSchedulesInput {
+  groups: Array<{ groupId: string; teams: Team[]; matches: Match[] }>;
+  simulations: number;
+  seed?: number;
+  modelVariant?: StatModelVariant;
+  calibration?: StatModelCalibrationMode;
+}
+
+export interface WorldCup2026GroupsSimulationServiceResult {
+  groups: GroupSimulationServiceResult[];
+  simulations: number;
+  seed: number;
+  qualifiersPerSimulation: number;
+  topTwoQualifiersPerSimulation: number;
+  thirdPlaceQualifiersPerSimulation: number;
+  eliminatedPerSimulation: number;
+  warnings: string[];
+  version: WorldCup2026GroupsSimulationResult["version"];
 }
 
 const recommendedPredictionConfig = getRecommendedPredictionConfig();
@@ -99,6 +123,93 @@ export function simulateGroupFromSchedule(input: SimulateGroupFromScheduleInput)
     engineVersion: simulation.version,
     modelSelection,
     usesRecommendedSimulationModel,
+  };
+}
+
+export function simulateWorldCup2026FromSchedules(
+  input: SimulateWorldCup2026FromSchedulesInput
+): WorldCup2026GroupsSimulationServiceResult {
+  const modelVariant = input.modelVariant ?? RECOMMENDED_GROUP_SIMULATION_MODEL.modelVariant;
+  const calibration = input.calibration
+    ?? (modelVariant === RECOMMENDED_GROUP_SIMULATION_MODEL.modelVariant ? RECOMMENDED_GROUP_SIMULATION_MODEL.calibration : "none");
+  const modelSelection = input.modelVariant == null && input.calibration == null
+    ? "recommended-simulation-default"
+    : "explicit-override";
+  const usesRecommendedSimulationModel = modelVariant === RECOMMENDED_GROUP_SIMULATION_MODEL.modelVariant
+    && calibration === RECOMMENDED_GROUP_SIMULATION_MODEL.calibration;
+
+  const normalized = input.groups.map((group) => {
+    const serviceInput: SimulateGroupFromScheduleInput = {
+      ...group,
+      simulations: input.simulations,
+      seed: input.seed,
+      modelVariant,
+      calibration,
+    };
+    validateGroupSimulationInput(serviceInput);
+    const teamsById = new Map(group.teams.map((team) => [team.id, team]));
+    const matches = group.matches.map((match) => normalizeGroupMatch(match, teamsById));
+    const split = splitPlayedAndRemainingMatches(matches);
+    return { group, matches, split, adapterWarnings: collectAdapterWarnings(serviceInput) };
+  });
+
+  const simulation = simulateWorldCup2026Groups({
+    groups: normalized.map(({ group, split }) => ({
+      groupId: group.groupId,
+      teams: group.teams,
+      playedMatches: split.playedMatches,
+      remainingMatches: split.remainingMatches,
+      simulations: input.simulations,
+      seed: input.seed,
+      modelVariant,
+      calibration,
+    })),
+    simulations: input.simulations,
+    seed: input.seed,
+  });
+
+  const groups = simulation.groups.map((groupResult, index): GroupSimulationServiceResult => {
+    const source = normalized[index];
+    const standings = [...groupResult.teams].sort((a, b) =>
+      b.probabilityAdvance - a.probabilityAdvance
+      || b.probabilityWinGroup - a.probabilityWinGroup
+      || b.expectedPoints - a.expectedPoints
+      || a.teamCode.localeCompare(b.teamCode)
+    );
+    validateServiceOutput(standings);
+    return {
+      groupId: groupResult.groupId,
+      teams: [...source.group.teams],
+      simulations: groupResult.simulations,
+      modelVariant: groupResult.modelVariant,
+      calibration: groupResult.calibration,
+      seed: groupResult.seed,
+      generatedAt: new Date().toISOString(),
+      warnings: [...new Set([
+        modelSelection === "recommended-simulation-default"
+          ? `Group simulation usa recommended simulation model: modelVariant=${modelVariant}, calibration=${calibration}.`
+          : `Group simulation usa override explicito efectivo: modelVariant=${modelVariant}, calibration=${calibration}.`,
+        ...source.adapterWarnings,
+        ...groupResult.warnings,
+      ])],
+      standings,
+      version: "group-simulation-service-v1",
+      engineVersion: groupResult.version,
+      modelSelection,
+      usesRecommendedSimulationModel,
+    };
+  });
+
+  return {
+    groups,
+    simulations: simulation.simulations,
+    seed: simulation.seed,
+    qualifiersPerSimulation: simulation.qualifiersPerSimulation,
+    topTwoQualifiersPerSimulation: simulation.topTwoQualifiersPerSimulation,
+    thirdPlaceQualifiersPerSimulation: simulation.thirdPlaceQualifiersPerSimulation,
+    eliminatedPerSimulation: simulation.eliminatedPerSimulation,
+    warnings: simulation.warnings,
+    version: simulation.version,
   };
 }
 

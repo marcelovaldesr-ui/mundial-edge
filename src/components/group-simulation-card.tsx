@@ -63,14 +63,16 @@ export function GroupSimulationCard({
           </div>
         )}
 
-        <Table className="min-w-[860px]">
+        <Table className="min-w-[1080px]">
           <TableHeader>
             <TableRow>
               <TableHead>Equipo</TableHead>
               <TableHead className="text-right">Pts. esp.</TableHead>
               <TableHead className="text-right">Clasifica</TableHead>
-              <TableHead className="text-right">Gana grupo</TableHead>
-              <TableHead className="text-right">1.º</TableHead>
+              <TableHead className="text-right">Como Top-2</TableHead>
+              <TableHead className="text-right">Mejor 3.º</TableHead>
+              <TableHead className="text-right">Eliminado</TableHead>
+              <TableHead className="text-right">1.º / gana</TableHead>
               <TableHead className="text-right">2.º</TableHead>
               <TableHead className="text-right">3.º</TableHead>
               <TableHead className="text-right">4.º</TableHead>
@@ -92,7 +94,9 @@ export function GroupSimulationCard({
                   </TableCell>
                   <NumberCell value={standing.expectedPoints.toFixed(2)} />
                   <ProbabilityCell value={standing.probabilityAdvance} emphasized />
-                  <ProbabilityCell value={standing.probabilityWinGroup} />
+                  <ProbabilityCell value={standing.probabilityAdvanceAsTop2} />
+                  <ProbabilityCell value={standing.probabilityAdvanceAsThird} />
+                  <ProbabilityCell value={standing.probabilityEliminated} />
                   <ProbabilityCell value={standing.probabilityWinGroup} />
                   <ProbabilityCell value={standing.probabilityFinishSecond} />
                   <ProbabilityCell value={standing.probabilityFinishThird} />

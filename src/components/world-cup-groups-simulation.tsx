@@ -52,6 +52,9 @@ export function WorldCupGroupsSimulation({ data }: { data: WorldCup2026GroupsUiD
           );
         })}
       </div>
+      <p className="text-xs text-muted-foreground">
+        Formato 2026: clasifican los dos primeros de cada grupo y los ocho mejores terceros (32 equipos en total).
+      </p>
 
       <section id={`world-cup-group-${schedule.groupId}`} role="tabpanel" className="space-y-4">
         <Card>

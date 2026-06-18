@@ -11,7 +11,7 @@ export function GroupSimulationCard({
 }: {
   result?: GroupSimulationServiceResult | null;
   preview?: boolean;
-  dataStatus?: "current" | "demo";
+  dataStatus?: "current" | "preview" | "demo";
 }) {
   const isDemo = preview || dataStatus === "demo";
   if (!result || result.standings.length === 0) {
@@ -39,6 +39,7 @@ export function GroupSimulationCard({
             <div className="flex flex-wrap items-center gap-2">
               <CardTitle className="text-lg">Simulación Grupo {result.groupId}</CardTitle>
               {isDemo && <Badge variant="warning">Demo</Badge>}
+              {dataStatus === "preview" && <Badge variant="outline">Preview</Badge>}
               {dataStatus === "current" && <Badge variant="success">Datos actuales</Badge>}
               <Badge variant="outline">Monte Carlo</Badge>
             </div>

@@ -1751,3 +1751,43 @@ Con datos actuales, varios partidos usan priors similares por baja muestra:
 - Próximo paso recomendado: persistir/normalizar la etiqueta de grupo desde
   ambos proveedores en el sync (sin depender de inferencia) y extender el motor
   del torneo para mejores terceros y cruces de Round of 32.
+
+---
+
+## ACTUALIZACION - UI completa de grupos A-L
+
+### Ubicacion y datos
+- `src/components/world-cup-groups-simulation.tsx` reemplaza la integración de
+  una sola preview en `/stat-model`. Es un componente cliente liviano: recibe
+  cálculos preparados en servidor y solo mantiene el grupo seleccionado.
+- `world-cup-2026-groups.ts` expone siempre los doce grupos A-L. Cada schedule
+  contiene cuatro equipos, seis cruces, partidos jugados/pendientes, standings,
+  metadata de fuente y warnings.
+- Prioridad de datos: fixture completo del repositorio (`Datos actuales`),
+  repositorio parcial completado con cruces locales (`Preview`) y fixture local
+  con equipos por confirmar (`Demo` únicamente cuando no existe ningún dato de
+  grupos en el repositorio; `Preview` para grupos faltantes si otros sí existen).
+
+### Selector, standings y simulación
+- Los tabs A-L cambian el panel en cliente sin reload. El panel seleccionado
+  muestra PJ, G, E, P, GF, GC, DG y PTS calculados solo desde partidos
+  `finished` con marcador válido.
+- Debajo se reutiliza `GroupSimulationCard` con clasificación, ganar grupo,
+  puntos esperados y posiciones 1-4. Fuente y configuración se mantienen en un
+  detalle colapsable: `xg-v2.1-prior8 + platt-blend-25`.
+- Las tablas tienen ancho mínimo y overflow horizontal para mobile. Warnings de
+  datos y del motor permanecen colapsados para no saturar la página.
+
+### Verificación y límites
+- `npm run verify:world-cup-groups-ui-data` valida A-L, cuatro equipos por grupo,
+  seis partidos o warning, standings exactos desde resultados, finitud, cambio
+  de selección A/L e invariantes Monte Carlo sobre un grupo actual completo.
+- Los slots locales no afirman selecciones reales: usan nombres "por confirmar"
+  hasta que el sync entregue equipos/fixtures. Grupos genéricos del proveedor
+  aún pueden requerir inferir su letra, lo que queda advertido en UI.
+- `probabilityAdvance` continúa significando top-2. Falta modelar mejores
+  terceros, reglas FIFA completas de desempate, marcador live parcial y bracket
+  de Round of 32.
+- Próximo paso: normalizar también la letra de grupo de API-Football durante el
+  sync y añadir la capa conjunta de mejores terceros cuando el fixture oficial
+  completo esté disponible.

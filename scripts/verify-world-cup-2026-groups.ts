@@ -21,12 +21,12 @@ const matches: Match[] = [
 ];
 
 const groups = buildWorldCup2026Groups(matches);
-assert.equal(groups.length, 1, "A complete unlabeled provider fixture must be inferred as one group");
+assert.equal(groups.length, 12, "The adapter must always expose groups A-L");
 assert.equal(groups[0].teams.length, 4);
 assert.equal(groups[0].matches.length, 6);
 assert.equal(groups[0].playedMatches.length, 2);
 assert.equal(groups[0].pendingMatches.length, 4);
-assert.equal(groups[0].source, "repository-current");
+assert.equal(groups[0].metadata.source, "repository-current");
 
 const current = createWorldCup2026GroupSimulationView(matches, groups[0].groupId, 2_000);
 assert.equal(current.dataStatus, "current");
@@ -46,9 +46,9 @@ for (const row of current.result.standings) {
 }
 
 const incomplete = createWorldCup2026GroupSimulationView(matches.slice(0, 4), null, 100);
-assert.equal(incomplete.dataStatus, "demo");
-assert.equal(incomplete.groups.length, 0);
-assert(incomplete.result.warnings.some((warning) => warning.includes("4 equipos y 6 cruces")));
+assert.equal(incomplete.dataStatus, "preview");
+assert.equal(incomplete.groups.length, 12);
+assert(incomplete.result.warnings.some((warning) => warning.includes("Fixture actual incompleto")));
 
 console.log("World Cup 2026 group adapter verification passed");
 

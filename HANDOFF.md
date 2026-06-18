@@ -1416,3 +1416,92 @@ Con datos actuales, varios partidos usan priors similares por baja muestra:
   por una fuente independiente y medir estabilidad de coeficientes/bootstrap.
 - Despues, evaluar Monte Carlo como mecanismo de simulacion/distribucion; no
   mezclarlo con el ajuste de calibracion ni crear mercados nuevos en esa fase.
+
+---
+
+## ACTUALIZACION - auditoria Platt previa a Monte Carlo
+
+### Leakage y metodologia
+- La comparacion principal ahora es estrictamente leave-one-world-cup-out:
+  cada Mundial se evalua con parametros aprendidos solo en los otros seis.
+- Auditoria automatica: 0 fixtures compartidos entre train/test, 0 predicciones
+  OOF ausentes, 0 duplicadas y 448/448 partidos evaluados una vez por modelo.
+- El backtest construye stats/standings cronologicamente y agrega el resultado
+  solo despues de emitir la prediccion. No se detecto leakage directo de target.
+- Caveat: los ratings siguen siendo estimaciones manuales pseudo-historicas.
+  Esto no contamina el fit Platt con el Mundial excluido, pero tampoco demuestra
+  independencia completa del proceso de features. Se requiere fuente externa.
+
+### Comparacion LOOWC
+- prior8 raw/calibrado: Brier `0.6000 -> 0.5535`, Log Loss
+  `1.0075 -> 0.9374`, RPS `0.2024 -> 0.1811`, Accuracy `56.0% -> 54.7%`.
+- Legacy raw/calibrado diagnostico: Brier `0.6359 -> 0.6336`, Log Loss
+  `1.0576 -> 1.0539`, RPS `0.2193 -> 0.2183`, Accuracy `47.5% -> 46.9%`.
+- No existe preset productivo Legacy calibrado; es solo un contrafactual.
+- Los parametros `(a,b)` por modelo, mercado y fold estan en
+  `reports/calibration-diagnostic.md`. Draw prior8 es el menos estable, con
+  pendientes por fold entre `8.6372` y `12.5877`.
+
+### Mecanismo y segmentos
+- La mejora prior8 viene principalmente de corregir subconfianza/compresion:
+  probabilidad media del favorito `44.2% raw -> 56.2% calibrada`, frente a
+  `55.9%` real. No viene de reducir sobreconfianza raw.
+- Draw rate: `25.2% -> 26.7%`, frente a `26.8%` real; ayuda, pero es secundario.
+- Favoritos claros (301): Brier `0.5677 -> 0.5029`, Accuracy
+  `64.1% -> 63.8%`.
+- Upsets claros (35): Brier `0.7778 -> 1.2184`, Log Loss
+  `1.2398 -> 2.1537`. Es el principal riesgo: la distribucion mas extrema
+  castiga mucho cuando gana el underdog.
+- Grupos: Brier `0.5914 -> 0.5412`; eliminatorias `0.6259 -> 0.5902`.
+- Partidos de 0-2 goles: Brier `0.6473 -> 0.6199`; Accuracy
+  `46.1% -> 46.5%`.
+- Empates reales: Log Loss mejora `1.3686 -> 1.2784`, pero Brier queda casi
+  igual (`0.8421 -> 0.8447`) y RPS empeora; no hay mejora uniforme en draws.
+
+### High confidence y reliability
+- Cohorte prior8 raw con max 1X2 >=50%: 58 partidos, Accuracy `86.2%` antes y
+  despues, retencion de pick `100%`. No se destruyen los picks fuertes actuales.
+- Cohorte calibrada >=70%: 87 partidos, Accuracy `81.6%`; es prometedora pero el
+  umbral surge tras calibrar y debe validarse en mas historia.
+- `reports/calibration-reliability.json` contiene las cuatro series OOF, buckets
+  0-10% a 90-100%, probabilidad media, frecuencia observada y count. Cada serie
+  contiene exactamente 1.344 observaciones binarias (448 x tres outcomes).
+
+### Decision
+- Mantener `legacy-neutral` y `STAT_MODEL_CALIBRATION=none` como defaults.
+- No usar todavia Platt como base productiva de Monte Carlo. La mejora promedio
+  OOF es real dentro de este corpus, pero la penalizacion de upsets, la
+  inestabilidad de draw y los ratings manuales requieren otra ronda de datos y
+  validacion temporal antes de simular escenarios.
+
+---
+
+## ACTUALIZACION - calibracion conservadora
+
+### Variantes evaluadas (LOOWC)
+- Se agregaron estrategias post-Platt puras: blends `25/50/75%`, condicion raw
+  top `<65%` y limite de boost del favorito raw a `+8 pp`. Todas preservan suma
+  1X2, rango y metadata; solo se habilitan explicitamente con prior8.
+- prior8 raw: Brier `0.6000`, Log Loss `1.0075`, RPS `0.2024`, Accuracy `56.0%`.
+- Platt full: `0.5535 / 0.9374 / 0.1811 / 54.7%`; Log Loss upsets `2.1537`.
+- blend-25: `0.5792 / 0.9774 / 0.1929 / 56.9%`; Log Loss upsets `1.3928`.
+- blend-50: `0.5646 / 0.9546 / 0.1862 / 56.7%`; Log Loss upsets `1.5771`.
+- blend-75: `0.5560 / 0.9399 / 0.1823 / 56.0%`; Log Loss upsets `1.8119`.
+- favorite-cap-65 coincide con Platt full: prior8 raw no tiene top picks >=65%,
+  por lo que la condicion nunca corta el ajuste en este corpus.
+- favorite-max-boost-08: Brier `0.5706`, Log Loss `0.9595`, RPS `0.1864`,
+  Accuracy `54.7%`; sube draw medio a `31.1%` y no controla bien los upsets.
+
+### Regla y decision
+- Regla: mejorar las tres metricas probabilisticas; deterioro de Log Loss en
+  upsets <=15%; Accuracy no menor a raw por mas de 1 pp; favorito claro no
+  sobreestimado por mas de 3 pp.
+- Solo `platt-blend-25` pasa: mejora todas las metricas globales, Accuracy sube
+  `+0.9 pp` y el costo de upsets queda en `+12.3%` (`1.2398 -> 1.3928`).
+- Queda marcado como **candidate experimental**, no como default. Aun deja a
+  favoritos claros subestimados, pero reduce el problema principal sin perder
+  capacidad de ranking.
+- Defaults permanecen `legacy-neutral` y `STAT_MODEL_CALIBRATION=none`.
+- No iniciar Monte Carlo todavia: validar blend-25 con ratings historicos
+  independientes y mas ventanas temporales antes de usarlo como distribucion
+  base de simulacion.

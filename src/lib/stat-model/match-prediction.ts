@@ -9,7 +9,7 @@ import { applyDixonColesAdjustment } from "./dixon-coles";
 import { calculatePredictionConfidence, type ConfidenceResult } from "./confidence-score";
 import { getActiveStatModelVariant, type StatModelVariant, type StatModelVariantStatus } from "./model-variant";
 import { getActiveStatModelCalibration, type StatModelCalibrationMode } from "./calibration-presets";
-import { calibrateOneXTwoProbabilities, type CalibrationMetadata } from "./market-calibration";
+import { applyOneXTwoCalibrationStrategy, type CalibrationMetadata } from "./market-calibration";
 import type { TeamStrengthRating } from "./team-strength-ratings";
 import { getWorldCupGroupContext, type WorldCupGroupContext } from "../world-cup/group-context";
 
@@ -116,14 +116,14 @@ export function buildScoreMatrixForMatch(
     : applyDixonColesAdjustment(poissonMatrix, variant.dixonColesRho).matrix;
   const rawMarketProbabilities = deriveMarketProbabilities(scoreMatrix);
   const calibrationPreset = getActiveStatModelCalibration(options.calibration);
-  const calibrationEnabled = calibrationPreset.id === "experimental-platt" && variant.id === "xg-v2.1-prior8";
+  const calibrationEnabled = calibrationPreset.id !== "none" && variant.id === "xg-v2.1-prior8";
   const rawOneXTwo = {
     homeWin: rawMarketProbabilities.find((row) => row.selection === "home_win")!.probability,
     draw: rawMarketProbabilities.find((row) => row.selection === "draw")!.probability,
     awayWin: rawMarketProbabilities.find((row) => row.selection === "away_win")!.probability,
   };
   const calibratedOneXTwo = calibrationEnabled
-    ? calibrateOneXTwoProbabilities(rawOneXTwo, calibrationPreset.calibration)
+    ? applyOneXTwoCalibrationStrategy(rawOneXTwo, calibrationPreset.calibration, calibrationPreset.strategy)
     : null;
   const marketProbabilities = calibratedOneXTwo
     ? rawMarketProbabilities.map((row) => {

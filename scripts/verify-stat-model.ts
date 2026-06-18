@@ -13,6 +13,7 @@ import { getActiveStatModelVariant, resolveStatModelVariant } from "../src/lib/s
 import {
   calibrateMarketProbability,
   calibrateOneXTwoProbabilities,
+  applyOneXTwoCalibrationStrategy,
   probabilityLogit,
   sigmoid,
 } from "../src/lib/stat-model/market-calibration";
@@ -125,6 +126,23 @@ function calibration() {
   assert(resolveStatModelCalibration().id === "none", "Calibration must default to none.");
   assert(resolveStatModelCalibration("invalid").id === "none", "Invalid calibration flags must fail closed to none.");
   assert(resolveStatModelCalibration("experimental-platt").status === "experimental", "Experimental Platt flag must resolve explicitly.");
+  for (const mode of ["platt-blend-25", "platt-blend-50", "platt-blend-75", "favorite-cap-65", "favorite-max-boost-08"]) {
+    assert(resolveStatModelCalibration(mode).id === mode, `Expected ${mode} calibration preset.`);
+  }
+  assert(resolveStatModelCalibration("platt-blend-25").candidate, "Blend 25 must be marked as the conservative candidate.");
+
+  const fitted = { homeWin: { a: 2, b: 0 }, draw: { a: 2, b: 0 }, awayWin: { a: 2, b: 0 } };
+  const full = calibrateOneXTwoProbabilities(raw, fitted);
+  const blend25 = applyOneXTwoCalibrationStrategy(raw, fitted, { type: "blend", blend: 0.25 });
+  near(blend25.homeWin, 0.25 * full.homeWin + 0.75 * raw.homeWin, 0.000000001);
+  near(blend25.homeWin + blend25.draw + blend25.awayWin, 1, 0.000000001);
+  const cappedByThreshold = applyOneXTwoCalibrationStrategy(
+    { homeWin: 0.7, draw: 0.2, awayWin: 0.1 }, fitted, { type: "raw-top-threshold", threshold: 0.65 }
+  );
+  near(cappedByThreshold.homeWin, 0.7, 0.000000001);
+  const maxBoost = applyOneXTwoCalibrationStrategy(raw, fitted, { type: "favorite-max-boost", maxBoost: 0.08 });
+  assert(maxBoost.homeWin <= raw.homeWin + 0.08 + 0.000000001, "Favorite boost must respect its cap.");
+  near(maxBoost.homeWin + maxBoost.draw + maxBoost.awayWin, 1, 0.000000001);
 }
 
 function confidenceScore() {
@@ -215,6 +233,11 @@ function matchPrediction() {
     calibration: "invalid",
   });
   assert("scoreMatrix" in invalidCalibration && invalidCalibration.calibrationMode === "none", "Invalid calibration flag must fail closed.");
+  const conservativeCalibration = buildScoreMatrixForMatch(match, homeStats, awayStats, {
+    modelVariant: "xg-v2.1-prior8",
+    calibration: "platt-blend-25",
+  });
+  assert("scoreMatrix" in conservativeCalibration && conservativeCalibration.calibrationMode === "platt-blend-25", "Conservative calibration must be selectable explicitly.");
 
   const matrices = buildScoreMatricesByMatchId([match], [homeStats, awayStats]);
   assert(matrices.scoreMatricesByMatchId.m1, "Expected score matrix keyed by match id");

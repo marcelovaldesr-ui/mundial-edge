@@ -26,7 +26,15 @@ export interface CalibrationMetadata {
   calibratedBeforeNormalization: OneXTwoMarketProbabilities;
   /** Multiplier applied to every independently calibrated outcome. */
   normalizationFactor: number;
+  strategy?: ConservativeCalibrationStrategy;
+  plattCalibrated?: OneXTwoMarketProbabilities;
 }
+
+export type ConservativeCalibrationStrategy =
+  | { type: "full-platt" }
+  | { type: "blend"; blend: number }
+  | { type: "raw-top-threshold"; threshold: number }
+  | { type: "favorite-max-boost"; maxBoost: number };
 
 export interface CalibratedMarketProbabilities extends OneXTwoMarketProbabilities {
   metadata: CalibrationMetadata;
@@ -101,6 +109,43 @@ export function calibrateOneXTwoProbabilities(
   };
 }
 
+/** Applies a conservative policy after the independently fitted Platt transform. */
+export function applyOneXTwoCalibrationStrategy(
+  raw: OneXTwoMarketProbabilities,
+  calibrationSet: MarketCalibrationSet,
+  strategy: ConservativeCalibrationStrategy
+): CalibratedMarketProbabilities {
+  const platt = calibrateOneXTwoProbabilities(raw, calibrationSet);
+  let final: OneXTwoMarketProbabilities;
+  if (strategy.type === "full-platt") {
+    final = pickProbabilities(platt);
+  } else if (strategy.type === "blend") {
+    if (!Number.isFinite(strategy.blend) || strategy.blend < 0 || strategy.blend > 1) {
+      throw new RangeError("Calibration blend must be in [0, 1].");
+    }
+    final = mapProbabilities((key) => strategy.blend * platt[key] + (1 - strategy.blend) * raw[key]);
+  } else if (strategy.type === "raw-top-threshold") {
+    if (!Number.isFinite(strategy.threshold) || strategy.threshold < 0 || strategy.threshold > 1) {
+      throw new RangeError("Raw top threshold must be in [0, 1].");
+    }
+    final = maximumProbability(raw) < strategy.threshold ? pickProbabilities(platt) : { ...raw };
+  } else {
+    if (!Number.isFinite(strategy.maxBoost) || strategy.maxBoost < 0 || strategy.maxBoost > 1) {
+      throw new RangeError("Favorite maximum boost must be in [0, 1].");
+    }
+    final = capFavoriteBoost(raw, platt, strategy.maxBoost);
+  }
+  validateSimplex(final);
+  return {
+    ...final,
+    metadata: {
+      ...platt.metadata,
+      strategy,
+      plattCalibrated: pickProbabilities(platt),
+    },
+  };
+}
+
 function assertParams(params: MarketCalibrationParams): void {
   if (!Number.isFinite(params.a) || !Number.isFinite(params.b)) {
     throw new RangeError("Calibration parameters a and b must be finite.");
@@ -122,4 +167,44 @@ function assertEpsilon(epsilon: number): void {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+type ProbabilityKey = keyof OneXTwoMarketProbabilities;
+const PROBABILITY_KEYS: ProbabilityKey[] = ["homeWin", "draw", "awayWin"];
+
+function capFavoriteBoost(
+  raw: OneXTwoMarketProbabilities,
+  platt: OneXTwoMarketProbabilities,
+  maxBoost: number
+): OneXTwoMarketProbabilities {
+  const favorite = PROBABILITY_KEYS.reduce((best, key) => raw[key] > raw[best] ? key : best, "homeWin");
+  const cap = Math.min(1, raw[favorite] + maxBoost);
+  if (platt[favorite] <= cap) return pickProbabilities(platt);
+  const excess = platt[favorite] - cap;
+  const otherKeys = PROBABILITY_KEYS.filter((key) => key !== favorite);
+  const otherTotal = otherKeys.reduce((sum, key) => sum + platt[key], 0);
+  if (otherTotal <= 0) throw new RangeError("Cannot redistribute capped favorite probability.");
+  return mapProbabilities((key) => key === favorite ? cap : platt[key] + excess * (platt[key] / otherTotal));
+}
+
+function mapProbabilities(mapper: (key: ProbabilityKey) => number): OneXTwoMarketProbabilities {
+  return { homeWin: mapper("homeWin"), draw: mapper("draw"), awayWin: mapper("awayWin") };
+}
+
+function pickProbabilities(value: OneXTwoMarketProbabilities): OneXTwoMarketProbabilities {
+  return { homeWin: value.homeWin, draw: value.draw, awayWin: value.awayWin };
+}
+
+function maximumProbability(value: OneXTwoMarketProbabilities): number {
+  return Math.max(value.homeWin, value.draw, value.awayWin);
+}
+
+function validateSimplex(value: OneXTwoMarketProbabilities): void {
+  const values = Object.values(value);
+  if (values.some((probability) => !Number.isFinite(probability) || probability < 0 || probability > 1)) {
+    throw new RangeError("Strategy probabilities must be finite and in [0, 1].");
+  }
+  if (Math.abs(values.reduce((sum, probability) => sum + probability, 0) - 1) > 1e-9) {
+    throw new RangeError("Strategy probabilities must sum to 1.");
+  }
 }

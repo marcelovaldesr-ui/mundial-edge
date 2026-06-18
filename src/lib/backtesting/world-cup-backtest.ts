@@ -7,10 +7,10 @@ import {
   getAttackStrength,
   getDefenseStrength,
   getOverallStrength,
-  TEAM_STRENGTH_RATINGS,
   neutralTeamStrengthRating,
   type TeamStrengthRating,
 } from "../stat-model/team-strength-ratings";
+import { TEAM_RATING_SNAPSHOTS } from "../stat-model/rating-snapshots";
 import { getWorldCupGroupContext } from "../world-cup/group-context";
 import type { Match, Team, TeamStats } from "../types";
 import type {
@@ -41,7 +41,8 @@ export interface HistoricalRatingSet {
   id: string;
   snapshotYear: number | null;
   ratings: TeamStrengthRating[];
-  source: "current_seed_fallback" | "historical_pre_tournament";
+  source: "current_seed_fallback" | "historical_pre_tournament" | "derived_current_seed_snapshot" | "missing_snapshot_fallback";
+  isHistorical: boolean;
 }
 
 export interface WorldCupBacktestPrediction {
@@ -52,6 +53,7 @@ export interface WorldCupBacktestPrediction {
   homeGoals: number;
   awayGoals: number;
   stage: HistoricalWorldCupStage;
+  round: string;
   stageBucket: Exclude<BacktestStageBucket, "ALL">;
   variant: BacktestVariant;
   probabilities: OneXTwoProbabilities;
@@ -61,6 +63,8 @@ export interface WorldCupBacktestPrediction {
   neutralVenueApplied: boolean;
   ratingModel: ExpectedGoalsRatingModel;
   priorStrength: number | null;
+  ratingSnapshotYear: number | null;
+  ratingFallbackApplied: boolean;
   dixonColesRho: DixonColesRho | null;
   dixonColesNormalizationFactor: number | null;
   predictedHomeGoals: number;
@@ -114,6 +118,10 @@ export interface RatingCoverage {
   teams: number;
   withSpecificSeed: number;
   withExplicitFallback: number;
+  matchesWithSnapshot: number;
+  matchesWithFallback: number;
+  teamsWithoutRating: number;
+  snapshotIsHistorical: boolean;
 }
 
 export interface WorldCupBacktestReport {
@@ -142,12 +150,13 @@ export const BACKTEST_VARIANTS: BacktestVariant[] = [
   "xg-v2.1-prior8-dc-rho-0.05",
 ];
 
-export const DEFAULT_HISTORICAL_RATING_SETS: HistoricalRatingSet[] = [{
-  id: "mundial-edge-2026-seed-fallback",
-  snapshotYear: null,
-  ratings: TEAM_STRENGTH_RATINGS,
-  source: "current_seed_fallback",
-}];
+export const DEFAULT_HISTORICAL_RATING_SETS: HistoricalRatingSet[] = TEAM_RATING_SNAPSHOTS.map((snapshot) => ({
+  id: snapshot.id,
+  snapshotYear: snapshot.year,
+  ratings: snapshot.ratings,
+  source: snapshot.isHistorical ? "historical_pre_tournament" : snapshot.year === 2026 ? "current_seed_fallback" : "derived_current_seed_snapshot",
+  isHistorical: snapshot.isHistorical,
+}));
 
 export function brierScore1x2(probabilities: OneXTwoProbabilities, actual: OneXTwoOutcome): number {
   return outcomes().reduce((sum, result) => sum + Math.pow(probabilities[result] - (result === actual ? 1 : 0), 2), 0);
@@ -181,10 +190,11 @@ export function runWorldCupBacktest(
   validateWorldCupDatasets(datasets, ratingSets);
   const predictions: WorldCupBacktestPrediction[] = [];
   const ratingCoverage: RatingCoverage[] = [];
-  const ratingSetsById = new Map(ratingSets.map((set) => [set.id, set]));
+  const ratingSetsByYear = new Map(ratingSets.filter((set) => set.snapshotYear != null).map((set) => [set.snapshotYear!, set]));
 
   for (const dataset of [...datasets].sort((a, b) => a.year - b.year)) {
-    const ratingSet = ratingSetsById.get(dataset.ratingSet)!;
+    const snapshotYear = dataset.ratingSnapshotYear ?? dataset.year;
+    const ratingSet = ratingSetsByYear.get(snapshotYear) ?? missingSnapshotRatingSet(snapshotYear);
     const resolver = createRatingResolver(ratingSet);
     ratingCoverage.push(calculateRatingCoverage(dataset, ratingSet));
     for (const variant of BACKTEST_VARIANTS) {
@@ -214,8 +224,8 @@ export function runWorldCupBacktest(
     byStage,
     ratingCoverage,
     warnings: [
-      "Corpus completo para 2018 y 2022; otros Mundiales aun no estan incorporados.",
-      "No hay snapshots historicos pre-torneo: se usan seeds 2026 o fallback neutral explicito.",
+      `Corpus completo para ${tournaments.join(", ")}; Mundiales anteriores a 1998 aun no estan incorporados.`,
+      "Los snapshots 1998-2022 son estimaciones manuales pseudo-historicas pre-torneo; no son Elo externo ni ratings oficiales.",
       "El 1X2 de eliminatorias usa marcador a 90 minutos; excluye prorroga y penales.",
       "Todas las variantes usan sede neutral; legacy-neutral es la baseline de comparacion.",
       "xG v2.1 y Dixon-Coles son solo experimentales; no reemplazan el modelo productivo.",
@@ -238,10 +248,8 @@ export function validateWorldCupDatasets(
   datasets: HistoricalWorldCupDataset[],
   ratingSets: HistoricalRatingSet[] = DEFAULT_HISTORICAL_RATING_SETS
 ): void {
-  const ratingSetIds = new Set(ratingSets.map((set) => set.id));
   const ids = new Set<string>();
   for (const dataset of datasets) {
-    if (!ratingSetIds.has(dataset.ratingSet)) throw new Error(`Unknown ratingSet ${dataset.ratingSet} for ${dataset.year}.`);
     if (!dataset.fixtures.length) throw new Error(`No fixtures for ${dataset.year}.`);
     const orders = new Set<number>();
     for (const fixture of dataset.fixtures) {
@@ -256,6 +264,7 @@ export function validateWorldCupDatasets(
       if (fixture.neutralVenue !== true) throw new Error(`Fixture ${fixture.id} must be neutral.`);
       if (fixture.stage === "GROUP" && !fixture.group) throw new Error(`Group missing for ${fixture.id}.`);
       if (fixture.stage !== "GROUP" && fixture.group != null) throw new Error(`Unexpected group for ${fixture.id}.`);
+      if (!fixture.round.trim()) throw new Error(`Round missing for ${fixture.id}.`);
     }
   }
 }
@@ -325,6 +334,7 @@ function evaluateTournament(
       homeGoals: fixture.homeGoals,
       awayGoals: fixture.awayGoals,
       stage: fixture.stage,
+      round: fixture.round,
       stageBucket: isGroup ? "GROUP" : "KNOCKOUT",
       variant,
       probabilities,
@@ -334,6 +344,8 @@ function evaluateTournament(
       neutralVenueApplied: config.useNeutralVenue && fixture.neutralVenue,
       ratingModel: config.ratingModel,
       priorStrength: config.priorStrength,
+      ratingSnapshotYear: dataset.ratingSnapshotYear,
+      ratingFallbackApplied: homeRating.source === "neutral_fallback" || awayRating.source === "neutral_fallback",
       dixonColesRho: config.dixonColesRho,
       dixonColesNormalizationFactor: dcAdjustment?.metadata.normalizationFactor ?? null,
       predictedHomeGoals: topScore.homeGoals,
@@ -417,6 +429,16 @@ function createRatingResolver(ratingSet: HistoricalRatingSet): (team: Team) => T
   return (team) => byCode.get(team.code) ?? neutralTeamStrengthRating(team.code, team.name);
 }
 
+function missingSnapshotRatingSet(year: number): HistoricalRatingSet {
+  return {
+    id: `missing-rating-snapshot-${year}`,
+    snapshotYear: null,
+    ratings: [],
+    source: "missing_snapshot_fallback",
+    isHistorical: false,
+  };
+}
+
 function calculateRatingCoverage(dataset: HistoricalWorldCupDataset, ratingSet: HistoricalRatingSet): RatingCoverage {
   const codes = new Map<string, string>();
   for (const fixture of dataset.fixtures) {
@@ -425,13 +447,20 @@ function calculateRatingCoverage(dataset: HistoricalWorldCupDataset, ratingSet: 
   }
   const available = new Set(ratingSet.ratings.map((rating) => rating.teamCode));
   const withSpecificSeed = [...codes.keys()].filter((code) => available.has(code)).length;
+  const teamsWithoutRating = codes.size - withSpecificSeed;
+  const matchesWithFallback = dataset.fixtures.filter((fixture) => !available.has(fixture.homeTeam.code) || !available.has(fixture.awayTeam.code)).length;
+  const hasSnapshot = ratingSet.source !== "missing_snapshot_fallback";
   return {
     tournament: dataset.year,
     ratingSet: ratingSet.id,
     ratingSnapshotYear: ratingSet.snapshotYear,
     teams: codes.size,
     withSpecificSeed,
-    withExplicitFallback: codes.size - withSpecificSeed,
+    withExplicitFallback: teamsWithoutRating,
+    matchesWithSnapshot: hasSnapshot ? dataset.fixtures.length : 0,
+    matchesWithFallback,
+    teamsWithoutRating,
+    snapshotIsHistorical: ratingSet.isHistorical,
   };
 }
 

@@ -207,7 +207,7 @@ export function confidenceFromInputs(
   awayRating: TeamStrengthRating | null
 ): StatModelConfidence {
   const minMatches = Math.min(homeStats.matches_played, awayStats.matches_played);
-  const hasSpecificRatings = homeRating?.source === "manual_seed" && awayRating?.source === "manual_seed";
+  const hasSpecificRatings = isSpecificRating(homeRating) && isSpecificRating(awayRating);
   if (minMatches >= 4 && hasSpecificRatings) return "high";
   if (minMatches >= 2 && (homeRating || awayRating)) return "medium";
   if (hasSpecificRatings) return "medium";
@@ -232,7 +232,7 @@ function confidenceWarnings(
   if (!homeStats.recent_form.length || !awayStats.recent_form.length) {
     warnings.push("Forma reciente incompleta; se usan priors derivados de goles por partido.");
   }
-  if (homeRating?.source === "manual_seed" && awayRating?.source === "manual_seed") {
+  if (isSpecificRating(homeRating) && isSpecificRating(awayRating)) {
     warnings.push("Rating base Mundial Edge usado para diferenciar selecciones con baja muestra.");
   }
   if (homeRating?.source === "neutral_fallback" || awayRating?.source === "neutral_fallback") {
@@ -243,4 +243,8 @@ function confidenceWarnings(
     warnings.push("Contexto de grupo aplicado con ajuste pequeño; puede ser especulativo.");
   }
   return warnings;
+}
+
+function isSpecificRating(rating: TeamStrengthRating | null): boolean {
+  return rating?.source === "manual_seed" || rating?.source === "manual-historical-estimate";
 }

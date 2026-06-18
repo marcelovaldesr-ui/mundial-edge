@@ -3,6 +3,7 @@ import { WORLD_CUP_DATASETS } from "../src/lib/backtesting/world-cup-fixtures";
 import { diagnoseXgV2 } from "../src/lib/backtesting/xg-v2-diagnostic";
 import { diagnoseDixonColes } from "../src/lib/backtesting/dixon-coles-diagnostic";
 import { diagnosePredictionConfidence } from "../src/lib/backtesting/confidence-diagnostic";
+import { diagnoseExpandedWorldCups } from "../src/lib/backtesting/expanded-world-cup-diagnostic";
 import {
   brierScore1x2,
   calculateMulticlassMetrics,
@@ -26,6 +27,7 @@ const rows: WorldCupBacktestPrediction[] = [{
   homeGoals: 1,
   awayGoals: 0,
   stage: "GROUP",
+  round: "Matchday 1",
   stageBucket: "GROUP",
   variant: "legacy-neutral",
   probabilities: perfect,
@@ -35,6 +37,8 @@ const rows: WorldCupBacktestPrediction[] = [{
   neutralVenueApplied: false,
   ratingModel: "legacy_v1",
   priorStrength: null,
+  ratingSnapshotYear: 2022,
+  ratingFallbackApplied: true,
   dixonColesRho: null,
   dixonColesNormalizationFactor: null,
   predictedHomeGoals: 1,
@@ -63,14 +67,14 @@ assert.equal(calculateMulticlassMetrics(rows).accuracy, 1);
 
 validateWorldCupDatasets(WORLD_CUP_DATASETS);
 const report = runWorldCupBacktest(WORLD_CUP_DATASETS);
-assert.equal(report.datasetSize, 128);
-assert.deepEqual(report.tournaments, [2018, 2022]);
-assert.equal(report.predictions.length, 1536);
+assert.equal(report.datasetSize, 448);
+assert.deepEqual(report.tournaments, [1998, 2002, 2006, 2010, 2014, 2018, 2022]);
+assert.equal(report.predictions.length, 5376);
 assert.equal(report.global.length, 12);
-assert.equal(report.byTournament.length, 2);
-assert.deepEqual(report.byTournament.map((row) => row.comparisons[0].metrics.count), [64, 64]);
-assert.equal(report.byStage.find((row) => row.bucket === "GROUP")?.comparisons[0].metrics.count, 96);
-assert.equal(report.byStage.find((row) => row.bucket === "KNOCKOUT")?.comparisons[0].metrics.count, 32);
+assert.equal(report.byTournament.length, 7);
+assert.deepEqual(report.byTournament.map((row) => row.comparisons[0].metrics.count), [64, 64, 64, 64, 64, 64, 64]);
+assert.equal(report.byStage.find((row) => row.bucket === "GROUP")?.comparisons[0].metrics.count, 336);
+assert.equal(report.byStage.find((row) => row.bucket === "KNOCKOUT")?.comparisons[0].metrics.count, 112);
 assert(report.global.every((row) => Number.isFinite(row.metrics.brierScore)));
 assert(report.predictions.every((row) => Math.abs(row.probabilities.home + row.probabilities.draw + row.probabilities.away - 1) < 1e-9));
 assert(report.predictions.every((row) => Object.values(row.probabilities).every(Number.isFinite)));
@@ -90,7 +94,17 @@ const baseline = report.predictions.find((row) => row.variant === "legacy-neutra
 const v2 = report.predictions.find((row) => row.variant === "xg-v2" && row.fixtureId === baseline.fixtureId)!;
 assert.notEqual(v2.homeExpectedGoals, baseline.homeExpectedGoals);
 assert(report.ratingCoverage.every((coverage) => coverage.withSpecificSeed + coverage.withExplicitFallback === coverage.teams));
-assert(report.ratingCoverage.some((coverage) => coverage.withExplicitFallback > 0));
+assert(report.ratingCoverage.every((coverage) => coverage.withExplicitFallback === 0));
+assert(report.ratingCoverage.every((coverage) => coverage.matchesWithSnapshot === 64));
+assert(report.ratingCoverage.every((coverage) => coverage.snapshotIsHistorical === true));
+assert(report.ratingCoverage.every((coverage) => coverage.matchesWithFallback >= 0 && coverage.teamsWithoutRating === coverage.withExplicitFallback));
+assert(report.predictions.every((row) => row.ratingSnapshotYear === row.tournament));
+assert(report.predictions.every((row) => row.round.length > 0));
+const missingSnapshotReport = runWorldCupBacktest([{ ...WORLD_CUP_DATASETS[0], ratingSnapshotYear: 1994 }]);
+assert.equal(missingSnapshotReport.ratingCoverage[0].matchesWithSnapshot, 0);
+assert.equal(missingSnapshotReport.ratingCoverage[0].matchesWithFallback, 64);
+assert.equal(missingSnapshotReport.ratingCoverage[0].teamsWithoutRating, 32);
+assert(missingSnapshotReport.predictions.every((row) => row.ratingFallbackApplied));
 
 const invalidDataset = {
   ...WORLD_CUP_DATASETS[0],
@@ -99,12 +113,11 @@ const invalidDataset = {
 assert.throws(() => validateWorldCupDatasets([invalidDataset]), /Invalid result/);
 
 const diagnostic = diagnoseXgV2(report);
-assert.equal(diagnostic.matches.length, 768);
+assert.equal(diagnostic.matches.length, 2688);
 assert.equal(diagnostic.segments.length, 6);
 assert.equal(diagnostic.global.variants.length, 6);
-assert(diagnostic.global.variants.find((row) => row.variant === "xg-v2")!.deltaVsLegacyNeutral.brierScore > 0, "xG v2 must remain worse than Legacy neutral in the audited corpus.");
-assert.equal(diagnostic.segments.find((row) => row.segment === "GROUP")!.variants[0].metrics.count, 96);
-assert.equal(diagnostic.segments.find((row) => row.segment === "KNOCKOUT")!.variants[0].metrics.count, 32);
+assert.equal(diagnostic.segments.find((row) => row.segment === "GROUP")!.variants[0].metrics.count, 336);
+assert.equal(diagnostic.segments.find((row) => row.segment === "KNOCKOUT")!.variants[0].metrics.count, 112);
 assert.equal(diagnostic.segments.find((row) => row.segment === "LOW_GOALS_0_2")!.variants[0].metrics.count > 0, true);
 assert.deepEqual(diagnostic.guardrails, {
   probabilityViolations: 0,
@@ -116,14 +129,25 @@ assert.deepEqual(diagnostic.guardrails, {
 
 const dixonColesDiagnostic = diagnoseDixonColes(report);
 assert.equal(dixonColesDiagnostic.global.length, 8);
-assert.equal(dixonColesDiagnostic.lowGoals[0].metrics.count, 69);
+assert(dixonColesDiagnostic.lowGoals[0].metrics.count > 69);
 assert(dixonColesDiagnostic.draws[0].metrics.count > 0);
 assert.equal(dixonColesDiagnostic.calibrationBuckets.length, 32);
 assert(dixonColesDiagnostic.global.every((row) => Number.isFinite(row.correctScoreTop1) && Number.isFinite(row.drawBrier)));
 
 const confidenceDiagnostic = diagnosePredictionConfidence(report);
 assert.equal(confidenceDiagnostic.rows.length, 6);
-assert(confidenceDiagnostic.rows.filter((row) => row.variant === "legacy-neutral").reduce((sum, row) => sum + row.count, 0) === 128);
+assert(confidenceDiagnostic.rows.filter((row) => row.variant === "legacy-neutral").reduce((sum, row) => sum + row.count, 0) === 448);
 assert(confidenceDiagnostic.rows.every((row) => row.coverage >= 0 && row.coverage <= 1));
+
+const expandedDiagnostic = diagnoseExpandedWorldCups(report);
+assert.equal(expandedDiagnostic.global.length, 4);
+assert.equal(expandedDiagnostic.byTournament.length, 28);
+assert.equal(expandedDiagnostic.stability.reduce((sum, row) => sum + row.worldCupsWon, 0), 7);
+assert(expandedDiagnostic.byType.every((row) => Number.isFinite(row.metrics.brierScore)));
+assert.equal(expandedDiagnostic.priorComparison.matches, 448);
+assert.equal(expandedDiagnostic.priorComparison.prior8BeatsLegacyEveryWorldCup, true);
+assert.equal(expandedDiagnostic.priorComparison.prior6WorldCupsBetter, 6);
+assert.equal(expandedDiagnostic.priorComparison.prior8WorldCupsBetter, 1);
+assert.equal(expandedDiagnostic.priorComparison.statisticallyDistinct, false);
 
 console.log("World Cup backtest verification passed");

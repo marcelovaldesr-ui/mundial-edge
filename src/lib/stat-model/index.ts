@@ -6,5 +6,6 @@ export * from "./market-probabilities";
 export * from "./market-types";
 export * from "./match-prediction";
 export * from "./model-variant";
+export * from "./rating-snapshots";
 export * from "./score-matrix";
 export * from "./team-strength-ratings";

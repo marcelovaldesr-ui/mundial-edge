@@ -1235,3 +1235,138 @@ Con datos actuales, varios partidos usan priors similares por baja muestra:
   obligan a mantener prior8 como candidato, no como modelo productivo.
 - Dixon-Coles no se promueve porque mejora empates/0-2 condicionados pero
   degrada global y agrava la sobreprediccion de draws.
+
+---
+
+## ACTUALIZACION - sesion 21
+
+### Backtest historico ampliado
+- Se agregaron fixtures completos de 1998, 2002, 2006, 2010 y 2014: 64
+  partidos por Mundial, ademas de 2018 y 2022.
+- Corpus total: **448 partidos**:
+  - 336 de fase de grupos;
+  - 112 eliminatorios;
+  - 7 Mundiales completos.
+- Cada fixture incluye `year`, `stage`, `round`, `group`, equipos, marcador,
+  fecha/orden, `neutralVenue: true` y `scoreBasis: REGULATION_90`.
+- Fuente: `openfootball/worldcup.json`, licencia CC0, commit
+  `6d4a1b67e09ced583ecc02f5e900c69dd5ec5a2b`.
+- Para knockout se usa `score.ft` a 90 minutos. La fuente separa `score.et` y
+  penales, por lo que no fue necesario inferir resultados de prorroga.
+
+### Arquitectura de rating snapshots
+- Nuevo modulo `src/lib/stat-model/rating-snapshots.ts`.
+- Estructura local/offline para 1998, 2002, 2006, 2010, 2014, 2018, 2022 y
+  2026, con id, año, ratings, metodologia, fuente, licencia y version.
+- Estado honesto de los datos:
+  - 2026 contiene el seed manual actual;
+  - 1998-2022 son placeholders year-scoped derivados de ese seed 2026;
+  - todos declaran `isHistorical: false`;
+  - todavía no se importaron Elo pre-torneo.
+- El backtest resuelve por `ratingSnapshotYear`, no por un set global. Si falta
+  el snapshot del año, construye un set vacio de fallback y todos los equipos
+  reciben rating neutral explicito.
+- Cobertura por Mundial reporta partidos con snapshot, partidos con fallback y
+  equipos sin rating. Todos los torneos tienen 64 partidos con contenedor de
+  snapshot; fallbacks por partido: 1998 `14`, 2002 `17`, 2006 `15`, 2010 `16`,
+  2014 `13`, 2018 `13`, 2022 `3`.
+
+### Resultados globales (448 partidos)
+- legacy-neutral: Brier `0.6432`, Log Loss `1.0687`, RPS `0.2229`, Accuracy
+  `46.0%`.
+- xG v2.1 prior8: Brier `0.6130` (`-0.0302`), Log Loss `1.0248`
+  (`-0.0439`), RPS `0.2087` (`-0.0142`), Accuracy `52.5%` (`+6.5 pp`).
+- xG v2.1 prior6: Brier `0.6120` (`-0.0312`), Log Loss `1.0234`, RPS
+  `0.2082`, Accuracy `52.2%`.
+- experimental Dixon-Coles (prior8, rho -0.15): Brier `0.6131`, Log Loss
+  `1.0226`, RPS `0.2087`, Accuracy `52.7%`.
+
+### Estabilidad por Mundial
+- Ganadores por menor Brier entre las cuatro variantes:
+  - legacy-neutral: 0 Mundiales;
+  - prior8: 1;
+  - prior6: 3;
+  - Dixon-Coles experimental: 3.
+- prior8 mejora Brier frente a Legacy en los siete torneos. Mejor delta: 2022
+  `-0.0703`; peor: 2002 `-0.0034`.
+- Delta Brier medio por Mundial: prior8 `-0.0302`, prior6 `-0.0312`, DC
+  `-0.0301`.
+- prior8 mejora grupos (`-0.0363`) y knockout (`-0.0120`), pero empeora Round
+  of 16 (`+0.0498`) y finales (`+0.0365`).
+- En upsets reduce Brier (`-0.0428`) pero su Accuracy cae de `20.5%` a `0%`;
+  sigue sin convertir al no favorito en pick top.
+
+### Reporte, guardrails y recomendacion
+- Nuevo reporte: `reports/world-cup-backtest-expanded.md`.
+- Incluye Brier, Log Loss, RPS y Accuracy global, por Mundial, fase, ronda,
+  favoritos claros, upsets, 0-2 goles y empates; tambien estabilidad y cobertura
+  de snapshots/fallbacks.
+- Guardrails mantienen probabilidades normalizadas, valores finitos, xG en
+  `[0.2, 4.5]`, sede neutral y fallback explicito.
+- **prior8 sigue como candidate, no default.** La mejora es consistente en
+  agregado, pero prior6 queda marginalmente mejor, hay debilidad por ronda y
+  el sesgo temporal de ratings no se resolvio: solo se preparo la arquitectura.
+- `legacy-neutral` permanece default productivo.
+- Dixon-Coles sigue `experimental/notRecommended`; sus victorias por torneo no
+  compensan la evidencia previa de sobreprediccion de draws.
+- Proximo paso antes de Monte Carlo: importar ratings pre-torneo verificables
+  (Elo u otra fuente con licencia clara), marcar snapshots como historicos y
+  repetir estabilidad/out-of-sample.
+
+---
+
+## ACTUALIZACION - sesion 22
+
+### Snapshots pseudo-historicos normalizados
+- Se reemplazaron los placeholders clonados desde 2026 por estimaciones
+  manuales pseudo-historicas para 1998, 2002, 2006, 2010, 2014, 2018 y 2022.
+- Cada snapshot contiene exactamente los 32 participantes de su Mundial y
+  ratings `overall`, `attack` y `defense` normalizados en la misma escala del
+  motor.
+- Metadata:
+  - `source: "manual-historical-estimate"`;
+  - `methodology: "manual_historical_estimate"`;
+  - `isHistorical: true` tanto en snapshot como en cada rating;
+  - `version: "rating-snapshot-v2"`.
+- Son estimaciones internas de tiers de fuerza pre-torneo y perfiles de juego;
+  no usan resultados del partido evaluado, no dependen de red y no requieren
+  licencia externa. No deben presentarse como Elo, FIFA ranking ni fuente
+  oficial independiente.
+- El snapshot 2026 conserva el seed manual actual con `isHistorical: false`.
+- Cobertura 1998-2022: 448/448 partidos con snapshot, 0 partidos con fallback y
+  0 equipos sin rating. El camino de fallback ausente sigue cubierto por tests.
+
+### Resultados con ratings pseudo-historicos (448 partidos)
+- legacy-neutral: Brier `0.6359`, Log Loss `1.0576`, RPS `0.2193`, Accuracy
+  `47.5%`.
+- prior8: Brier `0.6000` (`-0.0359`), Log Loss `1.0075` (`-0.0501`), RPS
+  `0.2024` (`-0.0169`), Accuracy `56.0%` (`+8.5 pp`).
+- prior6: Brier `0.5992` (`-0.0367`), Log Loss `1.0064`, RPS `0.2021`,
+  Accuracy `55.1%` (`+7.6 pp`).
+- Dixon-Coles experimental: Brier `0.6000`, Log Loss `1.0046`, RPS `0.2024`,
+  Accuracy `56.0%`; permanece `experimental/notRecommended`.
+- Grupos: prior8 Brier `-0.0437`; eliminatorias: `-0.0127` frente a Legacy.
+- prior8 sigue mejorando Brier frente a Legacy en los siete Mundiales. Mejor
+  delta: 2022 `-0.0673`; peor: 2002 `-0.0090`.
+
+### prior6 vs prior8
+- prior6 obtiene menor Brier en 6 de 7 Mundiales; prior8 en 1 de 7.
+- Delta Brier pareado medio `prior6 - prior8`: `-0.0008`.
+- Error estandar `0.0004`; IC95% aproximado `[-0.0016, +0.0001]`.
+- El intervalo incluye cero: la ventaja Brier de prior6 es **marginal/no
+  distinguible** en este corpus, no estadisticamente clara bajo esta
+  aproximacion normal pareada.
+- prior8 conserva mejor Accuracy global por `+0.9 pp` frente a prior6.
+
+### Recomendacion actualizada
+- `legacy-neutral` sigue como default productivo.
+- prior8 sigue como candidate: mejora las cuatro metricas contra Legacy y gana
+  Brier en los siete Mundiales, pero los ratings siguen siendo estimaciones
+  manuales y no una fuente histórica independiente.
+- No cambiar a prior6: su ventaja Brier es demasiado pequeña y no distinguible,
+  mientras prior8 mantiene mejor Accuracy.
+- No promover Dixon-Coles pese a ganar 3 Mundiales por Brier dentro de estas
+  cuatro variantes; persisten sus problemas de calibracion global de draws.
+- Antes de Monte Carlo o promocion: sustituir las estimaciones manuales por una
+  serie Elo/ranking pre-torneo con licencia y metodología verificables, y
+  repetir evaluación out-of-sample/bootstrap.

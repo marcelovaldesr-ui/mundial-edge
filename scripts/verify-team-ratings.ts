@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { estimateExpectedGoals, getTeamStrengthRating, neutralTeamStrengthRating } from "../src/lib/stat-model";
 import type { Team, TeamStats } from "../src/lib/types";
+import { getRatingSnapshot, RATING_SNAPSHOT_YEARS } from "../src/lib/stat-model/rating-snapshots";
 
 const arg = getTeamStrengthRating("ARG");
 const jor = getTeamStrengthRating("JOR");
@@ -8,6 +9,12 @@ assert(arg, "Expected ARG rating seed.");
 assert(jor, "Expected JOR rating seed.");
 assert.equal(arg.source, "manual_seed");
 assert.equal(arg.confidence, "medium");
+assert.deepEqual(RATING_SNAPSHOT_YEARS, [1998, 2002, 2006, 2010, 2014, 2018, 2022, 2026]);
+assert(getRatingSnapshot(1998) && getRatingSnapshot(1998)!.methodology === "manual_historical_estimate");
+assert.equal(getRatingSnapshot(1998)!.isHistorical, true);
+assert.equal(getRatingSnapshot(1998)!.ratings.length, 32);
+assert(getRatingSnapshot(1998)!.ratings.every((rating) => rating.source === "manual-historical-estimate" && rating.isHistorical));
+assert.equal(getRatingSnapshot(1994), null);
 assert(arg.overallRating > jor.overallRating, "ARG should have stronger base rating than JOR.");
 assert.equal(arg.overall, arg.overallRating, "Canonical overall must preserve the legacy alias.");
 assert.equal(arg.attack, arg.attackRating, "Canonical attack must preserve the legacy alias.");

@@ -9,7 +9,7 @@ import { WORLD_CUP_DATASETS } from "../src/lib/backtesting/world-cup-fixtures";
 const outputPath = resolve("reports/xg-v2-diagnostic.md");
 const dixonColesOutputPath = resolve("reports/dixon-coles-diagnostic.md");
 const confidenceOutputPath = resolve("reports/confidence-diagnostic.md");
-const report = runWorldCupBacktest(WORLD_CUP_DATASETS);
+const report = runWorldCupBacktest(WORLD_CUP_DATASETS.filter((dataset) => dataset.year >= 2018));
 const diagnostic = diagnoseXgV2(report);
 const dixonColesDiagnostic = diagnoseDixonColes(report);
 const confidenceDiagnostic = diagnosePredictionConfidence(report);

@@ -157,7 +157,7 @@ function guardrails(rows: WorldCupBacktestPrediction[]): XgV2Diagnostic["guardra
     if (![...probabilities, row.homeExpectedGoals, row.awayExpectedGoals].every(Number.isFinite)) nonFiniteValues++;
     if ([row.homeExpectedGoals, row.awayExpectedGoals].some((value) => value < 0.2 || value > 4.5)) xgRangeViolations++;
     if (!row.neutralVenueApplied) neutralVenueViolations++;
-    if (![row.homeRatingSource, row.awayRatingSource].every((source) => source === "manual_seed" || source === "neutral_fallback")) fallbackMetadataViolations++;
+    if (![row.homeRatingSource, row.awayRatingSource].every((source) => source === "manual_seed" || source === "manual-historical-estimate" || source === "neutral_fallback")) fallbackMetadataViolations++;
   }
   return { probabilityViolations, nonFiniteValues, xgRangeViolations, neutralVenueViolations, fallbackMetadataViolations };
 }

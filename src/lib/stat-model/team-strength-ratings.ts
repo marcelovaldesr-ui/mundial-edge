@@ -1,5 +1,5 @@
 export type TeamRatingConfidence = "low" | "medium" | "high";
-export type TeamRatingSource = "manual_seed" | "neutral_fallback";
+export type TeamRatingSource = "manual_seed" | "manual-historical-estimate" | "neutral_fallback";
 
 export interface TeamStrengthRating {
   teamCode: string;
@@ -18,6 +18,7 @@ export interface TeamStrengthRating {
   goalkeeperOrDefensiveSolidity?: number;
   confidence: TeamRatingConfidence;
   source: TeamRatingSource;
+  isHistorical?: boolean;
   updatedAt?: string;
 }
 
@@ -104,6 +105,7 @@ export function neutralTeamStrengthRating(teamCode: string, teamName: string): T
     goalkeeperOrDefensiveSolidity: 74,
     confidence: "low",
     source: "neutral_fallback",
+    isHistorical: false,
     updatedAt: UPDATED_AT,
   };
 }
@@ -143,6 +145,7 @@ function rating(
     goalkeeperOrDefensiveSolidity: defenseRating,
     confidence: "medium",
     source: "manual_seed",
+    isHistorical: false,
     updatedAt: UPDATED_AT,
   };
 }

@@ -59,6 +59,7 @@ export interface WorldCup2026GroupsSimulationServiceResult {
   topTwoQualifiersPerSimulation: number;
   thirdPlaceQualifiersPerSimulation: number;
   eliminatedPerSimulation: number;
+  thirdPlaceQualificationByPoints: WorldCup2026GroupsSimulationResult["thirdPlaceQualificationByPoints"];
   warnings: string[];
   version: WorldCup2026GroupsSimulationResult["version"];
 }
@@ -208,6 +209,7 @@ export function simulateWorldCup2026FromSchedules(
     topTwoQualifiersPerSimulation: simulation.topTwoQualifiersPerSimulation,
     thirdPlaceQualifiersPerSimulation: simulation.thirdPlaceQualifiersPerSimulation,
     eliminatedPerSimulation: simulation.eliminatedPerSimulation,
+    thirdPlaceQualificationByPoints: simulation.thirdPlaceQualificationByPoints,
     warnings: simulation.warnings,
     version: simulation.version,
   };

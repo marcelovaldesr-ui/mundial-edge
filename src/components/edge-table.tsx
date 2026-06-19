@@ -21,8 +21,8 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
     let r = [...edges];
     if (onlyValue) r = r.filter((e) => e.qualifies);
     r.sort((a, b) => {
-      const av = sortKey === "final_probability" ? (a.final_probability ?? a.model_probability) : a[sortKey];
-      const bv = sortKey === "final_probability" ? (b.final_probability ?? b.model_probability) : b[sortKey];
+      const av = sortValue(a, sortKey);
+      const bv = sortValue(b, sortKey);
       return asc ? av - bv : bv - av;
     });
     return r;
@@ -72,14 +72,14 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
               <MobileMetric label="EV final" value={fmtEv(e.final_expected_value ?? e.expected_value)} accent={(e.final_expected_value ?? e.expected_value) >= 0} />
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <RiskBadge tier={e.tier} />
+              <RiskBadge tier={e.final_tier ?? e.tier} />
               {e.qualifies ? <Badge variant="success">Pick calidad</Badge> : <Badge variant="muted">Atípico</Badge>}
             </div>
           </div>
         ))}
         {rows.length === 0 && (
           <div className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">
-            Sin selecciones para los filtros actuales.
+            No se encontraron oportunidades con esos filtros.
           </div>
         )}
       </div>
@@ -125,7 +125,7 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-1.5">
-                  <RiskBadge tier={e.tier} />
+                  <RiskBadge tier={e.final_tier ?? e.tier} />
                   {e.qualifies === false && (
                     <span
                       title="No pasa los filtros de calidad: cuota fuera de rango o EV atípico (posible error del modelo)."
@@ -140,7 +140,7 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
           ))}
           {rows.length === 0 && (
             <TableRow><TableCell colSpan={showMatch ? 10 : 9} className="py-8 text-center text-muted-foreground">
-              Sin selecciones para los filtros actuales.
+              No se encontraron oportunidades con esos filtros.
             </TableCell></TableRow>
           )}
         </TableBody>
@@ -148,6 +148,13 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
       </div>
     </div>
   );
+}
+
+function sortValue(edge: Edge, key: SortKey): number {
+  if (key === "final_probability") return edge.final_probability ?? edge.model_probability;
+  if (key === "expected_value") return edge.final_expected_value ?? edge.expected_value;
+  if (key === "edge") return edge.final_edge ?? edge.edge;
+  return edge[key];
 }
 
 function MobileMetric({ label, value, accent }: { label: string; value: string; accent?: boolean }) {

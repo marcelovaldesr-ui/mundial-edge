@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "startedAt": "2026-06-19T02:30:08.259Z",
+  "completedAt": "2026-06-19T02:31:45.558Z",
+  "passed": true,
+  "checks": [
+    {
+      "name": "Typecheck",
+      "command": "npm run typecheck",
+      "passed": true,
+      "durationMs": 6330,
+      "detail": "Command completed successfully."
+    },
+    {
+      "name": "Lint",
+      "command": "npm run lint",
+      "passed": true,
+      "durationMs": 7015,
+      "detail": "Command completed successfully."
+    },
+    {
+      "name": "Unit: calibrated matrix",
+      "command": "npm run test:calibrated-matrix",
+      "passed": true,
+      "durationMs": 2240,
+      "detail": "Command completed successfully."
+    },
+    {
+      "name": "Unit: best third places",
+      "command": "npm run test:best-third-places",
+      "passed": true,
+      "durationMs": 3037,
+      "detail": "Command completed successfully."
+    },
+    {
+      "name": "Unit: explainability",
+      "command": "npm run test:explainability",
+      "passed": true,
+      "durationMs": 2364,
+      "detail": "Command completed successfully."
+    },
+    {
+      "name": "Integration: stat model",
+      "command": "npm run verify:stat-model",
+      "passed": true,
+      "durationMs": 2521,
+      "detail": "Command completed successfully."
+    },
+    {
+      "name": "Integration: prediction consumers",
+      "command": "npm run verify:prediction-consumers",
+      "passed": true,
+      "durationMs": 2446,
+      "detail": "Command completed successfully."
+    },
+    {
+      "name": "Integration: parlays",
+      "command": "npm run verify:parlays",
+      "passed": true,
+      "durationMs": 2800,
+      "detail": "Command completed successfully."
+    },
+    {
+      "name": "Integration: groups UI",
+      "command": "npm run verify:world-cup-groups-ui-data",
+      "passed": true,
+      "durationMs": 3198,
+      "detail": "Command completed successfully."
+    },
+    {
+      "name": "Backtesting",
+      "command": "npm run verify:world-cup-backtest",
+      "passed": true,
+      "durationMs": 4199,
+      "detail": "Command completed successfully."
+    },
+    {
+      "name": "Calibration report",
+      "command": "npm run generate:calibration-report",
+      "passed": true,
+      "durationMs": 4028,
+      "detail": "Command completed successfully."
+    },
+    {
+      "name": "Transparency",
+      "command": "npm run verify:transparency",
+      "passed": true,
+      "durationMs": 1848,
+      "detail": "Command completed successfully."
+    },
+    {
+      "name": "Full tournament E2E",
+      "command": "npm run e2e:full-tournament",
+      "passed": true,
+      "durationMs": 4199,
+      "detail": "Command completed successfully."
+    },
+    {
+      "name": "Performance",
+      "command": "npm run perf:launch",
+      "passed": true,
+      "durationMs": 7791,
+      "detail": "Command completed successfully."
+    },
+    {
+      "name": "Robustness",
+      "command": "npm run verify:launch-robustness",
+      "passed": true,
+      "durationMs": 3224,
+      "detail": "Command completed successfully."
+    },
+    {
+      "name": "Production build",
+      "command": "npm run build",
+      "passed": true,
+      "durationMs": 40047,
+      "detail": "Command completed successfully."
+    },
+    {
+      "name": "Production env template",
+      "passed": true,
+      "durationMs": 0,
+      "detail": "All non-secret launch defaults documented."
+    },
+    {
+      "name": "Generated artifacts",
+      "passed": true,
+      "durationMs": 8,
+      "detail": "4 valid JSON artifacts."
+    },
+    {
+      "name": "Public transparency pages",
+      "passed": true,
+      "durationMs": 1,
+      "detail": "Transparency and methodology routes exist and are included in the production build."
+    }
+  ],
+  "manualBeforeDeploy": [
+    "Replace rated-pool-synthetic-groups-v1 with the synchronized official 48-team fixture when available in the repository.",
+    "Configure Supabase, provider and CRON secrets in the deployment platform; never expose service-role/API keys with NEXT_PUBLIC_.",
+    "Run Lighthouse from the production region and confirm Vercel function duration/memory with live data.",
+    "Verify the first live sync and compare counts: 48 teams, 72 group matches and complete odds markets."
+  ]
+}

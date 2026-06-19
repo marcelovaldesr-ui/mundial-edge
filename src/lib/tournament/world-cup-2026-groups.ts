@@ -4,6 +4,7 @@ import {
   simulateWorldCup2026FromSchedules,
   type GroupSimulationServiceResult,
 } from "./group-simulation-service";
+import { selectBestThirdPlacedTeams, type GroupStandings } from "./best-third-places";
 
 export const WORLD_CUP_2026_GROUP_IDS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"] as const;
 export type WorldCup2026GroupId = typeof WORLD_CUP_2026_GROUP_IDS[number];
@@ -45,6 +46,7 @@ export interface WorldCup2026GroupSchedule {
 export interface WorldCup2026GroupUiEntry {
   schedule: WorldCup2026GroupSchedule;
   simulation: GroupSimulationServiceResult;
+  currentThirdQualifies: boolean;
 }
 
 export interface WorldCup2026GroupsUiData {
@@ -98,8 +100,10 @@ export function createWorldCup2026GroupsUiData(matches: Match[], simulations = 3
     groups: schedules.map((schedule) => ({ groupId: schedule.groupId, teams: schedule.teams, matches: schedule.matches })),
     simulations,
   });
+  const currentThirdQualifiers = new Set(selectBestThirdPlacedTeams(schedules.map(toGroupStandings)));
   const groups = schedules.map((schedule, index) => ({
     schedule,
+    currentThirdQualifies: currentThirdQualifiers.has(schedule.standings[2].teamId),
     simulation: {
       ...tournament.groups[index],
       warnings: [...new Set([...schedule.warnings, ...tournament.groups[index].warnings, ...tournament.warnings])],
@@ -109,6 +113,22 @@ export function createWorldCup2026GroupsUiData(matches: Match[], simulations = 3
     groups,
     hasCurrentData: schedules.some((schedule) => schedule.metadata.dataStatus === "current"),
     warnings: [...new Set(schedules.flatMap((schedule) => schedule.warnings))],
+  };
+}
+
+function toGroupStandings(schedule: WorldCup2026GroupSchedule): GroupStandings {
+  return {
+    groupId: schedule.groupId,
+    teams: schedule.standings.map((row, index) => ({
+      teamId: row.teamId,
+      teamCode: row.team.code,
+      teamName: row.team.name,
+      points: row.points,
+      goalsFor: row.goalsFor,
+      goalsAgainst: row.goalsAgainst,
+      goalDifference: row.goalDifference,
+      position: (index + 1) as 1 | 2 | 3 | 4,
+    })),
   };
 }
 

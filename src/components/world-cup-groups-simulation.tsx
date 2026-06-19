@@ -28,7 +28,8 @@ export function WorldCupGroupsSimulation({ data }: { data: WorldCup2026GroupsUiD
     );
   }
 
-  const { schedule, simulation } = selected;
+  const { schedule, simulation, currentThirdQualifies } = selected;
+  const simulationByTeam = new Map(simulation.standings.map((row) => [row.teamId, row]));
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="Grupos del Mundial 2026">
@@ -85,6 +86,7 @@ export function WorldCupGroupsSimulation({ data }: { data: WorldCup2026GroupsUiD
               <TableHeader>
                 <TableRow>
                   <TableHead>Equipo</TableHead>
+                  <TableHead>Estado</TableHead>
                   <TableHead className="text-right">PJ</TableHead>
                   <TableHead className="text-right">G</TableHead>
                   <TableHead className="text-right">E</TableHead>
@@ -96,13 +98,20 @@ export function WorldCupGroupsSimulation({ data }: { data: WorldCup2026GroupsUiD
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {schedule.standings.map((standing) => (
+                {schedule.standings.map((standing, index) => (
                   <TableRow key={standing.teamId}>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <TeamMark team={standing.team} />
                         <span className="font-medium">{standing.team.name}</span>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <QualificationBadge
+                        position={index + 1}
+                        thirdQualifies={currentThirdQualifies}
+                        probabilityAdvance={simulationByTeam.get(standing.teamId)?.probabilityAdvance ?? 0}
+                      />
                     </TableCell>
                     <Stat value={standing.played} />
                     <Stat value={standing.won} />
@@ -116,6 +125,12 @@ export function WorldCupGroupsSimulation({ data }: { data: WorldCup2026GroupsUiD
                 ))}
               </TableBody>
             </Table>
+
+            <div className="flex flex-wrap gap-3 rounded-md border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
+              <span><Badge variant="success">✓ Clasificado</Badge> top-2 directo</span>
+              <span><Badge variant="warning">3.º · zona</Badge> dentro de los 8 mejores terceros actuales</span>
+              <span>El porcentaje incluye las 3 rutas: 1.º, 2.º o mejor tercero.</span>
+            </div>
 
             {schedule.warnings.length > 0 && (
               <details className="rounded-md border border-border bg-muted/20 p-3 text-sm">
@@ -132,6 +147,27 @@ export function WorldCupGroupsSimulation({ data }: { data: WorldCup2026GroupsUiD
       </section>
     </div>
   );
+}
+
+function QualificationBadge({
+  position,
+  thirdQualifies,
+  probabilityAdvance,
+}: {
+  position: number;
+  thirdQualifies: boolean;
+  probabilityAdvance: number;
+}) {
+  if (position <= 2) return <Badge variant="success">✓ Clasificado</Badge>;
+  if (position === 3) {
+    return (
+      <div className="flex flex-col items-start gap-1">
+        <Badge variant={thirdQualifies ? "warning" : "outline"}>{thirdQualifies ? "3.º · zona" : "3.º · fuera"}</Badge>
+        <span className="text-[11px] text-muted-foreground">{(probabilityAdvance * 100).toFixed(1)}% avance</span>
+      </div>
+    );
+  }
+  return <Badge variant="muted">Fuera</Badge>;
 }
 
 function SourceBadge({ status }: { status: WorldCup2026GroupDataStatus }) {

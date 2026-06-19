@@ -529,7 +529,7 @@ function leakageAudit(prior8: LoocvModelResult, legacy: LoocvModelResult): Calib
     duplicateOutOfFoldPredictions,
     targetLeakageDetected: fixtureOverlapAcrossTrainTest > 0 || missingOutOfFoldPredictions > 0 || duplicateOutOfFoldPredictions > 0,
     chronologicalFeatureBuild: true,
-    ratingFeatureCaveat: "Los snapshots son estimaciones manuales pseudo-historicas pre-torneo; no usan el target del fold en el fit Platt, pero su proceso de construccion no es una fuente externa totalmente independiente.",
+    ratingFeatureCaveat: "Los snapshots son híbridos pre-torneo (10% Elo externo, 90% perfil propio); no usan el target del fold en el fit Platt, pero conservan un componente interno dominante.",
   };
 }
 

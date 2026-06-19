@@ -48,8 +48,8 @@ assert.equal(defaults.modelVariant, "legacy-neutral");
 assert.equal(defaults.calibration, "none");
 
 const recommended = getRecommendedPredictionConfig();
-assert.equal(recommended.modelVariant, "xg-v2.1-prior8");
-assert.equal(recommended.calibration, "platt-blend-25");
+assert.equal(recommended.modelVariant, "calibrated-matrix");
+assert.equal(recommended.calibration, "none");
 
 const v22Calibrated = resolvePredictionConfig({
   modelVariant: "xg-v2.2-mismatch-spread",

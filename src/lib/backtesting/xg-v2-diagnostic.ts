@@ -112,7 +112,7 @@ ${variantTable(findSegment(diagnostic, "LOW_GOALS_0_2").variants)}
 
 ## Recomendacion
 
-Mantener **legacy-neutral** como baseline y todas las variantes xG v2/v2.1 como experimentales. ${beatsBaseline ? `Aunque ${best.variant} gana este corpus, la muestra usa seeds 2026 retrospectivos y solo dos Mundiales; ampliar corpus y ratings historicos antes de cualquier promocion.` : `La regularizacion reduce parte de la inestabilidad, pero ${best.variant} no establece una mejora integral suficiente para promocion.`}
+Mantener **legacy-neutral** como baseline y todas las variantes xG v2/v2.1 como experimentales. ${beatsBaseline ? `Aunque ${best.variant} gana este corpus, se requiere validación fuera de muestra adicional antes de cualquier promoción.` : `La regularizacion reduce parte de la inestabilidad, pero ${best.variant} no establece una mejora integral suficiente para promocion.`}
 `;
 }
 
@@ -157,7 +157,7 @@ function guardrails(rows: WorldCupBacktestPrediction[]): XgV2Diagnostic["guardra
     if (![...probabilities, row.homeExpectedGoals, row.awayExpectedGoals].every(Number.isFinite)) nonFiniteValues++;
     if ([row.homeExpectedGoals, row.awayExpectedGoals].some((value) => value < 0.2 || value > 4.5)) xgRangeViolations++;
     if (!row.neutralVenueApplied) neutralVenueViolations++;
-    if (![row.homeRatingSource, row.awayRatingSource].every((source) => source === "manual_seed" || source === "manual-historical-estimate" || source === "neutral_fallback")) fallbackMetadataViolations++;
+    if (![row.homeRatingSource, row.awayRatingSource].every((source) => source === "manual_seed" || source === "manual-historical-estimate" || source === "historical_elo_hybrid" || source === "neutral_fallback")) fallbackMetadataViolations++;
   }
   return { probabilityViolations, nonFiniteValues, xgRangeViolations, neutralVenueViolations, fallbackMetadataViolations };
 }

@@ -18,6 +18,18 @@ export interface ThirdPlaceRankingEntry extends SimulatedGroupIterationTeam {
   groupId: string;
 }
 
+export interface GroupStandings {
+  groupId: string;
+  teams: SimulatedGroupIterationTeam[];
+}
+
+export interface ThirdPlacePointsBand {
+  points: number;
+  appearances: number;
+  qualified: number;
+  probabilityAdvance: number;
+}
+
 export interface WorldCup2026GroupsSimulationInput {
   groups: GroupSimulationInput[];
   simulations: number;
@@ -32,6 +44,7 @@ export interface WorldCup2026GroupsSimulationResult {
   topTwoQualifiersPerSimulation: typeof WORLD_CUP_2026_TOP_TWO_QUALIFIERS;
   thirdPlaceQualifiersPerSimulation: typeof WORLD_CUP_2026_BEST_THIRD_QUALIFIERS;
   eliminatedPerSimulation: typeof WORLD_CUP_2026_TOTAL_ELIMINATED;
+  thirdPlaceQualificationByPoints: ThirdPlacePointsBand[];
   warnings: string[];
   version: "world-cup-2026-groups-monte-carlo-v1";
 }
@@ -66,6 +79,22 @@ export function rankBestThirdPlaces(
     .slice(0, qualifyingPlaces);
 }
 
+/** Public rule-level API: extracts each group's third-place team and returns the eight qualifiers. */
+export function selectBestThirdPlacedTeams(
+  allGroupStandings: GroupStandings[],
+  seed = DEFAULT_SEED
+): string[] {
+  if (allGroupStandings.length !== WORLD_CUP_2026_GROUP_COUNT) {
+    throw new RangeError("Best-third selection requires standings from all 12 groups.");
+  }
+  const thirds = allGroupStandings.map(({ groupId, teams }) => {
+    const third = teams.find((team) => team.position === 3) ?? teams[2];
+    if (!third) throw new RangeError(`Group ${groupId} has no third-place team.`);
+    return { ...third, groupId };
+  });
+  return rankBestThirdPlaces(thirds, normalizeSeed(seed)).map((row) => row.teamId);
+}
+
 /** Simulates all twelve groups together so every iteration can rank the global third-place table. */
 export function simulateWorldCup2026Groups(input: WorldCup2026GroupsSimulationInput): WorldCup2026GroupsSimulationResult {
   validateInput(input);
@@ -73,12 +102,19 @@ export function simulateWorldCup2026Groups(input: WorldCup2026GroupsSimulationIn
   const prepared = input.groups.map((group) => prepareGroupSimulation({ ...group, simulations: input.simulations, seed }));
   const random = createSeededRandom(seed);
   const accumulators = new Map<string, TournamentAccumulator>();
+  const pointBands = new Map<number, { appearances: number; qualified: number }>();
   for (const group of input.groups) for (const team of group.teams) accumulators.set(teamKey(group.groupId, team.id), emptyAccumulator());
 
   for (let simulation = 0; simulation < input.simulations; simulation++) {
     const iterations = prepared.map((group) => ({ groupId: group.groupId, rows: group.sample(random) }));
     const thirds = iterations.map(({ groupId, rows }) => ({ ...rows[2], groupId }));
     const advancingThirds = new Set(rankBestThirdPlaces(thirds, seed + simulation).map((row) => teamKey(row.groupId, row.teamId)));
+    for (const third of thirds) {
+      const band = pointBands.get(third.points) ?? { appearances: 0, qualified: 0 };
+      band.appearances++;
+      if (advancingThirds.has(teamKey(third.groupId, third.teamId))) band.qualified++;
+      pointBands.set(third.points, band);
+    }
     let topTwoCount = 0;
     let thirdCount = 0;
     let eliminatedCount = 0;
@@ -132,6 +168,14 @@ export function simulateWorldCup2026Groups(input: WorldCup2026GroupsSimulationIn
     topTwoQualifiersPerSimulation: WORLD_CUP_2026_TOP_TWO_QUALIFIERS,
     thirdPlaceQualifiersPerSimulation: WORLD_CUP_2026_BEST_THIRD_QUALIFIERS,
     eliminatedPerSimulation: WORLD_CUP_2026_TOTAL_ELIMINATED,
+    thirdPlaceQualificationByPoints: [...pointBands.entries()]
+      .sort(([pointsA], [pointsB]) => pointsA - pointsB)
+      .map(([points, band]) => ({
+        points,
+        appearances: band.appearances,
+        qualified: band.qualified,
+        probabilityAdvance: band.qualified / band.appearances,
+      })),
     warnings: [
       "Ranking de mejores terceros: puntos, diferencia de gol, goles a favor y fallback deterministico.",
       "No se modelan fair play, sorteo FIFA ni combinaciones de bracket de Round of 32.",
@@ -169,6 +213,11 @@ function summarize(team: Team, total: TournamentAccumulator, simulations: number
     averageGoalDifference: total.goalDifference / simulations,
     averageGoalsFor: total.goalsFor / simulations,
     averageGoalsAgainst: total.goalsAgainst / simulations,
+    timesAdvanced: total.advanceAsTop2 + total.advanceAsThird,
+    timesFirst: total.finishes[0],
+    timesSecond: total.finishes[1],
+    timesThird: total.finishes[2],
+    timesThirdQualified: total.advanceAsThird,
   };
 }
 

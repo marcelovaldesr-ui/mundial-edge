@@ -6,6 +6,7 @@ export function modelVariantLabel(variant: StatModelVariant): string {
   if (variant === "legacy-neutral") return "Legacy neutral";
   if (variant === "xg-v2.1-prior8") return "xG v2.1 prior8";
   if (variant === "xg-v2.2-mismatch-spread") return "xG v2.2 mismatch spread";
+  if (variant === "calibrated-matrix") return "Matriz calibrada T=0.65";
   return "Dixon-Coles experimental";
 }
 

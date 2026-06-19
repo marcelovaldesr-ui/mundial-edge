@@ -42,7 +42,7 @@ assert.deepEqual(
 const recommendedConfig = getRecommendedPredictionConfig();
 assert.deepEqual(
   { modelVariant: recommendedConfig.modelVariant, calibration: recommendedConfig.calibration },
-  { modelVariant: "xg-v2.1-prior8", calibration: "platt-blend-25" }
+  { modelVariant: "calibrated-matrix", calibration: "none" }
 );
 assert.notEqual(recommendedConfig.modelVariant, "experimental-dixon-coles");
 assert.equal(STAT_MODEL_VARIANTS[recommendedConfig.modelVariant].recommended, true);
@@ -57,8 +57,8 @@ validatePrediction(defaultPrediction);
 const recommendedPrediction = prediction(buildScoreMatrixForMatch(match, homeStats, awayStats, {
   predictionConfig: "recommended",
 }));
-assert.equal(recommendedPrediction.modelVariantUsed, "xg-v2.1-prior8");
-assert.equal(recommendedPrediction.calibrationUsed, "platt-blend-25");
+assert.equal(recommendedPrediction.modelVariantUsed, "calibrated-matrix");
+assert.equal(recommendedPrediction.calibrationUsed, "none");
 assert.equal(recommendedPrediction.configSource, "recommended");
 validatePrediction(recommendedPrediction);
 
@@ -69,8 +69,8 @@ assert.equal(defaultParlayModel.configSource, "default");
 validatePrediction(defaultParlayModel.predictions[0]);
 
 const recommendedParlayModel = buildParlayStatModel([match], [homeStats, awayStats], "recommended");
-assert.equal(recommendedParlayModel.modelVariantUsed, "xg-v2.1-prior8");
-assert.equal(recommendedParlayModel.calibrationUsed, "platt-blend-25");
+assert.equal(recommendedParlayModel.modelVariantUsed, "calibrated-matrix");
+assert.equal(recommendedParlayModel.calibrationUsed, "none");
 assert.equal(recommendedParlayModel.configSource, "recommended");
 validatePrediction(recommendedParlayModel.predictions[0]);
 

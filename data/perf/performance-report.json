@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-06-19T02:31:02.224Z",
+  "environment": {
+    "node": "v24.15.0",
+    "platform": "win32",
+    "architecture": "x64"
+  },
+  "dataset": "rated-pool-synthetic-groups-v1",
+  "model": {
+    "modelVariant": "calibrated-matrix",
+    "calibration": "none",
+    "temperature": 0.65
+  },
+  "monteCarlo": {
+    "simulationsPerRun": 10000,
+    "runs": [
+      860.09,
+      689.65,
+      702,
+      738.49,
+      1023.46
+    ],
+    "averageMs": 802.74,
+    "thresholdMs": 5000,
+    "passed": true
+  },
+  "predictions": {
+    "matches": 72,
+    "sequentialMs": 569.29,
+    "parallelMs": 595.07,
+    "thresholdMs": 10000,
+    "passed": true,
+    "note": "La generación es CPU-bound y síncrona; Promise.all no crea paralelismo real en un único proceso Node."
+  },
+  "pageLoads": {
+    "measured": true,
+    "baseUrl": "http://localhost:3017",
+    "pages": [
+      {
+        "path": "/stat-model",
+        "status": 200,
+        "durationMs": 1552.08,
+        "bytes": 810242,
+        "passed": true
+      },
+      {
+        "path": "/edges",
+        "status": 200,
+        "durationMs": 514.74,
+        "bytes": 917093,
+        "passed": true
+      },
+      {
+        "path": "/transparencia",
+        "status": 200,
+        "durationMs": 88.78,
+        "bytes": 92339,
+        "passed": true
+      },
+      {
+        "path": "/metodologia",
+        "status": 200,
+        "durationMs": 70.99,
+        "bytes": 55453,
+        "passed": true
+      },
+      {
+        "path": "/matches",
+        "status": 200,
+        "durationMs": 133.57,
+        "bytes": 439194,
+        "passed": true
+      },
+      {
+        "path": "/matches/a90081db-5a4d-422b-9b20-8ecf5abaa8e2",
+        "status": 200,
+        "durationMs": 66.2,
+        "bytes": 101283,
+        "passed": true
+      }
+    ],
+    "note": "Última medición HTTP conservada. Define PERF_BASE_URL para actualizarla."
+  },
+  "optimizations": [
+    "Las matrices de cada partido se calculan una sola vez antes de las iteraciones.",
+    "Los marcadores se separan por resultado 1X2 una sola vez; no se filtran 169 celdas dentro de cada iteración.",
+    "Los intervalos paramétricos usan cálculo directo para mercados cuando Dixon-Coles no está activo."
+  ]
+}

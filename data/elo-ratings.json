@@ -1,0 +1,1570 @@
+[
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "BRA",
+    "elo": 2091,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "GER",
+    "elo": 2058,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "ESP",
+    "elo": 2039,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "FRA",
+    "elo": 2002,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "ENG",
+    "elo": 1974,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "ITA",
+    "elo": 1971,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "YUG",
+    "elo": 1969,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "NED",
+    "elo": 1959,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "NOR",
+    "elo": 1902,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "ARG",
+    "elo": 1893,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "DEN",
+    "elo": 1882,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "ROU",
+    "elo": 1879,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "CRO",
+    "elo": 1874,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "MEX",
+    "elo": 1847,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "BEL",
+    "elo": 1822,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "BUL",
+    "elo": 1805,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "CHI",
+    "elo": 1788,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "COL",
+    "elo": 1778,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "SCO",
+    "elo": 1777,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "USA",
+    "elo": 1759,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "KOR",
+    "elo": 1750,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "JPN",
+    "elo": 1744,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "PAR",
+    "elo": 1742,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "MAR",
+    "elo": 1726,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "AUT",
+    "elo": 1714,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "NGA",
+    "elo": 1703,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "KSA",
+    "elo": 1646,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "JAM",
+    "elo": 1645,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "IRN",
+    "elo": 1637,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "RSA",
+    "elo": 1636,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "TUN",
+    "elo": 1632,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 1998,
+    "date": "1998-06-10",
+    "team": "CMR",
+    "elo": 1591,
+    "sourceUrl": "https://www.eloratings.net/1998_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "FRA",
+    "elo": 2093,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "ARG",
+    "elo": 2020,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "ITA",
+    "elo": 2009,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "POR",
+    "elo": 1978,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "ESP",
+    "elo": 1963,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "ENG",
+    "elo": 1924,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "CRO",
+    "elo": 1881,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "IRL",
+    "elo": 1873,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "GER",
+    "elo": 1869,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "BRA",
+    "elo": 1867,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "SWE",
+    "elo": 1866,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "DEN",
+    "elo": 1860,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "JPN",
+    "elo": 1848,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "BEL",
+    "elo": 1837,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "MEX",
+    "elo": 1832,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "URU",
+    "elo": 1811,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "USA",
+    "elo": 1808,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "CMR",
+    "elo": 1805,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "RUS",
+    "elo": 1801,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "NGA",
+    "elo": 1764,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "TUR",
+    "elo": 1757,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "CRC",
+    "elo": 1755,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "SVN",
+    "elo": 1745,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "KOR",
+    "elo": 1735,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "POL",
+    "elo": 1735,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "PAR",
+    "elo": 1731,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "ECU",
+    "elo": 1727,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "CHN",
+    "elo": 1699,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "SEN",
+    "elo": 1698,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "KSA",
+    "elo": 1697,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "RSA",
+    "elo": 1640,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2002,
+    "date": "2002-05-31",
+    "team": "TUN",
+    "elo": 1618,
+    "sourceUrl": "https://www.eloratings.net/2002_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "BRA",
+    "elo": 2034,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "NED",
+    "elo": 1994,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "ENG",
+    "elo": 1972,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "CZE",
+    "elo": 1971,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "FRA",
+    "elo": 1971,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "ESP",
+    "elo": 1964,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "ITA",
+    "elo": 1943,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "ARG",
+    "elo": 1922,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "POR",
+    "elo": 1915,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "GER",
+    "elo": 1895,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "SWE",
+    "elo": 1859,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "IRN",
+    "elo": 1841,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "CRO",
+    "elo": 1838,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "MEX",
+    "elo": 1838,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "USA",
+    "elo": 1824,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "POL",
+    "elo": 1822,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "SCG",
+    "elo": 1800,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "SUI",
+    "elo": 1800,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "AUS",
+    "elo": 1798,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "UKR",
+    "elo": 1790,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "JPN",
+    "elo": 1789,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "PAR",
+    "elo": 1779,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "CIV",
+    "elo": 1766,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "KOR",
+    "elo": 1743,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "CRC",
+    "elo": 1724,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "TUN",
+    "elo": 1703,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "ECU",
+    "elo": 1700,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "GHA",
+    "elo": 1616,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "TRI",
+    "elo": 1567,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "ANG",
+    "elo": 1565,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "KSA",
+    "elo": 1554,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2006,
+    "date": "2006-06-09",
+    "team": "TOG",
+    "elo": 1488,
+    "sourceUrl": "https://www.eloratings.net/2006_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "ESP",
+    "elo": 2111,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "BRA",
+    "elo": 2109,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "NED",
+    "elo": 2043,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "ENG",
+    "elo": 2001,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "GER",
+    "elo": 1957,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "ITA",
+    "elo": 1936,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "ARG",
+    "elo": 1921,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "MEX",
+    "elo": 1898,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "CHI",
+    "elo": 1886,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "POR",
+    "elo": 1876,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "FRA",
+    "elo": 1861,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "URU",
+    "elo": 1845,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "SRB",
+    "elo": 1840,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "USA",
+    "elo": 1785,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "DEN",
+    "elo": 1778,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "AUS",
+    "elo": 1775,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "KOR",
+    "elo": 1765,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "PAR",
+    "elo": 1764,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "SUI",
+    "elo": 1762,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "CIV",
+    "elo": 1739,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "GRE",
+    "elo": 1735,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "HON",
+    "elo": 1714,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "NGA",
+    "elo": 1713,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "CMR",
+    "elo": 1694,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "GHA",
+    "elo": 1687,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "SVN",
+    "elo": 1685,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "JPN",
+    "elo": 1678,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "SVK",
+    "elo": 1670,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "RSA",
+    "elo": 1593,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "ALG",
+    "elo": 1539,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "PRK",
+    "elo": 1537,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2010,
+    "date": "2010-06-11",
+    "team": "NZL",
+    "elo": 1527,
+    "sourceUrl": "https://www.eloratings.net/2010_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "BRA",
+    "elo": 2138,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "ESP",
+    "elo": 2107,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "GER",
+    "elo": 2073,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "ARG",
+    "elo": 2018,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "NED",
+    "elo": 1985,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "POR",
+    "elo": 1942,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "ENG",
+    "elo": 1931,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "COL",
+    "elo": 1922,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "CHI",
+    "elo": 1919,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "URU",
+    "elo": 1918,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "FRA",
+    "elo": 1896,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "ITA",
+    "elo": 1887,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "USA",
+    "elo": 1857,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "SUI",
+    "elo": 1854,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "BEL",
+    "elo": 1851,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "RUS",
+    "elo": 1848,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "ECU",
+    "elo": 1836,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "GRE",
+    "elo": 1823,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "CRO",
+    "elo": 1818,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "MEX",
+    "elo": 1814,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "BIH",
+    "elo": 1785,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "JPN",
+    "elo": 1785,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "CIV",
+    "elo": 1772,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "NGA",
+    "elo": 1727,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "IRN",
+    "elo": 1715,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "CRC",
+    "elo": 1711,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "AUS",
+    "elo": 1708,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "GHA",
+    "elo": 1704,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "HON",
+    "elo": 1668,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "KOR",
+    "elo": 1667,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "ALG",
+    "elo": 1626,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2014,
+    "date": "2014-06-12",
+    "team": "CMR",
+    "elo": 1606,
+    "sourceUrl": "https://www.eloratings.net/2014_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "BRA",
+    "elo": 2141,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "GER",
+    "elo": 2076,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "ESP",
+    "elo": 2043,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "FRA",
+    "elo": 1986,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "ARG",
+    "elo": 1984,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "POR",
+    "elo": 1968,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "ENG",
+    "elo": 1947,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "BEL",
+    "elo": 1935,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "COL",
+    "elo": 1927,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "PER",
+    "elo": 1915,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "URU",
+    "elo": 1893,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "SUI",
+    "elo": 1888,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "DEN",
+    "elo": 1854,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "CRO",
+    "elo": 1853,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "MEX",
+    "elo": 1849,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "POL",
+    "elo": 1830,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "SWE",
+    "elo": 1793,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "IRN",
+    "elo": 1790,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "SRB",
+    "elo": 1788,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "ISL",
+    "elo": 1764,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "SEN",
+    "elo": 1746,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "AUS",
+    "elo": 1743,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "CRC",
+    "elo": 1742,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "MAR",
+    "elo": 1731,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "KOR",
+    "elo": 1713,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "JPN",
+    "elo": 1684,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "NGA",
+    "elo": 1681,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "RUS",
+    "elo": 1677,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "PAN",
+    "elo": 1657,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "TUN",
+    "elo": 1651,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "EGY",
+    "elo": 1639,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2018,
+    "date": "2018-06-14",
+    "team": "KSA",
+    "elo": 1588,
+    "sourceUrl": "https://www.eloratings.net/2018_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "BRA",
+    "elo": 2169,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "ARG",
+    "elo": 2143,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "ESP",
+    "elo": 2049,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "NED",
+    "elo": 2040,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "BEL",
+    "elo": 2006,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "POR",
+    "elo": 2005,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "FRA",
+    "elo": 2004,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "DEN",
+    "elo": 1971,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "GER",
+    "elo": 1962,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "URU",
+    "elo": 1935,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "CRO",
+    "elo": 1926,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "ENG",
+    "elo": 1919,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "SUI",
+    "elo": 1901,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "SRB",
+    "elo": 1899,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "ECU",
+    "elo": 1832,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "POL",
+    "elo": 1813,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "MEX",
+    "elo": 1808,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "IRN",
+    "elo": 1798,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "USA",
+    "elo": 1796,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "WAL",
+    "elo": 1789,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "JPN",
+    "elo": 1788,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "KOR",
+    "elo": 1786,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "CAN",
+    "elo": 1775,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "MAR",
+    "elo": 1764,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "CRC",
+    "elo": 1743,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "AUS",
+    "elo": 1720,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "TUN",
+    "elo": 1705,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "SEN",
+    "elo": 1684,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "QAT",
+    "elo": 1680,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "KSA",
+    "elo": 1636,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "CMR",
+    "elo": 1607,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  },
+  {
+    "worldCup": 2022,
+    "date": "2022-11-20",
+    "team": "GHA",
+    "elo": 1564,
+    "sourceUrl": "https://www.eloratings.net/2022_World_Cup_start.tsv"
+  }
+]

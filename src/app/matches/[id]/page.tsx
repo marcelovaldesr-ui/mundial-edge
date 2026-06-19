@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getMatch, getEdgesForMatch, getAllEdgesForMatch, getOddsForMatch, getLastSync, dataMode, getTeamStats } from "@/lib/data/repository";
+import { getAllEdges, getOddsForMatch, getLastSync, dataMode, getTeamStats, getMatches } from "@/lib/data/repository";
 import { EdgeTable } from "@/components/edge-table";
 import { ProbabilityChart } from "@/components/probability-chart";
 import { LastUpdated } from "@/components/last-updated";
@@ -10,8 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { fmtKickoff } from "@/lib/utils";
 import { buildScoreMatrixForMatch } from "@/lib/stat-model";
 import { TeamMark } from "@/components/team-mark";
-import { isPreMatchEligible, matchStatusLabel } from "@/lib/matches/pre-match-eligibility";
-import { getMatches } from "@/lib/data/repository";
+import { filterPreMatchEdges, isPreMatchEligible, matchStatusLabel } from "@/lib/matches/pre-match-eligibility";
 import { getWorldCupGroupContext } from "@/lib/world-cup";
 import { WorldCupContextCard } from "@/components/world-cup-context-card";
 import { decorateEdgesWithFinalProbability } from "@/lib/model/final-probability";
@@ -20,12 +19,14 @@ import { ModelMetadata } from "@/components/model-metadata";
 export const dynamic = "force-dynamic";
 
 export default async function MatchDetail({ params }: { params: { id: string } }) {
-  const match = await getMatch(params.id);
+  const [allMatches, allEdges, odds, sync, teamStats] = await Promise.all([
+    getMatches(), getAllEdges(), getOddsForMatch(params.id), getLastSync(), getTeamStats(),
+  ]);
+  const match = allMatches.find((row) => row.id === params.id) ?? null;
   if (!match) notFound();
   const preMatchEligible = isPreMatchEligible(match);
-  const [activeEdges, historicalEdges, odds, sync, teamStats, allMatches] = await Promise.all([
-    getEdgesForMatch(params.id), getAllEdgesForMatch(params.id), getOddsForMatch(params.id), getLastSync(), getTeamStats(), getMatches(),
-  ]);
+  const historicalEdges = allEdges.filter((edge) => edge.match_id === params.id).sort((a, b) => b.expected_value - a.expected_value);
+  const activeEdges = filterPreMatchEdges(historicalEdges);
   const groupContext = getWorldCupGroupContext(match, allMatches);
   const statMap = new Map(teamStats.map((stats) => [stats.team_id, stats]));
   const modelResult = buildScoreMatrixForMatch(
@@ -48,7 +49,10 @@ export default async function MatchDetail({ params }: { params: { id: string } }
     implícita: e.implied_probability,
   }));
 
-  const bookmakers = Array.from(new Set(odds.map((o) => o.bookmaker)));
+  const bookmakers = Array.from(new Set([
+    ...odds.map((odd) => odd.bookmaker),
+    ...historicalEdges.map((edge) => edge.bookmaker),
+  ].filter(Boolean)));
   const showScore = !preMatchEligible && match.home_score != null && match.away_score != null;
 
   return (

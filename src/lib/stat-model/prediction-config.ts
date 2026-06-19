@@ -33,8 +33,8 @@ const DEFAULT_PREDICTION_CONFIG = Object.freeze({
 } as const satisfies PredictionConfig);
 
 const RECOMMENDED_PREDICTION_CONFIG = Object.freeze({
-  modelVariant: "xg-v2.1-prior8",
-  calibration: "platt-blend-25",
+  modelVariant: "calibrated-matrix",
+  calibration: "none",
   configSource: "recommended",
   warnings: [],
 } as const satisfies PredictionConfig);

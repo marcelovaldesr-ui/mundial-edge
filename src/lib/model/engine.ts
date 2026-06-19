@@ -1,4 +1,4 @@
-import type { Match, TeamStats, Odd, Prediction, Edge, Market, Outcome } from "@/lib/types";
+import type { Match, TeamStats, Odd, Prediction, Edge, Market, Outcome } from "../types";
 import { buildScoreMatrix, marketsFromMatrix } from "./poisson";
 import { expectedGoals } from "./expected-goals";
 import { groupByMarket } from "./odds";

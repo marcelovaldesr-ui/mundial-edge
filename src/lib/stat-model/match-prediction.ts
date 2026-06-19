@@ -1,10 +1,12 @@
 import type { Match, TeamStats } from "../types";
 import { filterPreMatchMatches } from "../matches/pre-match-eligibility";
-import { estimateExpectedGoals } from "./expected-goals";
-import type { ExpectedGoalsDiagnosticBreakdown, ExpectedGoalsRatingModel } from "./expected-goals";
+import { getExpectedGoalsWithComponents } from "./expected-goals";
+import type { ExpectedGoalsDiagnosticBreakdown, ExpectedGoalsRatingModel, ExpectedGoalsWithComponentsResult } from "./expected-goals";
 import { deriveMarketProbabilities } from "./market-probabilities";
 import type { ModelMarketProbability } from "./market-types";
 import { createScoreMatrix, type ScoreMatrix } from "./score-matrix";
+import { createCalibratedScoreMatrix } from "./calibrated-score-matrix";
+import { resolveCalibrationTemperature } from "./calibrate-lambdas";
 import { applyDixonColesAdjustment } from "./dixon-coles";
 import { calculatePredictionConfidence, type ConfidenceResult } from "./confidence-score";
 import { getActiveStatModelVariant, type StatModelVariant, type StatModelVariantStatus } from "./model-variant";
@@ -17,6 +19,8 @@ import {
   type PredictionConfigInput,
   type PredictionConfigSource,
 } from "./prediction-config";
+import { calculateMarketProbabilityIntervals, type MarketProbabilityIntervals } from "./probability-intervals";
+import { buildPredictionExplanation } from "./prediction-explanation";
 
 export type StatModelConfidence = "none" | "low" | "medium" | "high";
 
@@ -28,6 +32,8 @@ export interface MatchStatModelPrediction {
   awayExpectedGoals: number;
   scoreMatrix: ScoreMatrix;
   marketProbabilities: ModelMarketProbability[];
+  /** Alias with the same matrix-derived values for calibrated and legacy consumers. */
+  markets: ModelMarketProbability[];
   confidence: StatModelConfidence;
   confidenceResult: ConfidenceResult;
   warnings: string[];
@@ -41,6 +47,10 @@ export interface MatchStatModelPrediction {
     awayStatsWeight: number;
   };
   expectedGoalsDiagnostic: ExpectedGoalsDiagnosticBreakdown;
+  expectedGoalsComponents: ExpectedGoalsWithComponentsResult["components"];
+  expectedGoalsWeightInfo: ExpectedGoalsWithComponentsResult["weightInfo"];
+  probabilityIntervals: MarketProbabilityIntervals;
+  explanation: string;
   homeRating: TeamStrengthRating | null;
   awayRating: TeamStrengthRating | null;
   groupContext?: WorldCupGroupContext;
@@ -53,6 +63,12 @@ export interface MatchStatModelPrediction {
   modelVariantUsed: StatModelVariant;
   calibrationUsed: StatModelCalibrationMode;
   configSource: PredictionConfigSource;
+  lambdas: {
+    original: { home: number; away: number };
+    calibrated: { home: number; away: number };
+  };
+  temperature: number | null;
+  calibrated: boolean;
 }
 
 export interface MatrixBuildIssue {
@@ -82,6 +98,8 @@ export interface BuildScoreMatrixOptions {
   calibration?: StatModelCalibrationMode | string;
   /** Named/default config. Direct modelVariant/calibration fields remain compatible and take precedence. */
   predictionConfig?: PredictionConfigInput;
+  /** Explicit override for CALIBRATION_TEMPERATURE when temperature scaling is active. */
+  calibrationTemperature?: number;
 }
 
 export interface BuildScoreMatricesResult {
@@ -116,7 +134,7 @@ export function buildScoreMatrixForMatch(
         })
         : resolvePredictionConfig();
   const variant = getActiveStatModelVariant(config.modelVariant, undefined);
-  const xg = estimateExpectedGoals({
+  const xgWithComponents = getExpectedGoalsWithComponents({
     home: homeStats,
     away: awayStats,
     homeTeam: match.home_team,
@@ -127,8 +145,18 @@ export function buildScoreMatrixForMatch(
     ratingModel: options.ratingModel ?? variant.expectedGoalsRatingModel,
     priorStrength: options.ratingModel ? undefined : variant.priorStrength ?? undefined,
   });
+  const xg = xgWithComponents.details;
   const warnings = [...config.warnings, ...confidenceWarnings(homeStats, awayStats, xg.homeRating, xg.awayRating, groupContext)];
-  const poissonMatrix = createScoreMatrix({
+  const temperature = variant.temperatureScaling
+    ? resolveCalibrationTemperature(options.calibrationTemperature)
+    : null;
+  const temperatureResult = temperature == null ? null : createCalibratedScoreMatrix(
+    xg.homeExpectedGoals,
+    xg.awayExpectedGoals,
+    temperature,
+    options.maxGoals ?? 12
+  );
+  const poissonMatrix = temperatureResult?.scoreMatrix ?? createScoreMatrix({
     homeExpectedGoals: xg.homeExpectedGoals,
     awayExpectedGoals: xg.awayExpectedGoals,
     maxGoals: options.maxGoals ?? 12,
@@ -174,6 +202,28 @@ export function buildScoreMatrixForMatch(
     awayRatingFallback: xg.awayRating?.source === "neutral_fallback",
     groupContext,
   });
+  const probabilityIntervals = calculateMarketProbabilityIntervals({
+    lambdaHome: temperatureResult?.lambdaHomeCal ?? xg.homeExpectedGoals,
+    lambdaAway: temperatureResult?.lambdaAwayCal ?? xg.awayExpectedGoals,
+    homeGamesPlayed: homeStats.matches_played,
+    awayGamesPlayed: awayStats.matches_played,
+    priorWeight,
+    confidence: confidenceResult.label,
+    pointProbabilities: marketProbabilities,
+    seed: `${match.id}:${variant.id}:${temperature ?? "none"}`,
+    maxGoals: options.maxGoals ?? 12,
+    dixonColesRho: variant.dixonColesRho,
+  });
+  const explanation = buildPredictionExplanation({
+    homeName: match.home_team.name,
+    awayName: match.away_team.name,
+    homeCode: match.home_team.code,
+    awayCode: match.away_team.code,
+    components: xgWithComponents.components,
+    probabilities: marketProbabilities,
+    intervals: probabilityIntervals,
+    confidence: confidenceResult.label,
+  });
 
   return {
     matchId: match.id,
@@ -183,6 +233,7 @@ export function buildScoreMatrixForMatch(
     awayExpectedGoals: xg.awayExpectedGoals,
     scoreMatrix,
     marketProbabilities,
+    markets: marketProbabilities,
     confidence: confidenceResult.label,
     confidenceResult,
     warnings: [...new Set([...warnings, ...confidenceResult.warnings, ...xg.assumptions])],
@@ -191,6 +242,10 @@ export function buildScoreMatrixForMatch(
     expectedGoalsSource: xg.source,
     expectedGoalsBlend: xg.blend,
     expectedGoalsDiagnostic: xg.diagnostic,
+    expectedGoalsComponents: xgWithComponents.components,
+    expectedGoalsWeightInfo: xgWithComponents.weightInfo,
+    probabilityIntervals,
+    explanation,
     homeRating: xg.homeRating,
     awayRating: xg.awayRating,
     groupContext,
@@ -203,6 +258,15 @@ export function buildScoreMatrixForMatch(
     modelVariantUsed: variant.id,
     calibrationUsed: calibrationEnabled ? calibrationPreset.id : "none",
     configSource: config.configSource,
+    lambdas: {
+      original: { home: xg.homeExpectedGoals, away: xg.awayExpectedGoals },
+      calibrated: {
+        home: temperatureResult?.lambdaHomeCal ?? xg.homeExpectedGoals,
+        away: temperatureResult?.lambdaAwayCal ?? xg.awayExpectedGoals,
+      },
+    },
+    temperature,
+    calibrated: temperatureResult != null,
   };
 }
 
@@ -298,5 +362,5 @@ function confidenceWarnings(
 }
 
 function isSpecificRating(rating: TeamStrengthRating | null): boolean {
-  return rating?.source === "manual_seed" || rating?.source === "manual-historical-estimate";
+  return rating?.source === "manual_seed" || rating?.source === "manual-historical-estimate" || rating?.source === "historical_elo_hybrid";
 }

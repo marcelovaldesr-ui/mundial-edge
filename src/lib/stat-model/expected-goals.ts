@@ -69,6 +69,59 @@ export interface ExpectedGoalsDiagnosticBreakdown {
   guardrails: { minXg: 0.2; maxXg: 4.5; contextMin: 0.94; contextMax: 1.06 };
 }
 
+export interface ExpectedGoalsComponents {
+  priorRating: number;
+  recentForm: number;
+  context: number;
+  tournamentAvg: number;
+}
+
+export interface ExpectedGoalsWithComponentsResult {
+  home: number;
+  away: number;
+  components: {
+    home: ExpectedGoalsComponents;
+    away: ExpectedGoalsComponents;
+  };
+  weightInfo: {
+    gamesPlayed: number;
+    priorStrength: number;
+    blendWeights: {
+      prior: number;
+      recent: number;
+      context: number;
+      avg: number;
+    };
+  };
+  /** Full result retained so prediction builders do not calculate xG twice. */
+  details: StatExpectedGoalsResult;
+}
+
+/**
+ * Returns the production xG together with an exact additive decomposition.
+ * Each side satisfies tournamentAvg + priorRating + recentForm + context = xG.
+ */
+export function getExpectedGoalsWithComponents(input: StatExpectedGoalsInput): ExpectedGoalsWithComponentsResult {
+  const details = estimateExpectedGoals(input);
+  const components = {
+    home: additiveComponents(details.diagnostic.home),
+    away: additiveComponents(details.diagnostic.away),
+  };
+  const blendWeights = normalizedComponentWeights(components.home, components.away);
+
+  return {
+    home: details.homeExpectedGoals,
+    away: details.awayExpectedGoals,
+    components,
+    weightInfo: {
+      gamesPlayed: Math.min(input.home.matches_played, input.away.matches_played),
+      priorStrength: details.priorStrength ?? 0,
+      blendWeights,
+    },
+    details,
+  };
+}
+
 export function estimateExpectedGoals(input: StatExpectedGoalsInput): StatExpectedGoalsResult {
   const leagueAvg = input.leagueAvgGoals ?? 1.35;
   const neutralVenue = input.neutralVenue ?? false;
@@ -202,6 +255,10 @@ export function estimateExpectedGoals(input: StatExpectedGoalsInput): StatExpect
     : { homeExpectedGoals: homeBeforeMismatch, awayExpectedGoals: awayBeforeMismatch, homeAdjustment: 0, awayAdjustment: 0 };
   const homeExpectedGoals = mismatch.homeExpectedGoals;
   const awayExpectedGoals = mismatch.awayExpectedGoals;
+  const sharedGames = Math.min(input.home.matches_played, input.away.matches_played);
+  const bayesianStatsWeight = priorStrength == null ? 1 : sharedGames / (sharedGames + priorStrength);
+  const homeStatsWeight = (1 - homeRatingWeight) * bayesianStatsWeight;
+  const awayStatsWeight = (1 - awayRatingWeight) * bayesianStatsWeight;
 
   return {
     homeExpectedGoals,
@@ -210,10 +267,10 @@ export function estimateExpectedGoals(input: StatExpectedGoalsInput): StatExpect
     homeRating,
     awayRating,
     blend: {
-      homeRatingWeight,
-      awayRatingWeight,
-      homeStatsWeight: 1 - homeRatingWeight,
-      awayStatsWeight: 1 - awayRatingWeight,
+      homeRatingWeight: 1 - homeStatsWeight,
+      awayRatingWeight: 1 - awayStatsWeight,
+      homeStatsWeight,
+      awayStatsWeight,
     },
     assumptions: baseAssumptions([
       input.home.matches_played < 2 || input.away.matches_played < 2
@@ -313,6 +370,47 @@ function diagnosticBreakdown(input: {
     away: side(input.rawObserved.lambdaAway, input.regularized.lambdaAway, input.awayRatingComponent, input.awayRatingWeight, input.awayContext, input.awayMismatchAdjustment, input.awayExpectedGoals),
     guardrails: { minXg: 0.2, maxXg: 4.5, contextMin: 0.94, contextMax: 1.06 },
   };
+}
+
+function additiveComponents(side: ExpectedGoalsSideBreakdown): ExpectedGoalsComponents {
+  const ratingWeight = side.ratingBlendWeight;
+  const regularizationContribution = (side.bayesianAdjustedObservedComponent - side.observedStatsComponent) * (1 - ratingWeight);
+  const outerRatingContribution = side.priorRatingComponent == null
+    ? 0
+    : (side.priorRatingComponent - side.tournamentAverageComponent) * ratingWeight;
+  const priorRating = regularizationContribution + outerRatingContribution;
+  const recentForm = (side.observedStatsComponent - side.tournamentAverageComponent) * (1 - ratingWeight);
+  const context = side.finalXg - side.tournamentAverageComponent - priorRating - recentForm;
+  return {
+    priorRating: cleanFloat(priorRating),
+    recentForm: cleanFloat(recentForm),
+    context: cleanFloat(context),
+    tournamentAvg: side.tournamentAverageComponent,
+  };
+}
+
+function normalizedComponentWeights(
+  home: ExpectedGoalsComponents,
+  away: ExpectedGoalsComponents
+): ExpectedGoalsWithComponentsResult["weightInfo"]["blendWeights"] {
+  const magnitude = (key: keyof ExpectedGoalsComponents) => Math.abs(home[key]) + Math.abs(away[key]);
+  const values = {
+    prior: magnitude("priorRating"),
+    recent: magnitude("recentForm"),
+    context: magnitude("context"),
+    avg: magnitude("tournamentAvg"),
+  };
+  const total = values.prior + values.recent + values.context + values.avg || 1;
+  return {
+    prior: values.prior / total,
+    recent: values.recent / total,
+    context: values.context / total,
+    avg: values.avg / total,
+  };
+}
+
+function cleanFloat(value: number): number {
+  return Math.abs(value) < 1e-12 ? 0 : value;
 }
 
 function validatePriorStrength(value: number | undefined): number | null {

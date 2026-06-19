@@ -1,4 +1,4 @@
-import type { Odd, Outcome } from "@/lib/types";
+import type { Odd, Outcome } from "../types";
 
 // ─── Probabilidad implícita y corrección de overround ────────────
 

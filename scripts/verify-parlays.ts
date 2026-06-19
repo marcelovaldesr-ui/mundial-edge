@@ -1,6 +1,6 @@
 import { evaluateCorrelation } from "../src/lib/parlays/correlation";
 import { edgeToParlayPick } from "../src/lib/parlays/edge-adapter";
-import { generateParlays, generateParlaysWithDebug } from "../src/lib/parlays/parlay-engine";
+import { generateParlays, generateParlaysWithDebug, generateSuggestedParlays } from "../src/lib/parlays/parlay-engine";
 import { sortAndFilterParlays, sortParlays } from "../src/lib/parlays/parlay-filtering";
 import { scoreParlay } from "../src/lib/parlays/parlay-scoring";
 import type { Parlay, ParlayPick } from "../src/lib/parlays/parlay-types";
@@ -25,8 +25,11 @@ function pick(overrides: Partial<ParlayPick>): ParlayPick {
     odds: overrides.odds ?? 2,
     marketProb: overrides.marketProb ?? 0.5,
     anchoredProb: overrides.anchoredProb ?? 0.55,
+    probability: overrides.probability ?? overrides.anchoredProb ?? 0.55,
+    pick: overrides.pick ?? overrides.selection ?? "home",
     probabilitySource: overrides.probabilitySource ?? "edge.model_probability_blended",
     edge: overrides.edge ?? 0.05,
+    confidence: overrides.confidence ?? "medium",
     ev: overrides.ev ?? 0.1,
     riskLevel: overrides.riskLevel ?? "medium",
     isQualityPick: overrides.isQualityPick ?? true,
@@ -290,6 +293,41 @@ function sortingAndFiltering() {
   assert(filtered.length === 1 && filtered[0].id === "c", "Expected filters to keep only reasonable candidate");
 }
 
+function relaxedFiltersIncreaseAvailability() {
+  const picks = Array.from({ length: 12 }, (_, index) => pick({
+    id: `relaxed-${index}`,
+    matchId: `match-${index}`,
+    odds: 1.6,
+    anchoredProb: 0.65,
+    probability: 0.65,
+    edge: index < 3 ? 0.01 : index < 7 ? 0.03 : 0.06,
+    confidence: index % 2 === 0 ? "low" : "medium",
+    isQualityPick: index >= 7,
+  }));
+  const common = { minJointProbability: 0, minEV: -1, maxResults: 1_000, maxLegs: 2, maxTotalOdds: 10, now: "2026-06-16T00:00:00Z" } as const;
+  const conservative = generateParlays(picks, { ...common, profile: "conservative", minEdge: 0.05, minConfidence: "medium", allowLowConfidence: false });
+  const balanced = generateParlays(picks, { ...common, profile: "balanced", minEdge: 0.02, allowLowConfidence: true });
+  const opportunistic = generateParlays(picks, { ...common, profile: "aggressive", minEdge: 0, allowLowConfidence: true });
+  assert(conservative.length < balanced.length, "Balanced must expose more parlays than conservative.");
+  assert(balanced.length < opportunistic.length, "Opportunistic must expose more parlays than balanced.");
+  assert(opportunistic.length >= 20, "A typical relaxed slate must expose at least 20 parlays.");
+}
+
+function thematicSuggestions() {
+  const picks = [
+    pick({ id: "fav-a", matchId: "fa", market: "1x2", selection: "home", pick: "home", odds: 1.8, edge: 0.04 }),
+    pick({ id: "fav-b", matchId: "fb", market: "1x2", selection: "home", pick: "home", odds: 1.9, edge: 0.04 }),
+    pick({ id: "goals-a", matchId: "ga", market: "over_under_2_5", selection: "over", pick: "over", odds: 1.9, edge: 0.04 }),
+    pick({ id: "goals-b", matchId: "gb", market: "over_under_2_5", selection: "over", pick: "over", odds: 1.95, edge: 0.04 }),
+    pick({ id: "surprise-a", matchId: "sa", market: "1x2", selection: "away", pick: "away", odds: 2.5, edge: 0.08 }),
+    pick({ id: "surprise-b", matchId: "sb", market: "1x2", selection: "away", pick: "away", odds: 2.4, edge: 0.08 }),
+  ];
+  const suggestions = generateSuggestedParlays(picks, { now: "2026-06-16T00:00:00Z" });
+  assert(suggestions.some((row) => row.theme === "favorite"), "Expected favorite suggestion.");
+  assert(suggestions.some((row) => row.theme === "goals"), "Expected goals suggestion.");
+  assert(suggestions.some((row) => row.theme === "surprise"), "Expected surprise suggestion.");
+}
+
 edgeAdapter();
 independentParlay();
 correlatedParlay();
@@ -301,5 +339,7 @@ tooManySameMatchPicksAreInvalid();
 scoreMatrixCorrelationIntegration();
 ranking();
 sortingAndFiltering();
+relaxedFiltersIncreaseAvailability();
+thematicSuggestions();
 
 console.log("Parlay verification passed");

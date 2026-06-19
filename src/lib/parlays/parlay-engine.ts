@@ -12,6 +12,7 @@ import type {
   ProfileRules,
   RejectedParlayCandidate,
   RejectionReason,
+  SuggestedParlay,
 } from "./parlay-types";
 import { suggestStake } from "./staking";
 
@@ -19,7 +20,7 @@ export const PARLAY_PROFILE_RULES: Record<ParlayProfile, ProfileRules> = {
   conservative: {
     label: "Conservadora",
     maxLegs: 3,
-    candidateLimit: 10,
+    candidateLimit: 24,
     minPickProbability: 0.42,
     minJointProbability: 0.14,
     minEV: 0.02,
@@ -36,10 +37,10 @@ export const PARLAY_PROFILE_RULES: Record<ParlayProfile, ProfileRules> = {
   balanced: {
     label: "Balanceada",
     maxLegs: 4,
-    candidateLimit: 12,
+    candidateLimit: 30,
     minPickProbability: 0.24,
     minJointProbability: 0.06,
-    minEV: 0.035,
+    minEV: 0.02,
     maxEV: 0.45,
     maxPickOdds: 5,
     maxTotalOdds: 25,
@@ -53,10 +54,10 @@ export const PARLAY_PROFILE_RULES: Record<ParlayProfile, ProfileRules> = {
   aggressive: {
     label: "Agresiva",
     maxLegs: 5,
-    candidateLimit: 14,
+    candidateLimit: 36,
     minPickProbability: 0.08,
     minJointProbability: 0.02,
-    minEV: 0.05,
+    minEV: 0,
     maxEV: 0.9,
     maxPickOdds: 6,
     maxTotalOdds: 70,
@@ -147,7 +148,8 @@ function validateCandidatePick(
   nowMs: number
 ): { ok: true } | { ok: false; reason: RejectionReason; message: string } {
   const allowedMarkets = new Set(options.allowedMarkets ?? []);
-  if (!pick.isQualityPick) return { ok: false, reason: "pick_invalid", message: "Pick no pasa filtros de calidad." };
+  const minEdge = options.minEdge ?? 0.02;
+  const minConfidence = options.minConfidence ?? (options.allowLowConfidence === false ? "medium" : "low");
   if (allowedMarkets.size && !allowedMarkets.has(pick.market)) {
     return { ok: false, reason: "pick_invalid", message: "Mercado no permitido por filtros." };
   }
@@ -163,8 +165,14 @@ function validateCandidatePick(
   ) {
     return { ok: false, reason: "pick_invalid", message: "Cuota, probabilidad o EV inválidos." };
   }
-  if (pick.odds < 1.4 || pick.odds > rules.maxPickOdds || pick.ev < 0.02 || pick.ev > 0.2) {
+  if (pick.odds < 1.15 || pick.odds > rules.maxPickOdds || pick.ev > 1) {
     return { ok: false, reason: "pick_invalid", message: "Pick fuera de rangos individuales del perfil." };
+  }
+  if (pick.edge < minEdge) {
+    return { ok: false, reason: "edge_below_minimum", message: `Edge individual por debajo de ${(minEdge * 100).toFixed(1)}%.` };
+  }
+  if (confidenceRank(pick.confidence) < confidenceRank(minConfidence)) {
+    return { ok: false, reason: "confidence_below_minimum", message: `Confianza ${pick.confidence} por debajo de ${minConfidence}.` };
   }
   if (pick.anchoredProb < rules.minPickProbability) {
     return { ok: false, reason: "pick_invalid", message: "Probabilidad individual por debajo del mínimo del perfil." };
@@ -196,7 +204,7 @@ function baseCandidates(
     if (!current || pick.ev > current.ev) bySelection.set(key, pick);
   }
 
-  const candidates = Array.from(bySelection.values())
+  const validCandidates = Array.from(bySelection.values())
     .filter((pick) => {
       const valid = validateCandidatePick(pick, options, rules, nowMs);
       if (!valid.ok) {
@@ -209,9 +217,25 @@ function baseCandidates(
       }
       return valid.ok;
     })
-    .sort((a, b) => b.ev + b.anchoredProb * 0.2 - (a.ev + a.anchoredProb * 0.2))
-    .slice(0, rules.candidateLimit);
+    .sort((a, b) => candidateScore(b) - candidateScore(a));
+  for (const pick of validCandidates.slice(rules.candidateLimit)) {
+    rejected.push(reject({
+      profile: options.profile,
+      picks: [pick],
+      reason: "candidate_limit",
+      message: `Fuera del top ${rules.candidateLimit} de candidatos por score.`,
+    }));
+  }
+  const candidates = validCandidates.slice(0, rules.candidateLimit);
   return { candidates, rejected };
+}
+
+function confidenceRank(confidence: "low" | "medium" | "high"): number {
+  return confidence === "high" ? 2 : confidence === "medium" ? 1 : 0;
+}
+
+function candidateScore(pick: ParlayPick): number {
+  return pick.ev + pick.edge * 0.6 + pick.anchoredProb * 0.2 + confidenceRank(pick.confidence) * 0.025 + (pick.isQualityPick ? 0.01 : 0);
 }
 
 function buildWarnings(parlay: {
@@ -295,7 +319,8 @@ export function generateParlaysWithDebug(picks: ParlayPick[], options: GenerateP
   const minJointProbability = options.minJointProbability ?? rules.minJointProbability;
   const minEV = options.minEV ?? rules.minEV;
   const maxCorrelation = options.maxCorrelation ?? rules.maxCorrelation;
-  const maxResults = options.maxResults ?? 8;
+  const maxResults = options.maxResults ?? 30;
+  const maxTotalOdds = options.maxTotalOdds ?? 10;
   const { candidates, rejected } = baseCandidates(picks, options, rules);
   const parlays: Parlay[] = [];
 
@@ -341,7 +366,7 @@ export function generateParlaysWithDebug(picks: ParlayPick[], options: GenerateP
         }));
         continue;
       }
-      if (compareCorrelationLevel(correlation.level, maxCorrelation) > 0) {
+      if (!matrixAware && compareCorrelationLevel(correlation.level, maxCorrelation) > 0) {
         rejected.push(reject({
           profile: options.profile,
           picks: pickSet,
@@ -354,7 +379,7 @@ export function generateParlaysWithDebug(picks: ParlayPick[], options: GenerateP
       }
 
       const totalOdds = product(pickSet.map((pick) => pick.odds));
-      if (!Number.isFinite(totalOdds) || totalOdds > rules.maxTotalOdds) {
+      if (!Number.isFinite(totalOdds) || totalOdds > Math.min(rules.maxTotalOdds, maxTotalOdds)) {
         rejected.push(reject({
           profile: options.profile,
           picks: pickSet,
@@ -504,6 +529,63 @@ export function generateParlaysWithDebug(picks: ParlayPick[], options: GenerateP
     .sort((a, b) => b.score - a.score || b.jointProbabilityAdjusted - a.jointProbabilityAdjusted)
     .slice(0, maxResults);
   return { parlays: sorted, rejected };
+}
+
+export function generateSuggestedParlays(
+  picks: ParlayPick[],
+  config: Omit<GenerateParlaysOptions, "profile"> = {}
+): SuggestedParlay[] {
+  const definitions = [
+    {
+      theme: "favorite" as const,
+      label: "Combo favorito",
+      description: "2–3 favoritos con edge superior a 2%.",
+      candidates: picks.filter((pick) => pick.market === "1x2" && pick.odds <= 2.25 && pick.edge >= 0.02),
+      profile: "balanced" as const,
+      minEdge: 0.02,
+      minOdds: 1,
+    },
+    {
+      theme: "goals" as const,
+      label: "Combo goles",
+      description: "2–3 selecciones de más de 2.5 goles con edge superior a 2%.",
+      candidates: picks.filter((pick) => pick.market === "over_under_2_5" && pick.selection === "over" && pick.edge >= 0.02),
+      profile: "balanced" as const,
+      minEdge: 0.02,
+      minOdds: 1,
+    },
+    {
+      theme: "surprise" as const,
+      label: "Combo sorpresa",
+      description: "Dos victorias visitantes con edge superior a 5% y cuota combinada mayor a 5.",
+      candidates: picks.filter((pick) => pick.market === "1x2" && pick.selection === "away" && pick.edge >= 0.05),
+      profile: "aggressive" as const,
+      minEdge: 0.05,
+      minOdds: 5,
+    },
+  ];
+
+  const suggestions: SuggestedParlay[] = [];
+  for (const definition of definitions) {
+    const generated = generateParlays(definition.candidates, {
+      ...config,
+      profile: definition.profile,
+      minEdge: definition.minEdge,
+      minEV: 0,
+      minJointProbability: 0,
+      allowLowConfidence: true,
+      maxLegs: definition.theme === "surprise" ? 2 : 3,
+      maxResults: 20,
+    });
+    const parlay = generated.find((candidate) => candidate.totalOdds >= definition.minOdds);
+    if (parlay) suggestions.push({
+      theme: definition.theme,
+      label: definition.label,
+      description: definition.description,
+      parlay,
+    });
+  }
+  return suggestions;
 }
 
 function hasSameMatchScoreMatrix(

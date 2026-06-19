@@ -9,6 +9,7 @@ import { filterPreMatchMatches } from "@/lib/matches/pre-match-eligibility";
 import { WorldCupGroupsSimulation } from "@/components/world-cup-groups-simulation";
 import { createWorldCup2026GroupsUiData } from "@/lib/tournament";
 import { ModelMetadata } from "@/components/model-metadata";
+import { simulationIterations } from "@/lib/config/runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export default async function StatModelPage() {
   const lowConfidence = model.predictions.filter((prediction) => prediction.confidence === "low").length;
   const eligibleMatches = filterPreMatchMatches(matches);
   const nonEligibleMatches = matches.length - eligibleMatches.length;
-  const groupsUiData = createWorldCup2026GroupsUiData(matches);
+  const groupsUiData = createWorldCup2026GroupsUiData(matches, simulationIterations());
 
   return (
     <div className="space-y-7">

@@ -33,7 +33,7 @@ function dataset(year: number, fixtures: HistoricalWorldCupFixture[]): Historica
   return {
     year,
     fixtures,
-    ratingSet: `mundial-edge-rating-snapshot-${year}-${year === 2026 ? "v1" : "v2"}`,
+    ratingSet: `mundial-edge-rating-snapshot-${year}-${year === 2026 ? "v1" : "v3"}`,
     ratingSnapshotYear: year,
     source: `openfootball/worldcup.json ${year} (CC0), commit 6d4a1b67e09ced583ecc02f5e900c69dd5ec5a2b, normalized locally`,
   };

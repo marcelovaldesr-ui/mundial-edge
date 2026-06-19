@@ -1,7 +1,7 @@
 import type { DixonColesRho } from "./dixon-coles";
 import type { ExpectedGoalsRatingModel } from "./expected-goals";
 
-export type StatModelVariant = "legacy-neutral" | "xg-v2.1-prior8" | "xg-v2.2-mismatch-spread" | "experimental-dixon-coles";
+export type StatModelVariant = "legacy-neutral" | "xg-v2.1-prior8" | "xg-v2.2-mismatch-spread" | "calibrated-matrix" | "experimental-dixon-coles";
 export type StatModelVariantStatus = "production" | "candidate" | "experimental";
 
 export interface StatModelVariantConfig {
@@ -14,6 +14,7 @@ export interface StatModelVariantConfig {
   recommended: boolean;
   notRecommended: boolean;
   calibrationEligible: boolean;
+  temperatureScaling: boolean;
 }
 
 export const DEFAULT_STAT_MODEL_VARIANT: StatModelVariant = "legacy-neutral";
@@ -22,19 +23,23 @@ export const STAT_MODEL_FEATURE_FLAG = "STAT_MODEL_VARIANT";
 export const STAT_MODEL_VARIANTS: Record<StatModelVariant, StatModelVariantConfig> = {
   "legacy-neutral": {
     id: "legacy-neutral", status: "production", expectedGoalsRatingModel: "legacy_v1",
-    priorStrength: null, neutralVenue: true, dixonColesRho: null, recommended: false, notRecommended: false, calibrationEligible: false,
+    priorStrength: null, neutralVenue: true, dixonColesRho: null, recommended: false, notRecommended: false, calibrationEligible: false, temperatureScaling: false,
   },
   "xg-v2.1-prior8": {
     id: "xg-v2.1-prior8", status: "candidate", expectedGoalsRatingModel: "attack_defense_v2",
-    priorStrength: 8, neutralVenue: true, dixonColesRho: null, recommended: true, notRecommended: false, calibrationEligible: true,
+    priorStrength: 8, neutralVenue: true, dixonColesRho: null, recommended: false, notRecommended: false, calibrationEligible: true, temperatureScaling: false,
   },
   "xg-v2.2-mismatch-spread": {
     id: "xg-v2.2-mismatch-spread", status: "candidate", expectedGoalsRatingModel: "attack_defense_v2_mismatch_spread",
-    priorStrength: 8, neutralVenue: true, dixonColesRho: null, recommended: false, notRecommended: false, calibrationEligible: true,
+    priorStrength: 8, neutralVenue: true, dixonColesRho: null, recommended: false, notRecommended: false, calibrationEligible: true, temperatureScaling: false,
+  },
+  "calibrated-matrix": {
+    id: "calibrated-matrix", status: "production", expectedGoalsRatingModel: "attack_defense_v2_mismatch_spread",
+    priorStrength: 8, neutralVenue: true, dixonColesRho: null, recommended: true, notRecommended: false, calibrationEligible: false, temperatureScaling: true,
   },
   "experimental-dixon-coles": {
     id: "experimental-dixon-coles", status: "experimental", expectedGoalsRatingModel: "attack_defense_v2",
-    priorStrength: 8, neutralVenue: true, dixonColesRho: -0.15, recommended: false, notRecommended: true, calibrationEligible: false,
+    priorStrength: 8, neutralVenue: true, dixonColesRho: -0.15, recommended: false, notRecommended: true, calibrationEligible: false, temperatureScaling: false,
   },
 };
 

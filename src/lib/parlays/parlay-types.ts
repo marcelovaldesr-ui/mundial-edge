@@ -3,6 +3,7 @@ import type { PredictionConfigSource, ScoreMatrix, StatModelCalibrationMode, Sta
 import type { FinalProbabilityResult } from "../model/final-probability";
 
 export type ParlayProfile = "conservative" | "balanced" | "aggressive";
+export type ParlayConfidence = "low" | "medium" | "high";
 export type CorrelationLevel = "low" | "medium" | "high" | "invalid";
 export type ParlayRiskLevel = "low" | "medium" | "high" | "very_high";
 export type ParlaySortKey = "score" | "ev" | "probability" | "risk" | "odds" | "stake";
@@ -10,6 +11,9 @@ export type RejectionReason =
   | "pick_duplicated"
   | "pick_expired"
   | "pick_invalid"
+  | "edge_below_minimum"
+  | "confidence_below_minimum"
+  | "candidate_limit"
   | "joint_probability_too_low"
   | "ev_out_of_range"
   | "risk_too_high"
@@ -26,8 +30,11 @@ export interface ParlayPick {
   odds: number;
   marketProb: number;
   anchoredProb: number;
+  probability: number;
+  pick: Outcome;
   probabilitySource: "edge.model_probability_blended" | "edge.final_probability_ensemble";
   edge: number;
+  confidence: ParlayConfidence;
   ev: number;
   riskLevel: ValueTier;
   isQualityPick: boolean;
@@ -105,11 +112,15 @@ export interface GenerateParlaysOptions {
   maxResults?: number;
   minJointProbability?: number;
   minEV?: number;
+  minEdge?: number;
+  minConfidence?: ParlayConfidence;
+  allowLowConfidence?: boolean;
   maxCorrelation?: Exclude<CorrelationLevel, "invalid">;
   bankroll?: number;
   allowedMarkets?: Market[];
   allowSameMatch?: boolean;
   maxLegs?: number;
+  maxTotalOdds?: number;
   now?: Date | string;
   scoreMatricesByMatchId?: Record<string, ScoreMatrix>;
   predictionMetadata?: {
@@ -118,6 +129,15 @@ export interface GenerateParlaysOptions {
     configSource: PredictionConfigSource;
     warnings?: string[];
   };
+}
+
+export type SuggestedParlayTheme = "favorite" | "goals" | "surprise";
+
+export interface SuggestedParlay {
+  theme: SuggestedParlayTheme;
+  label: string;
+  description: string;
+  parlay: Parlay;
 }
 
 export interface ParlayFilters {

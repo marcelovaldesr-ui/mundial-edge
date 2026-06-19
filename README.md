@@ -15,6 +15,14 @@ de las cuotas del mercado, y calcula **edge** y **valor esperado (EV)**.
 Next.js 14 (App Router) · TypeScript · Tailwind · shadcn/ui · Supabase/Postgres ·
 Recharts · API Routes · Vercel (cron jobs).
 
+## Estado de producción 2026
+
+- Modelo recomendado: `calibrated-matrix` (xG v2.2 mismatch-spread, `T=0.65`).
+- Simulación: 10.000 iteraciones con 12 grupos y ocho mejores terceros.
+- Backtesting público: 448 partidos de siete Mundiales (1998–2022).
+- Rutas públicas: [`/transparencia`](/transparencia) y [`/metodologia`](/metodologia).
+- Ensayo de lanzamiento: 72 partidos sobre un pool sintético versionado de 48 ratings locales. No se presenta como sorteo oficial mientras el repositorio conserve plazas por confirmar.
+
 ## 📁 Estructura
 
 ```
@@ -29,6 +37,8 @@ mundial-edge/
 │   │   ├── matches/page.tsx     # 2. Listado de partidos
 │   │   ├── matches/[id]/page.tsx# 3. Detalle de partido (gráfico + tabla)
 │   │   ├── edges/page.tsx       # 4. Ranking de edges (tabla ordenable)
+│   │   ├── transparencia/       # Métricas, baselines y fiabilidad
+│   │   ├── metodologia/         # Explicación pública del pipeline
 │   │   ├── admin/page.tsx       # 5. Panel admin (sync manual + logs)
 │   │   └── api/
 │   │       ├── sync/{fixtures,results,odds,predictions}/route.ts
@@ -52,6 +62,9 @@ mundial-edge/
 │       │   ├── repository.ts    #   lectura (mock | live)
 │       │   └── sync.ts          #   orquestación de jobs (escritura)
 │       └── supabase/{client,server}.ts
+├── scripts/e2e/                 # Simulacro completo de 72 partidos
+├── scripts/perf/                # Benchmark Monte Carlo/predicciones/HTTP
+└── data/{e2e,perf}/             # Artefactos auditables generados
 ```
 
 ## 🚀 Inicio rápido (modo mock, sin APIs)
@@ -83,6 +96,12 @@ computan al vuelo desde `src/lib/data/mock.ts`.
 | `ODDS_PROVIDER` | `api-football` (default) o `the-odds-api` | no |
 | `ODDS_API_KEY` / `ODDS_API_BASE` / `ODDS_SPORT_KEY` | The Odds API (respaldo de cuotas) | opcional |
 | `CRON_SECRET` | autoriza `/api/sync/*` y `/api/cron` | producción |
+| `STAT_MODEL_VARIANT` | `calibrated-matrix` en producción | producción |
+| `CALIBRATION_TEMPERATURE` | temperatura estructural (`0.65`) | producción |
+| `SIMULATION_ITERATIONS` | iteraciones Monte Carlo (`10000`) | producción |
+| `MIN_EDGE_DEFAULT` | edge mínimo (`0.02`) | no |
+| `MIN_CONFIDENCE_FILTER` | confianza mínima (`low`) | no |
+| `MAX_PARLAYS_PER_REQUEST` | límite de combinadas (`50`) | no |
 
 Ver `.env.example` para el detalle.
 
@@ -120,11 +139,10 @@ Todos exigen el `CRON_SECRET` en producción (`Authorization: Bearer …`,
 header `x-cron-secret`, o `?secret=`). El **panel admin** (`/admin`) los dispara
 manualmente. Los **cron jobs** de Vercel están en `vercel.json`.
 
-## 📈 El modelo (Poisson v1)
+## 📈 El modelo de producción
 
-1. Estima goles esperados (λ) de cada equipo combinando goles a favor/en contra
-   por partido, diferencia de gol, forma reciente (ponderada) y fuerza del rival,
-   sobre una línea base del torneo + ventaja de localía.
+1. Estima goles esperados (λ) combinando rating histórico, forma observada,
+   promedio del torneo y contexto de grupos, con prior bayesiano para muestras cortas.
 2. Construye la matriz de marcadores (Poisson × Poisson) y deriva 1X2,
    ambos marcan y +/- 2.5.
 3. `implied_probability = 1 / decimal_odds`, ajustada por **overround** cuando
@@ -135,8 +153,28 @@ manualmente. Los **cron jobs** de Vercel están en `vercel.json`.
 **Clasificación por EV:** `< 0` No apostar · `0–3%` Sin valor suficiente ·
 `3–8%` Valor bajo · `8–15%` Valor medio · `> 15%` Valor alto (con advertencia).
 
-Verificado con asserts de invariantes (sumas de probabilidad, devig, fronteras
-de clasificación, EV de cuota justa).
+La matriz calibrada aplica `T=0.65`, valor seleccionado sobre 448 partidos. Cada
+predicción publica un waterfall xG, intervalos P10–P90 por bootstrap de lambdas
+y una explicación en lenguaje natural.
+
+## Pruebas y ensayo de lanzamiento
+
+```bash
+npm run typecheck
+npm run lint
+npm run e2e:full-tournament       # genera data/e2e/*.json
+npm run perf:launch               # genera data/perf/performance-report.json
+npm run verify:launch-robustness
+npm run prelaunch                 # checklist completa, incluida build
+```
+
+Para añadir tiempos HTTP al benchmark, levanta la aplicación y ejecuta
+`PERF_BASE_URL=http://localhost:3000 npm run perf:launch` (en PowerShell:
+`$env:PERF_BASE_URL='http://localhost:3000'; npm run perf:launch`).
+
+La metodología pública está en [`/metodologia`](/metodologia), los resultados
+auditables en [`/transparencia`](/transparencia) y el detalle de ratings en
+[`docs/ratings.md`](docs/ratings.md).
 
 ## 📦 Deploy en Vercel
 

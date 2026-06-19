@@ -98,7 +98,7 @@ Los fixtures provienen de openfootball/worldcup.json, CC0, commit \`6d4a1b67e09c
 
 ${coverageTable(report)}
 
-**Limitacion principal:** los snapshots 1998-2022 son estimaciones manuales pseudo-historicas de fuerza pre-torneo. Ya no derivan del seed 2026 y cubren los 32 equipos de cada edicion, pero no son Elo externo, ranking oficial ni mediciones independientes. No requieren licencia de terceros.
+**Limitacion principal:** los snapshots 1998-2022 combinan 10% Elo externo pre-torneo y 90% perfil histórico propio. Cubren los 32 equipos de cada edición, pero el peso Elo se mantuvo bajo porque pesos mayores empeoraron el backtest.
 
 ## Metricas globales
 
@@ -135,7 +135,7 @@ ${priorComparisonText(diagnostic)}
 ## Recomendacion
 
 ${promote
-  ? "prior8 mantiene una mejora agregada en las cuatro metricas del corpus ampliado, pero debe seguir como **candidate**, no default: los snapshots reducen el sesgo temporal grueso, aunque siguen siendo estimaciones manuales y prior6 conserva una ventaja Brier marginal."
+  ? "prior8 mantiene una mejora agregada en las cuatro metricas del corpus ampliado, pero debe seguir como **candidate**, no default: los snapshots incorporan validación Elo externa con peso conservador y prior6 conserva una ventaja Brier marginal."
   : "prior8 no conserva una mejora completa en las cuatro metricas del corpus ampliado y debe seguir como **candidate**. Legacy neutral permanece como default productivo."}
 
 Dixon-Coles continúa experimental/notRecommended. No se implementa Monte Carlo en esta fase.

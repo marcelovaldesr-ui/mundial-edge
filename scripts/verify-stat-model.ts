@@ -263,6 +263,18 @@ function matchPrediction() {
   assert("scoreMatrix" in v22Calibrated && v22Calibrated.expectedGoalsRatingModel === "attack_defense_v2_mismatch_spread", "v2.2 must route to its expected-goals implementation.");
   assert("scoreMatrix" in v22Calibrated && v22Calibrated.calibrationMode === "platt-blend-25" && v22Calibrated.calibrationMetadata != null, "v2.2 must accept conservative calibration.");
 
+  const matrixCalibrated = buildScoreMatrixForMatch(match, homeStats, awayStats, {
+    modelVariant: "calibrated-matrix",
+    calibration: "platt-blend-25",
+    calibrationTemperature: 0.65,
+  });
+  assert("scoreMatrix" in matrixCalibrated && matrixCalibrated.calibrated, "calibrated-matrix must enable structural temperature scaling.");
+  assert("scoreMatrix" in matrixCalibrated && matrixCalibrated.temperature === 0.65, "Explicit temperature must be exposed.");
+  assert("scoreMatrix" in matrixCalibrated && matrixCalibrated.calibrationMode === "none" && matrixCalibrated.calibrationMetadata == null, "calibrated-matrix must bypass posterior Platt calibration.");
+  assert("scoreMatrix" in matrixCalibrated && matrixCalibrated.lambdas.calibrated.home === matrixCalibrated.scoreMatrix.homeExpectedGoals, "Calibrated home lambda must build the returned matrix.");
+  assert("scoreMatrix" in matrixCalibrated && matrixCalibrated.lambdas.calibrated.away === matrixCalibrated.scoreMatrix.awayExpectedGoals, "Calibrated away lambda must build the returned matrix.");
+  assert("scoreMatrix" in matrixCalibrated && matrixCalibrated.markets === matrixCalibrated.marketProbabilities, "Markets alias must expose the matrix-derived probabilities.");
+
   const matrices = buildScoreMatricesByMatchId([match], [homeStats, awayStats]);
   assert(matrices.scoreMatricesByMatchId.m1, "Expected score matrix keyed by match id");
   assert(matrices.coverage.totalPreMatch === 1 && matrices.coverage.withScoreMatrix === 1, "Expected coverage counts");

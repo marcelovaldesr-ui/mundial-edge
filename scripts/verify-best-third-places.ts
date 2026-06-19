@@ -5,6 +5,7 @@ import {
   WORLD_CUP_2026_TOTAL_ELIMINATED,
   WORLD_CUP_2026_TOTAL_QUALIFIERS,
   rankBestThirdPlaces,
+  selectBestThirdPlacedTeams,
   simulateWorldCup2026Groups,
   type ThirdPlaceRankingEntry,
 } from "../src/lib/tournament/best-third-places";
@@ -12,7 +13,7 @@ import type { GroupSimulationInput } from "../src/lib/tournament/group-simulatio
 import type { Match, Team } from "../src/lib/types";
 
 const groups = Array.from({ length: 12 }, (_, groupIndex) => buildGroup(groupIndex));
-const result = simulateWorldCup2026Groups({ groups, simulations: 500, seed: 20260618 });
+const result = simulateWorldCup2026Groups({ groups, simulations: 1_000, seed: 20260618 });
 
 assert.equal(result.topTwoQualifiersPerSimulation, 24);
 assert.equal(result.thirdPlaceQualifiersPerSimulation, 8);
@@ -28,16 +29,31 @@ near(teams.reduce((sum, team) => sum + team.probabilityAdvanceAsTop2, 0), 24);
 near(teams.reduce((sum, team) => sum + team.probabilityAdvanceAsThird, 0), 8);
 near(teams.reduce((sum, team) => sum + team.probabilityAdvance, 0), 32);
 near(teams.reduce((sum, team) => sum + team.probabilityEliminated, 0), 16);
+assert.equal(teams.reduce((sum, team) => sum + team.timesThirdQualified, 0), 8_000);
+assert.equal(result.thirdPlaceQualificationByPoints.reduce((sum, band) => sum + band.appearances, 0), 12_000);
 for (const team of teams) {
   near(team.probabilityAdvance, team.probabilityAdvanceAsTop2 + team.probabilityAdvanceAsThird);
   near(team.probabilityAdvance + team.probabilityEliminated, 1);
   near(team.probabilityWinGroup + team.probabilityFinishSecond + team.probabilityFinishThird + team.probabilityFinishFourth, 1);
   assert(Object.values(team).filter((value): value is number => typeof value === "number").every(Number.isFinite));
+  assert(team.timesAdvanced === team.timesFirst + team.timesSecond + team.timesThirdQualified);
 }
 
 const ranked = rankBestThirdPlaces(thirdRankingFixture(), 99);
 assert.equal(ranked.length, 8);
 assert.deepEqual(ranked.slice(0, 3).map((team) => team.teamId), ["points", "goal-difference", "goals-for"]);
+const controlledStandings = thirdRankingFixture().map((third) => ({
+  groupId: third.groupId,
+  teams: [
+    { ...third, teamId: `${third.teamId}-first`, position: 1 as const },
+    { ...third, teamId: `${third.teamId}-second`, position: 2 as const },
+    third,
+    { ...third, teamId: `${third.teamId}-fourth`, position: 4 as const },
+  ],
+}));
+const selected = selectBestThirdPlacedTeams(controlledStandings, 99);
+assert.deepEqual(selected, ranked.map((row) => row.teamId));
+assert.deepEqual(selectBestThirdPlacedTeams(controlledStandings, 99), selected, "Seeded draw must be reproducible.");
 
 console.log("Best third places verification passed (24 top-2 + 8 thirds = 32 qualified; 16 eliminated)");
 

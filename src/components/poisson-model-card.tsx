@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getTopScorelines, type MatchStatModelPrediction, type StatSelectionKey } from "@/lib/stat-model";
 import { pct } from "@/lib/utils";
 import { ModelMetadata } from "@/components/model-metadata";
+import { PredictionExplainability } from "@/components/prediction-explainability";
 
 export function PoissonModelCard({
   prediction,
@@ -74,6 +75,8 @@ export function PoissonModelCard({
           {!compact && <Metric label="1X" value={prob(prediction, "double_chance_1x")} />}
           {!compact && <Metric label="X2" value={prob(prediction, "double_chance_x2")} />}
         </div>
+
+        <PredictionExplainability prediction={prediction} compact={compact} />
 
         <ExplanationBox warning={prediction.confidence === "low"}>
           <p>Probabilidad modelo, no edge apostable todavía.</p>

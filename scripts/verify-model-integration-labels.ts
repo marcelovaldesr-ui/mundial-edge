@@ -16,11 +16,11 @@ assert.equal(
 assert.equal(dataSourceLabel("poisson-v1"), "pipeline persistido");
 
 const recommended = getRecommendedPredictionConfig();
-assert.equal(recommended.modelVariant, "xg-v2.1-prior8");
-assert.equal(recommended.calibration, "platt-blend-25");
+assert.equal(recommended.modelVariant, "calibrated-matrix");
+assert.equal(recommended.calibration, "none");
 assert.equal(
   modelConfigurationLabel(recommended.modelVariant, recommended.calibration),
-  "xG v2.1 prior8 + calibración conservadora"
+  "Matriz calibrada T=0.65 + sin calibración"
 );
 
 const defaults = getDefaultPredictionConfig();

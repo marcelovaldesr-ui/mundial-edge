@@ -5,6 +5,7 @@ import { diagnoseDixonColes } from "../src/lib/backtesting/dixon-coles-diagnosti
 import { diagnosePredictionConfidence } from "../src/lib/backtesting/confidence-diagnostic";
 import { diagnoseExpandedWorldCups } from "../src/lib/backtesting/expanded-world-cup-diagnostic";
 import {
+  BACKTEST_VARIANTS,
   brierScore1x2,
   calculateMulticlassMetrics,
   logLoss1x2,
@@ -69,8 +70,8 @@ validateWorldCupDatasets(WORLD_CUP_DATASETS);
 const report = runWorldCupBacktest(WORLD_CUP_DATASETS);
 assert.equal(report.datasetSize, 448);
 assert.deepEqual(report.tournaments, [1998, 2002, 2006, 2010, 2014, 2018, 2022]);
-assert.equal(report.predictions.length, 5376);
-assert.equal(report.global.length, 12);
+assert.equal(report.predictions.length, 448 * BACKTEST_VARIANTS.length);
+assert.equal(report.global.length, BACKTEST_VARIANTS.length);
 assert.equal(report.byTournament.length, 7);
 assert.deepEqual(report.byTournament.map((row) => row.comparisons[0].metrics.count), [64, 64, 64, 64, 64, 64, 64]);
 assert.equal(report.byStage.find((row) => row.bucket === "GROUP")?.comparisons[0].metrics.count, 336);

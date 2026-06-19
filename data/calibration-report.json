@@ -1,0 +1,500 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-06-19T02:30:48.393Z",
+  "corpus": {
+    "firstWorldCup": 1998,
+    "lastWorldCup": 2022,
+    "tournaments": [
+      1998,
+      2002,
+      2006,
+      2010,
+      2014,
+      2018,
+      2022
+    ],
+    "matches": 448,
+    "evaluation": "Predicciones secuenciales sin usar partidos futuros; resultados de eliminatorias a 90 minutos."
+  },
+  "model": {
+    "id": "xg-v2.2-mismatch-spread-calibrated-matrix",
+    "label": "xG v2.2 mismatch-spread + calibrated-matrix T=0.65",
+    "temperature": 0.65
+  },
+  "global": {
+    "count": 448,
+    "brierScore": 0.5919550448643711,
+    "logLoss": 1.004712808911037,
+    "rankedProbabilityScore": 0.1960977809122144,
+    "accuracy": 0.5580357142857143
+  },
+  "baselines": [
+    {
+      "id": "uniform-1x2",
+      "label": "Sin información: 33,3% por resultado",
+      "probabilities": {
+        "home": 0.3333333333333333,
+        "draw": 0.3333333333333333,
+        "away": 0.3333333333333333
+      },
+      "metrics": {
+        "count": 448,
+        "brierScore": 0.6666666666666661,
+        "logLoss": 1.0986122886681076,
+        "rankedProbabilityScore": 0.23313492063491964,
+        "accuracy": 0.41294642857142855
+      },
+      "improvement": {
+        "brierScore": 0.11206743270344253,
+        "logLoss": 0.08547098983473836,
+        "rankedProbabilityScore": 0.15886568868292364
+      }
+    },
+    {
+      "id": "historical-frequency",
+      "label": "Frecuencias históricas de fase de grupos",
+      "probabilities": {
+        "home": 0.40476190476190477,
+        "draw": 0.24702380952380953,
+        "away": 0.3482142857142857
+      },
+      "metrics": {
+        "count": 448,
+        "brierScore": 0.657184488378684,
+        "logLoss": 1.0847609379256125,
+        "rankedProbabilityScore": 0.2303203833616788,
+        "accuracy": 0.41294642857142855
+      },
+      "improvement": {
+        "brierScore": 0.099255908603744,
+        "logLoss": 0.07379333659234756,
+        "rankedProbabilityScore": 0.1485869463655922
+      }
+    }
+  ],
+  "byTournament": [
+    {
+      "tournament": 1998,
+      "metrics": {
+        "count": 64,
+        "brierScore": 0.5936340324906397,
+        "logLoss": 1.0142418984668589,
+        "rankedProbabilityScore": 0.18360937990652645,
+        "accuracy": 0.515625
+      }
+    },
+    {
+      "tournament": 2002,
+      "metrics": {
+        "count": 64,
+        "brierScore": 0.6166179609270445,
+        "logLoss": 1.041595850631953,
+        "rankedProbabilityScore": 0.20001291240098773,
+        "accuracy": 0.515625
+      }
+    },
+    {
+      "tournament": 2006,
+      "metrics": {
+        "count": 64,
+        "brierScore": 0.5477992972330025,
+        "logLoss": 0.9463400085800038,
+        "rankedProbabilityScore": 0.17551399836559162,
+        "accuracy": 0.625
+      }
+    },
+    {
+      "tournament": 2010,
+      "metrics": {
+        "count": 64,
+        "brierScore": 0.6041848242500847,
+        "logLoss": 1.0198999800682897,
+        "rankedProbabilityScore": 0.1979722280096603,
+        "accuracy": 0.515625
+      }
+    },
+    {
+      "tournament": 2014,
+      "metrics": {
+        "count": 64,
+        "brierScore": 0.5989216067143781,
+        "logLoss": 1.0120499978869173,
+        "rankedProbabilityScore": 0.19900423279334117,
+        "accuracy": 0.578125
+      }
+    },
+    {
+      "tournament": 2018,
+      "metrics": {
+        "count": 64,
+        "brierScore": 0.5769633801962413,
+        "logLoss": 0.976098435159263,
+        "rankedProbabilityScore": 0.20297593562869126,
+        "accuracy": 0.609375
+      }
+    },
+    {
+      "tournament": 2022,
+      "metrics": {
+        "count": 64,
+        "brierScore": 0.60556421223921,
+        "logLoss": 1.0227634915839705,
+        "rankedProbabilityScore": 0.2135957792807017,
+        "accuracy": 0.546875
+      }
+    }
+  ],
+  "byStage": [
+    {
+      "stage": "GROUP",
+      "label": "Fase de grupos",
+      "metrics": {
+        "count": 336,
+        "brierScore": 0.5789701235919698,
+        "logLoss": 0.9849245171869407,
+        "rankedProbabilityScore": 0.1960649844473622,
+        "accuracy": 0.5714285714285714
+      }
+    },
+    {
+      "stage": "KNOCKOUT",
+      "label": "Eliminatorias (90 min)",
+      "metrics": {
+        "count": 112,
+        "brierScore": 0.6309098086815773,
+        "logLoss": 1.0640776840833248,
+        "rankedProbabilityScore": 0.19619617030677078,
+        "accuracy": 0.5178571428571429
+      }
+    }
+  ],
+  "byMarket": [
+    {
+      "market": "1x2",
+      "label": "1X2",
+      "metrics": {
+        "count": 448,
+        "brierScore": 0.5919550448643711,
+        "logLoss": 1.004712808911037,
+        "rankedProbabilityScore": 0.1960977809122144,
+        "accuracy": 0.5580357142857143
+      },
+      "metricNote": "Brier multiclase; RPS disponible."
+    },
+    {
+      "market": "over_2_5",
+      "label": "Más de 2.5 goles",
+      "metrics": {
+        "count": 448,
+        "brierScore": 0.35796951046293024,
+        "logLoss": 0.9534221114314377,
+        "rankedProbabilityScore": null,
+        "accuracy": 0.4575892857142857
+      },
+      "metricNote": "Brier binario; RPS no aplica."
+    },
+    {
+      "market": "btts",
+      "label": "Ambos marcan",
+      "metrics": {
+        "count": 448,
+        "brierScore": 0.3312780164750199,
+        "logLoss": 0.8805698790595535,
+        "rankedProbabilityScore": null,
+        "accuracy": 0.46875
+      },
+      "metricNote": "Brier binario; RPS no aplica."
+    }
+  ],
+  "reliability": [
+    {
+      "market": "home_win",
+      "label": "Victoria local",
+      "expectedCalibrationError": 0.09989582911203729,
+      "bins": [
+        {
+          "bin": 0,
+          "lower": 0,
+          "upper": 0.1,
+          "meanPredicted": null,
+          "actualFrequency": null,
+          "count": 0
+        },
+        {
+          "bin": 1,
+          "lower": 0.1,
+          "upper": 0.2,
+          "meanPredicted": 0.18219522614234704,
+          "actualFrequency": 0.25,
+          "count": 8
+        },
+        {
+          "bin": 2,
+          "lower": 0.2,
+          "upper": 0.3,
+          "meanPredicted": 0.2615850076013078,
+          "actualFrequency": 0.07692307692307693,
+          "count": 39
+        },
+        {
+          "bin": 3,
+          "lower": 0.3,
+          "upper": 0.4,
+          "meanPredicted": 0.3515884906203825,
+          "actualFrequency": 0.18333333333333332,
+          "count": 120
+        },
+        {
+          "bin": 4,
+          "lower": 0.4,
+          "upper": 0.5,
+          "meanPredicted": 0.4493955910858837,
+          "actualFrequency": 0.4473684210526316,
+          "count": 152
+        },
+        {
+          "bin": 5,
+          "lower": 0.5,
+          "upper": 0.6,
+          "meanPredicted": 0.5392560240310266,
+          "actualFrequency": 0.6354166666666666,
+          "count": 96
+        },
+        {
+          "bin": 6,
+          "lower": 0.6,
+          "upper": 0.7,
+          "meanPredicted": 0.6437459268447536,
+          "actualFrequency": 0.8928571428571429,
+          "count": 28
+        },
+        {
+          "bin": 7,
+          "lower": 0.7,
+          "upper": 0.8,
+          "meanPredicted": 0.7392413011976171,
+          "actualFrequency": 0.8,
+          "count": 5
+        },
+        {
+          "bin": 8,
+          "lower": 0.8,
+          "upper": 0.9,
+          "meanPredicted": null,
+          "actualFrequency": null,
+          "count": 0
+        },
+        {
+          "bin": 9,
+          "lower": 0.9,
+          "upper": 1,
+          "meanPredicted": null,
+          "actualFrequency": null,
+          "count": 0
+        }
+      ]
+    },
+    {
+      "market": "over_2_5",
+      "label": "Más de 2.5",
+      "expectedCalibrationError": 0.3304819262373538,
+      "bins": [
+        {
+          "bin": 0,
+          "lower": 0,
+          "upper": 0.1,
+          "meanPredicted": null,
+          "actualFrequency": null,
+          "count": 0
+        },
+        {
+          "bin": 1,
+          "lower": 0.1,
+          "upper": 0.2,
+          "meanPredicted": null,
+          "actualFrequency": null,
+          "count": 0
+        },
+        {
+          "bin": 2,
+          "lower": 0.2,
+          "upper": 0.3,
+          "meanPredicted": null,
+          "actualFrequency": null,
+          "count": 0
+        },
+        {
+          "bin": 3,
+          "lower": 0.3,
+          "upper": 0.4,
+          "meanPredicted": null,
+          "actualFrequency": null,
+          "count": 0
+        },
+        {
+          "bin": 4,
+          "lower": 0.4,
+          "upper": 0.5,
+          "meanPredicted": null,
+          "actualFrequency": null,
+          "count": 0
+        },
+        {
+          "bin": 5,
+          "lower": 0.5,
+          "upper": 0.6,
+          "meanPredicted": null,
+          "actualFrequency": null,
+          "count": 0
+        },
+        {
+          "bin": 6,
+          "lower": 0.6,
+          "upper": 0.7,
+          "meanPredicted": 0.6804671006122079,
+          "actualFrequency": 0.6666666666666666,
+          "count": 3
+        },
+        {
+          "bin": 7,
+          "lower": 0.7,
+          "upper": 0.8,
+          "meanPredicted": 0.78217983940921,
+          "actualFrequency": 0.4340175953079179,
+          "count": 341
+        },
+        {
+          "bin": 8,
+          "lower": 0.8,
+          "upper": 0.9,
+          "meanPredicted": 0.8104920809034352,
+          "actualFrequency": 0.5288461538461539,
+          "count": 104
+        },
+        {
+          "bin": 9,
+          "lower": 0.9,
+          "upper": 1,
+          "meanPredicted": null,
+          "actualFrequency": null,
+          "count": 0
+        }
+      ]
+    },
+    {
+      "market": "btts_yes",
+      "label": "Ambos marcan",
+      "expectedCalibrationError": 0.2877252580230633,
+      "bins": [
+        {
+          "bin": 0,
+          "lower": 0,
+          "upper": 0.1,
+          "meanPredicted": null,
+          "actualFrequency": null,
+          "count": 0
+        },
+        {
+          "bin": 1,
+          "lower": 0.1,
+          "upper": 0.2,
+          "meanPredicted": null,
+          "actualFrequency": null,
+          "count": 0
+        },
+        {
+          "bin": 2,
+          "lower": 0.2,
+          "upper": 0.3,
+          "meanPredicted": null,
+          "actualFrequency": null,
+          "count": 0
+        },
+        {
+          "bin": 3,
+          "lower": 0.3,
+          "upper": 0.4,
+          "meanPredicted": null,
+          "actualFrequency": null,
+          "count": 0
+        },
+        {
+          "bin": 4,
+          "lower": 0.4,
+          "upper": 0.5,
+          "meanPredicted": null,
+          "actualFrequency": null,
+          "count": 0
+        },
+        {
+          "bin": 5,
+          "lower": 0.5,
+          "upper": 0.6,
+          "meanPredicted": null,
+          "actualFrequency": null,
+          "count": 0
+        },
+        {
+          "bin": 6,
+          "lower": 0.6,
+          "upper": 0.7,
+          "meanPredicted": 0.6813783701395111,
+          "actualFrequency": 0.5555555555555556,
+          "count": 9
+        },
+        {
+          "bin": 7,
+          "lower": 0.7,
+          "upper": 0.8,
+          "meanPredicted": 0.7576229357185557,
+          "actualFrequency": 0.46788990825688076,
+          "count": 436
+        },
+        {
+          "bin": 8,
+          "lower": 0.8,
+          "upper": 0.9,
+          "meanPredicted": 0.8149700965955047,
+          "actualFrequency": 0.3333333333333333,
+          "count": 3
+        },
+        {
+          "bin": 9,
+          "lower": 0.9,
+          "upper": 1,
+          "meanPredicted": null,
+          "actualFrequency": null,
+          "count": 0
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Siete Mundiales son una muestra útil pero pequeña frente a deportes con temporadas anuales extensas.",
+    "Lesiones de última hora, arbitraje, clima y alineaciones confirmadas no forman parte de este backtest.",
+    "El 1X2 de eliminatorias se evalúa al minuto 90: prórroga y penales no cuentan como victoria.",
+    "No se usaron cuotas históricas; el informe mide calidad probabilística, no rentabilidad de apuestas."
+  ],
+  "sources": [
+    {
+      "name": "OpenFootball worldcup.json",
+      "role": "Resultados históricos 1998–2022 (CC0), normalizados localmente",
+      "url": "https://github.com/openfootball/worldcup.json"
+    },
+    {
+      "name": "World Football Elo Ratings",
+      "role": "Snapshots Elo pre-torneo, con peso conservador del 10%",
+      "url": "https://www.eloratings.net/"
+    },
+    {
+      "name": "Football Data API",
+      "role": "Fixtures y estadísticas operativas del Mundial 2026",
+      "url": null
+    },
+    {
+      "name": "Mundial Edge",
+      "role": "Perfiles históricos propios de ataque y defensa",
+      "url": null
+    }
+  ]
+}

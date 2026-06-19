@@ -42,7 +42,7 @@ export interface HistoricalRatingSet {
   id: string;
   snapshotYear: number | null;
   ratings: TeamStrengthRating[];
-  source: "current_seed_fallback" | "historical_pre_tournament" | "derived_current_seed_snapshot" | "missing_snapshot_fallback";
+  source: "current_seed_fallback" | "historical_pre_tournament" | "external_elo_hybrid" | "derived_current_seed_snapshot" | "missing_snapshot_fallback";
   isHistorical: boolean;
 }
 
@@ -157,7 +157,9 @@ export const DEFAULT_HISTORICAL_RATING_SETS: HistoricalRatingSet[] = TEAM_RATING
   id: snapshot.id,
   snapshotYear: snapshot.year,
   ratings: snapshot.ratings,
-  source: snapshot.isHistorical ? "historical_pre_tournament" : snapshot.year === 2026 ? "current_seed_fallback" : "derived_current_seed_snapshot",
+  source: snapshot.source === "external-normalized"
+    ? "external_elo_hybrid"
+    : snapshot.isHistorical ? "historical_pre_tournament" : snapshot.year === 2026 ? "current_seed_fallback" : "derived_current_seed_snapshot",
   isHistorical: snapshot.isHistorical,
 }));
 
@@ -228,7 +230,7 @@ export function runWorldCupBacktest(
     ratingCoverage,
     warnings: [
       `Corpus completo para ${tournaments.join(", ")}; Mundiales anteriores a 1998 aun no estan incorporados.`,
-      "Los snapshots 1998-2022 son estimaciones manuales pseudo-historicas pre-torneo; no son Elo externo ni ratings oficiales.",
+      "Los snapshots 1998-2022 usan un prior híbrido pre-torneo: 10% Elo externo y 90% perfil histórico propio.",
       "El 1X2 de eliminatorias usa marcador a 90 minutos; excluye prorroga y penales.",
       "Todas las variantes usan sede neutral; legacy-neutral es la baseline de comparacion.",
       "xG v2.1 y Dixon-Coles son solo experimentales; no reemplazan el modelo productivo.",

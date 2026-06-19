@@ -31,8 +31,8 @@ assert.equal(groups[0].metadata.source, "repository-current");
 const current = createWorldCup2026GroupSimulationView(matches, groups[0].groupId, 2_000);
 assert.equal(current.dataStatus, "current");
 assert.equal(current.result.groupId, groups[0].groupId);
-assert.equal(current.result.modelVariant, "xg-v2.1-prior8");
-assert.equal(current.result.calibration, "platt-blend-25");
+assert.equal(current.result.modelVariant, "calibrated-matrix");
+assert.equal(current.result.calibration, "none");
 assert(current.result.warnings.some((warning) => warning.includes("recommended simulation model")));
 near(current.result.standings.reduce((sum, row) => sum + row.probabilityAdvanceAsTop2, 0), 2, 1e-12, "top-2 total");
 for (const row of current.result.standings) {

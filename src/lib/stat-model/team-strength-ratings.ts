@@ -1,5 +1,5 @@
 export type TeamRatingConfidence = "low" | "medium" | "high";
-export type TeamRatingSource = "manual_seed" | "manual-historical-estimate" | "neutral_fallback";
+export type TeamRatingSource = "manual_seed" | "manual-historical-estimate" | "historical_elo_hybrid" | "neutral_fallback";
 
 export interface TeamStrengthRating {
   teamCode: string;

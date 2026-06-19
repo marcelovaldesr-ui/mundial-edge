@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   generateParlaysWithDebug,
+  generateSuggestedParlays,
   PARLAY_PROFILE_RULES,
   sortAndFilterParlays,
   type Parlay,
@@ -22,6 +23,11 @@ import { formatMarketWithLine, formatSelectionName, marketDistributionKey } from
 import { fmtEv, pct } from "@/lib/utils";
 
 const profiles: ParlayProfile[] = ["conservative", "balanced", "aggressive"];
+const riskGenerationOptions: Record<ParlayProfile, Pick<GenerateParlaysOptions, "minEdge" | "minConfidence" | "allowLowConfidence">> = {
+  conservative: { minEdge: 0.05, minConfidence: "medium", allowLowConfidence: false },
+  balanced: { minEdge: 0.02, minConfidence: "low", allowLowConfidence: true },
+  aggressive: { minEdge: 0, minConfidence: "low", allowLowConfidence: true },
+};
 const sortOptions: { value: ParlaySortKey; label: string }[] = [
   { value: "score", label: "Score recomendado" },
   { value: "ev", label: "EV estimado" },
@@ -37,11 +43,11 @@ const profileCopy: Record<ParlayProfile, { title: string; text: string }> = {
     text: "Prioriza probabilidad conjunta, cuota moderada, baja correlación y stake prudente.",
   },
   balanced: {
-    title: "Balanceada",
+    title: "Equilibrado",
     text: "Busca equilibrio entre probabilidad estimada, EV ajustado, cuota total y riesgo controlado.",
   },
   aggressive: {
-    title: "Agresiva",
+    title: "Oportunista",
     text: "Explora mayor cuota y varianza, manteniendo EV ajustado positivo y caps de stake.",
   },
 };
@@ -87,12 +93,33 @@ export function ParlayWorkspace({
   const rules = PARLAY_PROFILE_RULES[profile];
 
   const generated = useMemo(
-    () => generateParlaysWithDebug(picks, { profile, maxResults: 80, bankroll, scoreMatricesByMatchId, predictionMetadata }),
+    () => generateParlaysWithDebug(picks, {
+      profile,
+      ...riskGenerationOptions[profile],
+      maxResults: 30,
+      bankroll,
+      scoreMatricesByMatchId,
+      predictionMetadata,
+    }),
     [picks, profile, bankroll, scoreMatricesByMatchId, predictionMetadata]
   );
+  const profileCounts = useMemo(() => Object.fromEntries(profiles.map((item) => [
+    item,
+    generateParlaysWithDebug(picks, {
+      profile: item,
+      ...riskGenerationOptions[item],
+      maxResults: 30,
+      scoreMatricesByMatchId,
+      predictionMetadata,
+    }).parlays.length,
+  ])) as Record<ParlayProfile, number>, [picks, scoreMatricesByMatchId, predictionMetadata]);
+  const suggestions = useMemo(() => generateSuggestedParlays(picks, {
+    scoreMatricesByMatchId,
+    predictionMetadata,
+  }), [picks, scoreMatricesByMatchId, predictionMetadata]);
   const activeFilters = useMemo(() => parseFilters(filters), [filters]);
   const parlays = useMemo(
-    () => sortAndFilterParlays(generated.parlays, activeFilters, sortKey).slice(0, 8),
+    () => sortAndFilterParlays(generated.parlays, activeFilters, sortKey).slice(0, 30),
     [generated.parlays, activeFilters, sortKey]
   );
   const summary = summarize(parlays);
@@ -109,22 +136,31 @@ export function ParlayWorkspace({
       <Card>
         <CardContent className="grid gap-5 pt-5 lg:grid-cols-[1.4fr_1fr]">
           <div className="space-y-3">
-            <div className="flex flex-wrap gap-2">
-              {profiles.map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => setProfile(item)}
-                  className={
-                    "rounded-md border px-3 py-2 text-sm transition " +
-                    (item === profile
-                      ? "border-primary bg-primary/15 text-primary"
-                      : "border-border text-muted-foreground hover:bg-accent hover:text-foreground")
-                  }
-                >
-                  {profileCopy[item].title}
-                </button>
-              ))}
+            <div className="space-y-3">
+              <label className="text-sm font-medium" htmlFor="risk-level">Nivel de riesgo</label>
+              <input
+                id="risk-level"
+                aria-label="Nivel de riesgo"
+                type="range"
+                min={0}
+                max={2}
+                step={1}
+                value={profiles.indexOf(profile)}
+                onChange={(event) => setProfile(profiles[Number(event.target.value)] ?? "balanced")}
+                className="w-full accent-primary"
+              />
+              <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                {profiles.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setProfile(item)}
+                    className={item === profile ? "font-semibold text-primary" : "text-muted-foreground"}
+                  >
+                    {profileCopy[item].title} · {profileCounts[item]}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="rounded-md border border-border bg-muted/30 p-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -241,6 +277,26 @@ export function ParlayWorkspace({
 
       {showDebug && <MarketDiagnostics diagnostics={marketDiagnostics} />}
       {showDebug && <EnsembleDiagnostics diagnostics={ensembleDiagnostics} />}
+
+      {suggestions.length > 0 && (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold">Combinadas destacadas</h2>
+            <p className="text-sm text-muted-foreground">Sugerencias temáticas construidas con los mismos controles de edge y compatibilidad.</p>
+          </div>
+          <div className="grid gap-4 xl:grid-cols-3">
+            {suggestions.map((suggestion) => (
+              <Card key={suggestion.theme}>
+                <CardContent className="space-y-3 pt-5">
+                  <Badge variant={suggestion.theme === "surprise" ? "warning" : "success"}>{suggestion.label}</Badge>
+                  <p className="text-sm text-muted-foreground">{suggestion.description}</p>
+                  <ParlayCard parlay={suggestion.parlay} index={0} />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="grid gap-4">
         {parlays.map((parlay, index) => (

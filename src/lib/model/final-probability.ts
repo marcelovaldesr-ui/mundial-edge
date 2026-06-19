@@ -1,7 +1,7 @@
 import type { Edge, Market, Outcome } from "../types";
 import type { MatchStatModelPrediction, StatSelectionKey } from "../stat-model";
 import { isPreMatchEligible } from "../matches/pre-match-eligibility";
-import { classifyEv, expectedValue } from "./edge";
+import { classifyEv, expectedValue, isQualityPick } from "./edge";
 
 export type FinalProbabilityConfidence = "low" | "medium" | "high";
 
@@ -188,6 +188,11 @@ export function decorateEdgesWithFinalProbability(
     const finalExpectedValue = expectedValue(final.finalProbability, edge.decimal_odds);
     return {
       ...edge,
+      qualifies: isQualityPick({
+        decimal_odds: edge.decimal_odds,
+        expected_value: finalExpectedValue,
+        implied_probability: edge.implied_probability,
+      }),
       final_probability: final.finalProbability,
       final_probability_confidence: final.confidence,
       final_probability_explanation: final.explanation,

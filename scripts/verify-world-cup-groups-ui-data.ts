@@ -50,12 +50,13 @@ assert.deepEqual(
 
 const uiData = createWorldCup2026GroupsUiData(matches, 250);
 assert.equal(uiData.groups.length, 12);
+assert.equal(uiData.groups.filter((entry) => entry.currentThirdQualifies).length, 8, "Exactly eight current third-place rows must be marked in-zone.");
 const selectedA = selectWorldCup2026Group(uiData.groups, "A");
 const selectedL = selectWorldCup2026Group(uiData.groups, "L");
 assert(selectedA && selectedL && selectedA.schedule.groupId !== selectedL.schedule.groupId, "Selector must resolve different groups");
 assert.equal(selectedA.schedule.metadata.dataStatus, "current");
-assert.equal(selectedA.simulation.modelVariant, "xg-v2.1-prior8");
-assert.equal(selectedA.simulation.calibration, "platt-blend-25");
+assert.equal(selectedA.simulation.modelVariant, "calibrated-matrix");
+assert.equal(selectedA.simulation.calibration, "none");
 near(uiData.groups.flatMap((entry) => entry.simulation.standings).reduce((sum, row) => sum + row.probabilityAdvance, 0), 32, 1e-9);
 near(uiData.groups.flatMap((entry) => entry.simulation.standings).reduce((sum, row) => sum + row.probabilityAdvanceAsThird, 0), 8, 1e-9);
 for (const row of selectedA.simulation.standings) {

@@ -1,4 +1,5 @@
 import { TEAM_STRENGTH_RATINGS, type TeamStrengthRating } from "./team-strength-ratings";
+import { getTeamRatingsForWorldCup } from "./elo-adapter";
 
 export const RATING_SNAPSHOT_YEARS = [1998, 2002, 2006, 2010, 2014, 2018, 2022, 2026] as const;
 export type RatingSnapshotYear = typeof RATING_SNAPSHOT_YEARS[number];
@@ -16,10 +17,8 @@ export interface TeamRatingSnapshot {
 }
 
 /**
- * Offline pseudo-historical pre-tournament estimates. Values are hand-curated
- * era-strength tiers (not observed tournament results and not external Elo).
- * No third-party license applies. They are versioned to make replacement by a
- * licensed historical Elo source explicit and reproducible.
+ * Manual era-strength profiles retained as 90% of a hybrid prior. The remaining
+ * 10% comes from the external pre-tournament Elo snapshot for each World Cup.
  */
 const HISTORICAL_OVERALLS: Record<HistoricalSnapshotYear, Record<string, number>> = {
   1998: {
@@ -78,14 +77,17 @@ const PROFILE_DELTAS: Record<string, [attack: number, defense: number]> = {
 const HISTORICAL_SNAPSHOTS: TeamRatingSnapshot[] = (Object.entries(HISTORICAL_OVERALLS) as Array<[string, Record<string, number>]>).map(([yearText, ratings]) => {
   const year = Number(yearText) as HistoricalSnapshotYear;
   return {
-    id: `mundial-edge-rating-snapshot-${year}-v2`,
+    id: `mundial-edge-rating-snapshot-${year}-v3`,
     year,
-    ratings: Object.entries(ratings).map(([teamCode, overall]) => historicalRating(teamCode, overall, year)),
-    methodology: "manual_historical_estimate",
+    ratings: Object.entries(ratings).map(([teamCode, overall]) => {
+      const manual = historicalRating(teamCode, overall, year);
+      return getTeamRatingsForWorldCup(year, teamCode, manual) ?? manual;
+    }),
+    methodology: "historical_elo",
     isHistorical: true,
-    source: "manual-historical-estimate",
-    license: null,
-    version: "rating-snapshot-v2",
+    source: "external-normalized",
+    license: "World Football Elo Ratings public pre-tournament TSV; attribution recorded per data row.",
+    version: "rating-snapshot-v3-elo10-own90",
   };
 });
 

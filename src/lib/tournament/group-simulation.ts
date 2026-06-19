@@ -41,6 +41,11 @@ export interface SimulatedGroupTeamResult {
   averageGoalDifference: number;
   averageGoalsFor: number;
   averageGoalsAgainst: number;
+  timesAdvanced: number;
+  timesFirst: number;
+  timesSecond: number;
+  timesThird: number;
+  timesThirdQualified: number;
 }
 
 export interface SimulatedGroupIterationTeam {
@@ -90,6 +95,7 @@ interface PreparedMatch {
   match: Match;
   prediction: MatchStatModelPrediction;
   probabilities: { home: number; draw: number; away: number };
+  scoresByOutcome: Record<"home" | "draw" | "away", ScoreMatrixEntry[]>;
 }
 
 interface TeamAccumulator {
@@ -172,6 +178,11 @@ export function prepareGroupSimulation(input: GroupSimulationInput): PreparedGro
         home: marketProbability(result, "home_win"),
         draw: marketProbability(result, "draw"),
         away: marketProbability(result, "away_win"),
+      },
+      scoresByOutcome: {
+        home: result.scoreMatrix.entries.filter((entry) => scoreOutcome(entry) === "home"),
+        draw: result.scoreMatrix.entries.filter((entry) => scoreOutcome(entry) === "draw"),
+        away: result.scoreMatrix.entries.filter((entry) => scoreOutcome(entry) === "away"),
       },
     };
   });
@@ -291,8 +302,7 @@ function sampleCalibratedScore(item: PreparedMatch, random: () => number): { hom
   const drawBoundary = item.probabilities.home + item.probabilities.draw;
   const roll = random();
   const outcome = roll < item.probabilities.home ? "home" : roll < drawBoundary ? "draw" : "away";
-  const eligible = item.prediction.scoreMatrix.entries.filter((entry) => scoreOutcome(entry) === outcome);
-  return sampleWeightedEntry(eligible, random);
+  return sampleWeightedEntry(item.scoresByOutcome[outcome], random);
 }
 
 function sampleWeightedEntry(entries: ScoreMatrixEntry[], random: () => number): ScoreMatrixEntry {
@@ -366,6 +376,11 @@ function summarize(team: Team, total: TeamAccumulator, simulations: number): Sim
     averageGoalDifference: total.goalDifference / simulations,
     averageGoalsFor: total.goalsFor / simulations,
     averageGoalsAgainst: total.goalsAgainst / simulations,
+    timesAdvanced: total.finishes[0] + total.finishes[1],
+    timesFirst: total.finishes[0],
+    timesSecond: total.finishes[1],
+    timesThird: total.finishes[2],
+    timesThirdQualified: 0,
   };
 }
 

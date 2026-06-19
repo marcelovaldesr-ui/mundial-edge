@@ -29,7 +29,8 @@ export default async function ParlaysPage({
   const [edges, allEdges, sync, matches, teamStats] = await Promise.all([getEdges(), getAllEdges(), getLastSync(), getMatches(), getTeamStats()]);
   const statModel = buildParlayStatModel(matches, teamStats, "recommended");
   const calibratedEdges = decorateEdgesWithFinalProbability(edges, statModel.predictions);
-  const picks = calibratedEdges.filter((edge) => edge.qualifies).map(edgeToParlayPick);
+  // El motor aplica edge/confianza según el nivel elegido; no descartamos aquí los picks low.
+  const picks = calibratedEdges.map(edgeToParlayPick);
   const excludedNonPreMatch = Math.max(0, allEdges.length - edges.length);
 
   return (

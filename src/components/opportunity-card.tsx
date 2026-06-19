@@ -38,7 +38,7 @@ export function OpportunityCard({
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline">#{rank}</Badge>
                 <Badge variant="outline">{matchLabel}</Badge>
-                <RiskBadge tier={edge.tier} />
+                <RiskBadge tier={edge.final_tier ?? edge.tier} />
                 {confidence && <ConfidenceBadge confidence={confidence} />}
               </div>
               <div>

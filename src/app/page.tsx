@@ -31,10 +31,10 @@ export default async function DashboardPage() {
   const bestByMatch = new Map<string, Edge>();
   for (const e of quality) {
     const cur = bestByMatch.get(e.match_id);
-    if (!cur || e.expected_value > cur.expected_value) bestByMatch.set(e.match_id, e);
+    if (!cur || (e.final_expected_value ?? e.expected_value) > (cur.final_expected_value ?? cur.expected_value)) bestByMatch.set(e.match_id, e);
   }
   const upcoming = filterPreMatchMatches(matches).slice(0, 6);
-  const topEdges = [...quality].sort((a, b) => b.expected_value - a.expected_value).slice(0, 8);
+  const topEdges = [...quality].sort((a, b) => (b.final_expected_value ?? b.expected_value) - (a.final_expected_value ?? a.expected_value)).slice(0, 8);
   const featuredEdges = topEdges.slice(0, 3);
   const secondaryPicks = topEdges.slice(3, 7);
   const topParlays = generateParlays(quality.map(edgeToParlayPick), {

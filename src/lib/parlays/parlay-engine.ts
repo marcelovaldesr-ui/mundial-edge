@@ -3,6 +3,7 @@ import { calculateRiskScore, riskLabel, scoreParlay } from "./parlay-scoring";
 import { calculateMatrixAwareJointProbability } from "./stat-model-adapter";
 import { isPreMatchEligible } from "../matches/pre-match-eligibility";
 import { formatMarketWithLine, marketDistributionKey } from "../markets/market-display";
+import type { Market } from "../types";
 import type {
   GenerateParlaysOptions,
   GenerateParlaysResult,
@@ -16,6 +17,23 @@ import type {
 } from "./parlay-types";
 import { suggestStake } from "./staking";
 
+/**
+ * Política de confianza por mercado aplicada al umbral de edge individual.
+ * El mercado del Mundial es muy eficiente: en 1X2 el modelo queda cerca del
+ * mercado (edges pequeños pero reales) mientras que un edge persistente en
+ * over/under suele ser sesgo del modelo, no valor. Exigimos más edge a totales
+ * (1.6×) y menos a 1X2 (0.75×) para reequilibrar el pool de candidatos y evitar
+ * combinadas dominadas por un solo mercado. Multiplicador = umbral relativo.
+ */
+const MARKET_EDGE_TRUST: Partial<Record<Market, number>> = {
+  "1x2": 0.75,
+  btts: 1,
+  over_under_2_5: 1.6,
+};
+
+/** Máximo de picks del mismo partido admitidos en el pool de candidatos. */
+const MAX_PICKS_PER_MATCH = 2;
+
 export const PARLAY_PROFILE_RULES: Record<ParlayProfile, ProfileRules> = {
   conservative: {
     label: "Conservadora",
@@ -25,11 +43,11 @@ export const PARLAY_PROFILE_RULES: Record<ParlayProfile, ProfileRules> = {
     minJointProbability: 0.14,
     minEV: 0.02,
     maxEV: 0.28,
-    maxPickOdds: 3.2,
-    maxTotalOdds: 10,
+    maxPickOdds: 2.8,
+    maxTotalOdds: 8,
     maxRiskScore: 62,
     maxCorrelation: "medium",
-    targetOddsRange: [1.8, 4.5],
+    targetOddsRange: [1.5, 3.2],
     preferredLegs: [2],
     kellyMultiplier: 0.25,
     maxStakePercent: 0.0075,
@@ -42,11 +60,11 @@ export const PARLAY_PROFILE_RULES: Record<ParlayProfile, ProfileRules> = {
     minJointProbability: 0.06,
     minEV: 0.02,
     maxEV: 0.45,
-    maxPickOdds: 5,
-    maxTotalOdds: 25,
+    maxPickOdds: 4.5,
+    maxTotalOdds: 18,
     maxRiskScore: 76,
     maxCorrelation: "medium",
-    targetOddsRange: [3, 9],
+    targetOddsRange: [2.2, 6],
     preferredLegs: [2, 3],
     kellyMultiplier: 0.35,
     maxStakePercent: 0.015,
@@ -168,8 +186,13 @@ function validateCandidatePick(
   if (pick.odds < 1.15 || pick.odds > rules.maxPickOdds || pick.ev > 1) {
     return { ok: false, reason: "pick_invalid", message: "Pick fuera de rangos individuales del perfil." };
   }
-  if (pick.edge < minEdge) {
-    return { ok: false, reason: "edge_below_minimum", message: `Edge individual por debajo de ${(minEdge * 100).toFixed(1)}%.` };
+  const marketMinEdge = minEdge * (MARKET_EDGE_TRUST[pick.market] ?? 1);
+  if (pick.edge < marketMinEdge) {
+    return {
+      ok: false,
+      reason: "edge_below_minimum",
+      message: `Edge ${(pick.edge * 100).toFixed(1)}% por debajo del umbral del mercado ${pick.market} (${(marketMinEdge * 100).toFixed(1)}%).`,
+    };
   }
   if (confidenceRank(pick.confidence) < confidenceRank(minConfidence)) {
     return { ok: false, reason: "confidence_below_minimum", message: `Confianza ${pick.confidence} por debajo de ${minConfidence}.` };
@@ -218,7 +241,27 @@ function baseCandidates(
       return valid.ok;
     })
     .sort((a, b) => candidateScore(b) - candidateScore(a));
-  for (const pick of validCandidates.slice(rules.candidateLimit)) {
+
+  // Diversificación: limitamos cuántos picks del mismo partido entran al pool,
+  // para que las combinadas abarquen varios partidos en lugar de reutilizar uno.
+  const perMatchCount = new Map<string, number>();
+  const diversified: ParlayPick[] = [];
+  for (const pick of validCandidates) {
+    const used = perMatchCount.get(pick.matchId) ?? 0;
+    if (used >= MAX_PICKS_PER_MATCH) {
+      rejected.push(reject({
+        profile: options.profile,
+        picks: [pick],
+        reason: "candidate_limit",
+        message: `Excede el máximo de ${MAX_PICKS_PER_MATCH} picks por partido en el pool de candidatos.`,
+      }));
+      continue;
+    }
+    perMatchCount.set(pick.matchId, used + 1);
+    diversified.push(pick);
+  }
+
+  for (const pick of diversified.slice(rules.candidateLimit)) {
     rejected.push(reject({
       profile: options.profile,
       picks: [pick],
@@ -226,7 +269,7 @@ function baseCandidates(
       message: `Fuera del top ${rules.candidateLimit} de candidatos por score.`,
     }));
   }
-  const candidates = validCandidates.slice(0, rules.candidateLimit);
+  const candidates = diversified.slice(0, rules.candidateLimit);
   return { candidates, rejected };
 }
 
@@ -235,7 +278,10 @@ function confidenceRank(confidence: "low" | "medium" | "high"): number {
 }
 
 function candidateScore(pick: ParlayPick): number {
-  return pick.ev + pick.edge * 0.6 + pick.anchoredProb * 0.2 + confidenceRank(pick.confidence) * 0.025 + (pick.isQualityPick ? 0.01 : 0);
+  // Priorizamos edge real (modelo vs mercado) y probabilidad (cuotas más bajas)
+  // por encima del EV bruto, que se infla con cuotas altas y sesga hacia longshots.
+  const cappedEv = Math.min(Math.max(pick.ev, 0), 0.1);
+  return pick.edge * 0.8 + pick.anchoredProb * 0.4 + cappedEv * 0.5 + confidenceRank(pick.confidence) * 0.05 + (pick.isQualityPick ? 0.02 : 0);
 }
 
 function buildWarnings(parlay: {

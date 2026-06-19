@@ -48,16 +48,18 @@ export function scoreParlay(input: {
   const avgPickEv = input.picks.reduce((sum, pick) => sum + pick.ev, 0) / input.picks.length;
   const avgPickProb = input.picks.reduce((sum, pick) => sum + pick.anchoredProb, 0) / input.picks.length;
   const cappedEv = Math.min(Math.max(input.ev, 0), 0.25);
-  const oddsPenalty = Math.max(0, Math.log(input.totalOdds) - 2.2) * 2.5;
+  // Penalización de cuota total más firme: mantiene el ranking en rangos
+  // realistas y evita que dominen las combinadas de cuota muy alta.
+  const oddsPenalty = Math.max(0, Math.log(input.totalOdds) - 1.6) * 7;
   const legs = input.picks.length;
   const diversityPenalty = marketConcentrationPenalty(input.picks);
 
   const profileAdjustment =
     input.profile === "conservative"
-      ? input.jointProbabilityAdjusted * 22 - Math.max(0, input.totalOdds - 4) * 2 - Math.max(0, legs - 2) * 4
+      ? input.jointProbabilityAdjusted * 26 - Math.max(0, input.totalOdds - 2.6) * 4 - Math.max(0, legs - 2) * 5
       : input.profile === "aggressive"
         ? Math.min(Math.max(input.totalOdds - 3, 0), 24) * 1.8 + (legs >= 3 ? 9 : -7) - input.jointProbabilityAdjusted * 8
-        : Math.max(0, 10 - Math.abs(input.totalOdds - 5.5)) * 1.2 + (legs === 3 ? 7 : -2);
+        : Math.max(0, 8 - Math.abs(input.totalOdds - 3.8)) * 1.3 + (legs === 3 ? 5 : 0);
 
   return +(
     cappedEv * 45 +
@@ -80,8 +82,12 @@ function marketConcentrationPenalty(picks: ParlayPick[]): number {
   }
   let penalty = 0;
   for (const count of counts.values()) {
-    if (count > 1) penalty -= (count - 1) * 1.5;
-    if (count > 2) penalty -= (count - 2) * 2;
+    // Penalización fuerte por concentrar el mismo mercado (ej. todo over/under),
+    // suficiente para que las combinadas con mezcla real de mercados rankeen arriba.
+    if (count > 1) penalty -= (count - 1) * 9;
+    if (count > 2) penalty -= (count - 2) * 4;
   }
+  // Premio por diversidad real de mercados.
+  if (counts.size >= 2) penalty += 4;
   return penalty;
 }

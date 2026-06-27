@@ -61,6 +61,16 @@ export function evaluateCorrelation(picks: ParlayPick[]): CorrelationEvaluation 
       return { level: "invalid", penaltyFactor: PENALTY.invalid, reasons };
     }
 
+    const resultMarketKinds = new Set(
+      matchPicks
+        .filter((pick) => pick.market === "1x2" || pick.market === "double_chance" || pick.market === "clasifica")
+        .map((pick) => pick.market)
+    );
+    if (resultMarketKinds.size > 1) {
+      reasons.push("Mercados de resultado distintos del mismo partido (redundantes: 1X2, doble oportunidad o clasifica).");
+      return { level: "invalid", penaltyFactor: PENALTY.invalid, reasons };
+    }
+
     const seenMarkets = new Map<string, ParlayPick>();
     for (const pick of matchPicks) {
       const marketKey = `${pick.market}`;

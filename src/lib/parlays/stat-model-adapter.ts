@@ -1,4 +1,4 @@
-import type { Match, Outcome, TeamStats } from "../types";
+import type { Match, TeamStats } from "../types";
 import {
   buildScoreMatricesByMatchId,
   jointProbabilityForSelections,
@@ -53,25 +53,12 @@ export function buildParlayStatModel(
 }
 
 export function parlayPickToStatSelection(pick: ParlayPick): StatSelectionKey | null {
-  if (pick.market === "1x2") {
-    return outcomeMap(pick.selection, {
-      home: "home_win",
-      draw: "draw",
-      away: "away_win",
-    });
-  }
-  if (pick.market === "btts") {
-    return outcomeMap(pick.selection, {
-      yes: "btts_yes",
-      no: "btts_no",
-    });
-  }
-  if (pick.market === "over_under_2_5") {
-    return outcomeMap(pick.selection, {
-      over: "over_2_5",
-      under: "under_2_5",
-    });
-  }
+  const sel = pick.selection;
+  if (pick.market === "1x2") return sel === "home" ? "home_win" : sel === "away" ? "away_win" : sel === "draw" ? "draw" : null;
+  if (pick.market === "btts") return sel === "yes" ? "btts_yes" : sel === "no" ? "btts_no" : null;
+  if (pick.market === "over_under_2_5") return sel === "over" ? "over_2_5" : sel === "under" ? "under_2_5" : null;
+  if (pick.market === "double_chance") return sel === "1x" ? "double_chance_1x" : sel === "x2" ? "double_chance_x2" : sel === "12" ? "double_chance_12" : null;
+  // "clasifica" no tiene predicado en la matriz de 90'; se evalúa por probabilidad individual (fallback).
   return null;
 }
 
@@ -143,9 +130,3 @@ export function calculateMatrixAwareJointProbability(
   };
 }
 
-function outcomeMap<T extends Partial<Record<Outcome, StatSelectionKey>>>(
-  outcome: Outcome,
-  map: T
-): StatSelectionKey | null {
-  return map[outcome] ?? null;
-}

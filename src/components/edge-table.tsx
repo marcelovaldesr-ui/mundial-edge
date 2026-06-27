@@ -9,6 +9,8 @@ import { marketLabel, outcomeLabel } from "./outcome-label";
 import { pct, fmtEv } from "@/lib/utils";
 import { ArrowUpDown, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { signalBadgesForEdge } from "@/lib/markets/signal-badges";
+import { CopyButton } from "@/components/copy-button";
 
 type SortKey = "expected_value" | "edge" | "model_probability" | "decimal_odds" | "final_probability";
 
@@ -74,12 +76,16 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <RiskBadge tier={e.final_tier ?? e.tier} />
               {e.qualifies ? <Badge variant="success">Pick calidad</Badge> : <Badge variant="muted">Atípico</Badge>}
+              {signalBadgesForEdge(e).map((badge) => (
+                <Badge key={badge.label} variant={badge.variant} title={badge.title}>{badge.label}</Badge>
+              ))}
+              <CopyButton text={edgeToText(e)} label="Copiar pick" />
             </div>
           </div>
         ))}
         {rows.length === 0 && (
-          <div className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">
-            No se encontraron oportunidades con esos filtros.
+          <div className="rounded border border-border bg-card px-4 py-8 text-center">
+            <p className="font-mono text-xs text-muted-foreground tracking-wide">NO SE ENCONTRARON OPORTUNIDADES CON ESOS FILTROS</p>
           </div>
         )}
       </div>
@@ -117,14 +123,14 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
               <TableCell className="text-right tabular-nums text-muted-foreground">{pct(e.implied_probability)}</TableCell>
               <TableCell className="text-right tabular-nums">{pct(e.model_probability)}</TableCell>
               <TableCell className="text-right tabular-nums">{pct(e.final_probability ?? e.model_probability)}</TableCell>
-              <TableCell className={"text-right tabular-nums " + ((e.final_edge ?? e.edge) >= 0 ? "text-success" : "text-danger")}>
+              <TableCell className={"text-right tabular-nums " + ((e.final_edge ?? e.edge) >= 0 ? "text-success-foreground" : "text-danger-foreground")}>
                 {fmtEv(e.final_edge ?? e.edge)}
               </TableCell>
-              <TableCell className={"text-right font-semibold tabular-nums " + ((e.final_expected_value ?? e.expected_value) >= 0 ? "text-success" : "text-danger")}>
+              <TableCell className={"text-right font-semibold tabular-nums " + ((e.final_expected_value ?? e.expected_value) >= 0 ? "text-success-foreground" : "text-danger-foreground")}>
                 {fmtEv(e.final_expected_value ?? e.expected_value)}
               </TableCell>
               <TableCell>
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <RiskBadge tier={e.final_tier ?? e.tier} />
                   {e.qualifies === false && (
                     <span
@@ -134,13 +140,17 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
                       atípico
                     </span>
                   )}
+                  {signalBadgesForEdge(e).map((badge) => (
+                    <Badge key={badge.label} variant={badge.variant} title={badge.title}>{badge.label}</Badge>
+                  ))}
+                  <CopyButton text={edgeToText(e)} label="Copiar" />
                 </div>
               </TableCell>
             </TableRow>
           ))}
           {rows.length === 0 && (
-            <TableRow><TableCell colSpan={showMatch ? 10 : 9} className="py-8 text-center text-muted-foreground">
-              No se encontraron oportunidades con esos filtros.
+            <TableRow><TableCell colSpan={showMatch ? 10 : 9} className="py-10 text-center">
+              <span className="font-mono text-xs tracking-wide text-muted-foreground">NO SE ENCONTRARON OPORTUNIDADES CON ESOS FILTROS</span>
             </TableCell></TableRow>
           )}
         </TableBody>
@@ -148,6 +158,10 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
       </div>
     </div>
   );
+}
+
+function edgeToText(e: Edge): string {
+  return `${e.match?.home_team?.code ?? "?"}-${e.match?.away_team?.code ?? "?"} · ${marketLabel(e.market)} · ${outcomeLabel(e.market, e.outcome, e.match)} @ ${e.decimal_odds.toFixed(2)} (prob final ${pct(e.final_probability ?? e.model_probability)}, EV ${fmtEv(e.final_expected_value ?? e.expected_value)})`;
 }
 
 function sortValue(edge: Edge, key: SortKey): number {
@@ -161,7 +175,7 @@ function MobileMetric({ label, value, accent }: { label: string; value: string; 
   return (
     <div className="rounded-md bg-muted/30 p-2">
       <p className="text-muted-foreground">{label}</p>
-      <p className={"font-semibold tabular-nums " + (accent ? "text-success" : "")}>{value}</p>
+      <p className={"font-semibold tabular-nums " + (accent ? "text-success-foreground" : "")}>{value}</p>
     </div>
   );
 }

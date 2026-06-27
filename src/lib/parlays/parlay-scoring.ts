@@ -1,5 +1,6 @@
 import type { CorrelationLevel, ParlayPick, ParlayProfile, ParlayRiskLevel } from "./parlay-types";
 import { marketDistributionKey } from "../markets/market-display";
+import { isKnockoutStage } from "../matches/stage";
 
 const correlationPenalty: Record<CorrelationLevel, number> = {
   low: 0,
@@ -23,9 +24,13 @@ export function calculateRiskScore(input: {
     return sum + 1;
   }, 0);
 
+  // P1.5: varianza extra en eliminatorias (prórroga/penaltis, planteamientos
+  // más cerrados, fatiga acumulada) que el Poisson de 90' no captura.
+  const knockoutRisk = input.picks.some((pick) => isKnockoutStage(pick.match?.stage)) ? 6 : 0;
+
   return Math.min(
     100,
-    Math.round(legRisk + oddsRisk + probabilityRisk + pickTierRisk + correlationPenalty[input.correlationLevel])
+    Math.round(legRisk + oddsRisk + probabilityRisk + pickTierRisk + knockoutRisk + correlationPenalty[input.correlationLevel])
   );
 }
 
@@ -44,6 +49,7 @@ export function scoreParlay(input: {
   ev: number;
   riskScore: number;
   correlationLevel: CorrelationLevel;
+  targetOdds?: { min: number; max: number };
 }): number {
   const avgPickEv = input.picks.reduce((sum, pick) => sum + pick.ev, 0) / input.picks.length;
   const avgPickProb = input.picks.reduce((sum, pick) => sum + pick.anchoredProb, 0) / input.picks.length;
@@ -53,6 +59,14 @@ export function scoreParlay(input: {
   const oddsPenalty = Math.max(0, Math.log(input.totalOdds) - 1.6) * 7;
   const legs = input.picks.length;
   const diversityPenalty = marketConcentrationPenalty(input.picks);
+  // Cuota objetivo como objetivo de construcción (P1.2): premia caer dentro
+  // del rango pedido y penaliza la distancia al punto medio, de modo que el
+  // ranking acerque las combinadas a la cuota que busca el usuario.
+  const targetPenalty = input.targetOdds
+    ? input.totalOdds >= input.targetOdds.min && input.totalOdds <= input.targetOdds.max
+      ? -3
+      : Math.abs(input.totalOdds - (input.targetOdds.min + input.targetOdds.max) / 2) * 1.5
+    : 0;
 
   const profileAdjustment =
     input.profile === "conservative"
@@ -70,7 +84,8 @@ export function scoreParlay(input: {
     correlationPenalty[input.correlationLevel] * 0.4 -
     oddsPenalty +
     diversityPenalty +
-    profileAdjustment
+    profileAdjustment -
+    targetPenalty
   ).toFixed(4);
 }
 

@@ -3,6 +3,12 @@ import type { PredictionConfigSource, ScoreMatrix, StatModelCalibrationMode, Sta
 import type { FinalProbabilityResult } from "../model/final-probability";
 
 export type ParlayProfile = "conservative" | "balanced" | "aggressive";
+/** Mercado a nivel de pick de combinada: superset del Market de BD con mercados derivados del modelo. */
+export type ParlayMarket = Market | "double_chance" | "clasifica";
+/** Selección a nivel de pick: superset de Outcome con doble oportunidad y avance. */
+export type ParlaySelection = Outcome | "1x" | "x2" | "12" | "home_adv" | "away_adv";
+/** Origen de la cuota del pick: real de mercado o estimada (justa) desde el modelo. */
+export type ParlayOddsType = "real" | "estimated";
 export type ParlayConfidence = "low" | "medium" | "high";
 export type CorrelationLevel = "low" | "medium" | "high" | "invalid";
 export type ParlayRiskLevel = "low" | "medium" | "high" | "very_high";
@@ -25,13 +31,14 @@ export type RejectionReason =
 export interface ParlayPick {
   id: string;
   matchId: string;
-  market: Market;
-  selection: Outcome;
+  market: ParlayMarket;
+  selection: ParlaySelection;
   odds: number;
   marketProb: number;
   anchoredProb: number;
   probability: number;
-  pick: Outcome;
+  pick: ParlaySelection;
+  oddsType: ParlayOddsType;
   probabilitySource: "edge.model_probability_blended" | "edge.final_probability_ensemble";
   edge: number;
   confidence: ParlayConfidence;
@@ -119,8 +126,11 @@ export interface GenerateParlaysOptions {
   bankroll?: number;
   allowedMarkets?: Market[];
   allowSameMatch?: boolean;
+  /** Excluir picks de cuota estimada (p.ej. perfil Value que exige cuota real). */
+  excludeEstimated?: boolean;
   maxLegs?: number;
   maxTotalOdds?: number;
+  targetOdds?: { min: number; max: number };
   now?: Date | string;
   scoreMatricesByMatchId?: Record<string, ScoreMatrix>;
   predictionMetadata?: {
@@ -166,4 +176,7 @@ export interface ProfileRules {
   preferredLegs: number[];
   kellyMultiplier: number;
   maxStakePercent: number;
+  /** Carril de probabilidad (P1.4): admite picks de prob alta con edge ~0. */
+  probabilityLane?: boolean;
+  probabilityLaneMinProb?: number;
 }

@@ -1,5 +1,6 @@
 export * from "./calibration";
 export * from "./calibrate-lambdas";
+export * from "./advance-probability";
 export * from "./calibrated-score-matrix";
 export * from "./calibration-presets";
 export * from "./dixon-coles";

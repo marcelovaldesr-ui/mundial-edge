@@ -7,11 +7,12 @@ import { Disclaimer } from "@/components/disclaimer";
 import { PoissonModelCard } from "@/components/poisson-model-card";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { fmtKickoff } from "@/lib/utils";
-import { buildScoreMatrixForMatch } from "@/lib/stat-model";
+import { fmtKickoff, pct } from "@/lib/utils";
+import { buildScoreMatrixForMatch, calculateAdvanceProbability } from "@/lib/stat-model";
 import { TeamMark } from "@/components/team-mark";
 import { filterPreMatchEdges, isPreMatchEligible, matchStatusLabel } from "@/lib/matches/pre-match-eligibility";
 import { getWorldCupGroupContext } from "@/lib/world-cup";
+import { isKnockoutStage } from "@/lib/matches/stage";
 import { WorldCupContextCard } from "@/components/world-cup-context-card";
 import { decorateEdgesWithFinalProbability } from "@/lib/model/final-probability";
 import { ModelMetadata } from "@/components/model-metadata";
@@ -36,6 +37,12 @@ export default async function MatchDetail({ params }: { params: { id: string } }
     { groupContext, allMatches, predictionConfig: "recommended" }
   );
   const modelPrediction = "scoreMatrix" in modelResult ? modelResult : null;
+  const advance = modelPrediction && isKnockoutStage(match.stage)
+    ? calculateAdvanceProbability(modelPrediction.scoreMatrix, {
+        homeRating: modelPrediction.homeRating?.overallRating,
+        awayRating: modelPrediction.awayRating?.overallRating,
+      })
+    : null;
   const activeEdgesCalibrated = modelPrediction ? decorateEdgesWithFinalProbability(activeEdges, [modelPrediction]) : activeEdges;
   const historicalEdgesCalibrated = modelPrediction ? decorateEdgesWithFinalProbability(historicalEdges, [modelPrediction]) : historicalEdges;
 
@@ -91,6 +98,40 @@ export default async function MatchDetail({ params }: { params: { id: string } }
       </Card>
 
       <WorldCupContextCard context={groupContext} />
+
+      {advance && (
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-center gap-2">
+              <CardTitle className="text-base">Clasifica (estimado)</CardTitle>
+              <Badge variant="warning">Cuota estimada</Badge>
+              <Badge variant="muted">Eliminatoria</Badge>
+            </div>
+            <CardDescription>
+              Probabilidad de avanzar = ganar en 90&apos; + (empate en 90&apos; &times; avanzar en prórroga/penaltis).
+              No es el 1X2 a 90 minutos y no hay cuota real de mercado: es una estimación.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+            <div className="rounded-md bg-muted/40 p-3">
+              <p className="text-xs text-muted-foreground">{match.home_team?.code ?? "Local"} avanza</p>
+              <p className="font-semibold tabular-nums">{pct(advance.homeAdvance)}</p>
+            </div>
+            <div className="rounded-md bg-muted/40 p-3">
+              <p className="text-xs text-muted-foreground">{match.away_team?.code ?? "Visita"} avanza</p>
+              <p className="font-semibold tabular-nums">{pct(advance.awayAdvance)}</p>
+            </div>
+            <div className="rounded-md bg-muted/40 p-3">
+              <p className="text-xs text-muted-foreground">Empate en 90&apos;</p>
+              <p className="font-semibold tabular-nums">{pct(advance.draw90)}</p>
+            </div>
+            <div className="rounded-md bg-muted/40 p-3">
+              <p className="text-xs text-muted-foreground">Cuota est. avance favorito</p>
+              <p className="font-semibold tabular-nums">{(advance.homeAdvance >= advance.awayAdvance ? advance.estimatedHomeOdds : advance.estimatedAwayOdds).toFixed(2)}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

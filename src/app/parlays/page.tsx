@@ -3,7 +3,7 @@ import { LastUpdated } from "@/components/last-updated";
 import { ParlayWorkspace } from "@/components/parlay-workspace";
 import { Badge } from "@/components/ui/badge";
 import { getAllEdges, getEdges, getLastSync, dataMode, getMatches, getTeamStats } from "@/lib/data/repository";
-import { buildParlayStatModel, edgeToParlayPick, type ParlayProfile } from "@/lib/parlays";
+import { buildParlayStatModel, buildCandidatePicks, type ParlayProfile } from "@/lib/parlays";
 import { decorateEdgesWithFinalProbability } from "@/lib/model/final-probability";
 import { ModelMetadata } from "@/components/model-metadata";
 
@@ -30,7 +30,7 @@ export default async function ParlaysPage({
   const statModel = buildParlayStatModel(matches, teamStats, "recommended");
   const calibratedEdges = decorateEdgesWithFinalProbability(edges, statModel.predictions);
   // El motor aplica edge/confianza según el nivel elegido; no descartamos aquí los picks low.
-  const picks = calibratedEdges.map(edgeToParlayPick);
+  const picks = buildCandidatePicks(calibratedEdges, statModel.predictions, matches);
   const excludedNonPreMatch = Math.max(0, allEdges.length - edges.length);
 
   return (

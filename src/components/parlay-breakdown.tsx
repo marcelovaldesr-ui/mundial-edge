@@ -2,6 +2,7 @@ import { marketLabel, outcomeLabel } from "@/components/outcome-label";
 import { ProbabilityBar } from "@/components/probability-bar";
 import { Badge } from "@/components/ui/badge";
 import type { ParlayPick } from "@/lib/parlays";
+import { signalBadgesForPick } from "@/lib/markets/signal-badges";
 import { fmtEv } from "@/lib/utils";
 
 export function ParlayBreakdown({ picks }: { picks: ParlayPick[] }) {
@@ -20,6 +21,13 @@ export function ParlayBreakdown({ picks }: { picks: ParlayPick[] }) {
               <p className="text-xs text-muted-foreground">
                 {pick.bookmaker ?? "Mercado"} · {pick.probabilitySource === "edge.final_probability_ensemble" ? "probabilidad final calibrada" : "probabilidad anclada"}
               </p>
+              {signalBadgesForPick(pick).length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  {signalBadgesForPick(pick).map((badge) => (
+                    <Badge key={badge.label} variant={badge.variant} title={badge.title}>{badge.label}</Badge>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="text-right tabular-nums">
               <p className="font-semibold">{pick.odds.toFixed(2)}</p>

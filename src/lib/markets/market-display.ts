@@ -57,6 +57,11 @@ export function formatSelectionName(input: DisplayInput | ParlayPick | { market:
     return `${selection === "over" ? "Más" : "Menos"} de ${line ?? "?"} tarjetas`;
   }
 
+  if (market === "clasifica") {
+    if (selection === "home_adv") return "Local clasifica";
+    if (selection === "away_adv") return "Visitante clasifica";
+  }
+
   if (market.includes("double_chance")) return `Doble oportunidad: ${selection.toUpperCase()}`;
   if (market.includes("handicap")) return `Hándicap ${selection.replace(/^handicap_?/, "")}`;
 
@@ -123,7 +128,7 @@ function selectionKey(input: DisplayInput | ParlayPick | { market: Market; outco
 }
 
 function isTotalsMarket(market: string): boolean {
-  return market === "over_under_2_5" || market === "totals" || market.includes("total_goals") || market.includes("goals_total");
+  return market.startsWith("over_under_") || market === "totals" || market.includes("total_goals") || market.includes("goals_total");
 }
 
 function extractLine(input: Market | string | DisplayInput | ParlayPick | { market: Market }, market = marketKey(input)): number | null {

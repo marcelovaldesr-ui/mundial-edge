@@ -11,7 +11,7 @@ export function modelProbabilities(
   homeStats: TeamStats,
   awayStats: TeamStats,
   leagueAvgGoals?: number
-): Record<Market, Partial<Record<Outcome, number>>> {
+): Partial<Record<Market, Partial<Record<Outcome, number>>>> {
   const { lambdaHome, lambdaAway } = expectedGoals({
     home: homeStats,
     away: awayStats,
@@ -19,10 +19,19 @@ export function modelProbabilities(
   });
   const sm = buildScoreMatrix(lambdaHome, lambdaAway);
   const m = marketsFromMatrix(sm);
+
+  // double_chance: combinaciones aditivas de 1x2 (sin margen de bookmaker)
+  const dc1x = m.home + m.draw;
+  const dcX2 = m.away + m.draw;
+  const dc12 = m.home + m.away;
+
   return {
     "1x2": { home: m.home, draw: m.draw, away: m.away },
     btts: { yes: m.bttsYes, no: m.bttsNo },
+    over_under_1_5: { over: m.over1_5, under: m.under1_5 },
     over_under_2_5: { over: m.over2_5, under: m.under2_5 },
+    over_under_3_5: { over: m.over3_5, under: m.under3_5 },
+    double_chance: { "1x": dc1x, x2: dcX2, "12": dc12 },
   };
 }
 
@@ -38,6 +47,7 @@ export function buildPredictions(
   const out: Prediction[] = [];
   (Object.keys(probs) as Market[]).forEach((market) => {
     const byOutcome = probs[market];
+    if (!byOutcome) return;
     (Object.keys(byOutcome) as Outcome[]).forEach((outcome) => {
       out.push({
         id: `${match.id}:${market}:${outcome}`,

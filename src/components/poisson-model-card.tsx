@@ -15,10 +15,14 @@ export function PoissonModelCard({
   prediction: MatchStatModelPrediction;
   compact?: boolean;
 }) {
-  const topScorelines = getTopScorelines(prediction.scoreMatrix);
+  const topScorelines = getTopScorelines(prediction.scoreMatrix, 5);
   const technicalTie = topScorelines.some((scoreline, index) =>
     index > 0 && Math.abs(topScorelines[index - 1].probability - scoreline.probability) <= 0.0025
   );
+  // Alta varianza: si ni el marcador más probable supera ~10%, la distribución
+  // es casi plana y el marcador exacto es ruido estadístico, no un pick.
+  const topScorelineProbability = topScorelines[0]?.probability ?? 0;
+  const highVarianceScoreline = topScorelineProbability < 0.1;
 
   return (
     <Card>
@@ -32,6 +36,7 @@ export function PoissonModelCard({
             <Badge variant="muted">{sourceLabel(prediction.expectedGoalsSource)}</Badge>
             <ConfidenceBadge confidence={prediction.confidence} />
             <Badge variant="muted">No apostable sin cuota</Badge>
+            {highVarianceScoreline && <Badge variant="warning">Alta varianza</Badge>}
           </div>
         </div>
       </CardHeader>
@@ -47,7 +52,7 @@ export function PoissonModelCard({
           <Metric label={`xG ${prediction.homeTeam.code}`} value={prediction.homeExpectedGoals.toFixed(2)} />
           <Metric label={`xG ${prediction.awayTeam.code}`} value={prediction.awayExpectedGoals.toFixed(2)} />
           <div className="col-span-2 rounded-md bg-muted/40 p-3">
-            <p className="text-xs text-muted-foreground">Marcadores más probables</p>
+            <p className="text-xs text-muted-foreground">Distribución de marcadores · modelo, no es un pick</p>
             <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 font-semibold tabular-nums">
               {topScorelines.map((scoreline) => (
                 <span key={`${scoreline.homeGoals}-${scoreline.awayGoals}`}>
@@ -55,6 +60,11 @@ export function PoissonModelCard({
                 </span>
               ))}
             </div>
+            {highVarianceScoreline && (
+              <p className="mt-1 text-xs text-warning">
+                Alta varianza: ningún marcador supera el 10%. Es la forma de la distribución, no un marcador recomendado.
+              </p>
+            )}
             {technicalTie && <p className="mt-1 text-xs text-muted-foreground">Las primeras alternativas están en empate técnico.</p>}
           </div>
           <Metric label={`Rating ${prediction.homeTeam.code}`} value={ratingValue(prediction.homeRating)} />
@@ -88,7 +98,7 @@ export function PoissonModelCard({
           </p>
           {prediction.groupContext && <p>{prediction.groupContext.summary}</p>}
           <p>
-            Top de matriz: {topScorelines.map((scoreline) => `${scoreline.homeGoals}-${scoreline.awayGoals} (${pct(scoreline.probability)})`).join(", ")}.
+            Distribución de matriz (no apostable): {topScorelines.map((scoreline) => `${scoreline.homeGoals}-${scoreline.awayGoals} (${pct(scoreline.probability)})`).join(", ")}.
           </p>
           {prediction.warnings.slice(0, compact ? 1 : 3).map((warning) => (
             <p key={warning}>Aviso: {warning}</p>

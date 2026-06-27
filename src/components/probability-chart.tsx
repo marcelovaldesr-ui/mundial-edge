@@ -16,8 +16,8 @@ export function ProbabilityChart({ data }: { data: Datum[] }) {
             contentStyle={{ background: "hsl(222 28% 10%)", border: "1px solid hsl(217 22% 18%)", borderRadius: 8, fontSize: 12 }}
             formatter={(v: number) => `${v}%`}
           />
-          <Bar dataKey="implícita" fill="hsl(215 16% 45%)" radius={[4, 4, 0, 0]} name="Prob. implícita" />
-          <Bar dataKey="modelo" fill="hsl(199 89% 52%)" radius={[4, 4, 0, 0]} name="Prob. final">
+          <Bar dataKey="implícita" fill="hsl(211 55% 28%)" radius={[4, 4, 0, 0]} name="Prob. implícita" />
+          <Bar dataKey="modelo" fill="hsl(38 92% 52%)" radius={[4, 4, 0, 0]} name="Prob. final">
             <LabelList dataKey="modelo" position="top" fontSize={10} fill="hsl(210 20% 96%)" formatter={(v: number) => `${v}%`} />
             {chart.map((_, i) => <Cell key={i} />)}
           </Bar>

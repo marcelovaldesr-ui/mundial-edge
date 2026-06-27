@@ -35,7 +35,7 @@ export const STAT_MODEL_VARIANTS: Record<StatModelVariant, StatModelVariantConfi
   },
   "calibrated-matrix": {
     id: "calibrated-matrix", status: "production", expectedGoalsRatingModel: "attack_defense_v2_mismatch_spread",
-    priorStrength: 8, neutralVenue: true, dixonColesRho: null, recommended: true, notRecommended: false, calibrationEligible: false, temperatureScaling: true,
+    priorStrength: 8, neutralVenue: true, dixonColesRho: -0.05, recommended: true, notRecommended: false, calibrationEligible: false, temperatureScaling: true,
   },
   "experimental-dixon-coles": {
     id: "experimental-dixon-coles", status: "experimental", expectedGoalsRatingModel: "attack_defense_v2",

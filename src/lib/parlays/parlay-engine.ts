@@ -3,12 +3,14 @@ import { calculateRiskScore, riskLabel, scoreParlay } from "./parlay-scoring";
 import { calculateMatrixAwareJointProbability } from "./stat-model-adapter";
 import { isPreMatchEligible } from "../matches/pre-match-eligibility";
 import { formatMarketWithLine, marketDistributionKey } from "../markets/market-display";
+import { isKnockoutStage } from "../matches/stage";
 import type { Market } from "../types";
 import type {
   GenerateParlaysOptions,
   GenerateParlaysResult,
   Parlay,
   ParlayPick,
+  ParlayMarket,
   ParlayProfile,
   ProfileRules,
   RejectedParlayCandidate,
@@ -21,14 +23,23 @@ import { suggestStake } from "./staking";
  * Política de confianza por mercado aplicada al umbral de edge individual.
  * El mercado del Mundial es muy eficiente: en 1X2 el modelo queda cerca del
  * mercado (edges pequeños pero reales) mientras que un edge persistente en
- * over/under suele ser sesgo del modelo, no valor. Exigimos más edge a totales
- * (1.6×) y menos a 1X2 (0.75×) para reequilibrar el pool de candidatos y evitar
- * combinadas dominadas por un solo mercado. Multiplicador = umbral relativo.
+ * over/under suele ser sesgo del modelo, no valor. Multiplicador = umbral relativo.
+ *
+ * Cambios v2:
+ * - over_under_2_5: bajado de 1.6 → 1.3 (seguía descartando picks válidos)
+ * - over_under_1_5: 1.2 (over 1.5 es mercado predecible, under más volátil)
+ * - over_under_3_5: 1.3 (alta varianza, similar a 2.5)
+ * - double_chance: 0.6 (picks de prob alta, edge chico pero real)
+ * - clasifica: 0.5 (picks estimados de cuota justa, no tienen edge real)
  */
-const MARKET_EDGE_TRUST: Partial<Record<Market, number>> = {
+const MARKET_EDGE_TRUST: Partial<Record<ParlayMarket, number>> = {
   "1x2": 0.75,
-  btts: 1,
-  over_under_2_5: 1.6,
+  btts: 1.0,
+  over_under_2_5: 1.3,
+  over_under_1_5: 1.2,
+  over_under_3_5: 1.3,
+  double_chance: 0.6,
+  clasifica: 0.5,
 };
 
 /** Máximo de picks del mismo partido admitidos en el pool de candidatos. */
@@ -39,8 +50,8 @@ export const PARLAY_PROFILE_RULES: Record<ParlayProfile, ProfileRules> = {
     label: "Conservadora",
     maxLegs: 3,
     candidateLimit: 24,
-    minPickProbability: 0.42,
-    minJointProbability: 0.14,
+    minPickProbability: 0.36, // era 0.42 — bloqueaba picks de double_chance válidos
+    minJointProbability: 0.12, // era 0.14 — relajado levemente para 2-pick combos
     minEV: 0.02,
     maxEV: 0.28,
     maxPickOdds: 2.8,
@@ -51,6 +62,8 @@ export const PARLAY_PROFILE_RULES: Record<ParlayProfile, ProfileRules> = {
     preferredLegs: [2],
     kellyMultiplier: 0.25,
     maxStakePercent: 0.0075,
+    probabilityLane: true,
+    probabilityLaneMinProb: 0.55,
   },
   balanced: {
     label: "Balanceada",
@@ -168,8 +181,12 @@ function validateCandidatePick(
   const allowedMarkets = new Set(options.allowedMarkets ?? []);
   const minEdge = options.minEdge ?? 0.02;
   const minConfidence = options.minConfidence ?? (options.allowLowConfidence === false ? "medium" : "low");
-  if (allowedMarkets.size && !allowedMarkets.has(pick.market)) {
+  if (allowedMarkets.size && !allowedMarkets.has(pick.market as Market)) {
     return { ok: false, reason: "pick_invalid", message: "Mercado no permitido por filtros." };
+  }
+  const isEstimated = pick.oddsType === "estimated";
+  if (options.excludeEstimated && isEstimated) {
+    return { ok: false, reason: "pick_invalid", message: "Pick de cuota estimada excluido por el filtro actual." };
   }
   if (!isPreMatchPick(pick, nowMs)) {
     return { ok: false, reason: "pick_expired", message: "Pick vencido, live o no pre-partido." };
@@ -187,7 +204,14 @@ function validateCandidatePick(
     return { ok: false, reason: "pick_invalid", message: "Pick fuera de rangos individuales del perfil." };
   }
   const marketMinEdge = minEdge * (MARKET_EDGE_TRUST[pick.market] ?? 1);
-  if (pick.edge < marketMinEdge) {
+  // Carril de probabilidad (P1.4): un pick de probabilidad alta y EV no negativo
+  // entra aunque su edge sea ~0. Da volumen de picks sólidos al perfil conservador
+  // sin admitir value negativo.
+  const probabilityLaneOk =
+    rules.probabilityLane === true &&
+    pick.anchoredProb >= (rules.probabilityLaneMinProb ?? 0.6) &&
+    pick.ev >= -0.01;
+  if (pick.edge < marketMinEdge && !probabilityLaneOk && !isEstimated) {
     return {
       ok: false,
       reason: "edge_below_minimum",
@@ -240,7 +264,7 @@ function baseCandidates(
       }
       return valid.ok;
     })
-    .sort((a, b) => candidateScore(b) - candidateScore(a));
+    .sort((a, b) => candidateScore(b, rules) - candidateScore(a, rules));
 
   // Diversificación: limitamos cuántos picks del mismo partido entran al pool,
   // para que las combinadas abarquen varios partidos en lugar de reutilizar uno.
@@ -277,11 +301,16 @@ function confidenceRank(confidence: "low" | "medium" | "high"): number {
   return confidence === "high" ? 2 : confidence === "medium" ? 1 : 0;
 }
 
-function candidateScore(pick: ParlayPick): number {
+function candidateScore(pick: ParlayPick, rules?: ProfileRules): number {
   // Priorizamos edge real (modelo vs mercado) y probabilidad (cuotas más bajas)
   // por encima del EV bruto, que se infla con cuotas altas y sesga hacia longshots.
+  // En el carril de probabilidad (perfil conservador) invertimos el peso: la
+  // probabilidad manda sobre el edge, para que los picks seguros ranqueen arriba.
   const cappedEv = Math.min(Math.max(pick.ev, 0), 0.1);
-  return pick.edge * 0.8 + pick.anchoredProb * 0.4 + cappedEv * 0.5 + confidenceRank(pick.confidence) * 0.05 + (pick.isQualityPick ? 0.02 : 0);
+  const probabilityLane = rules?.probabilityLane === true;
+  const edgeWeight = probabilityLane ? 0.5 : 0.8;
+  const probWeight = probabilityLane ? 0.8 : 0.4;
+  return pick.edge * edgeWeight + pick.anchoredProb * probWeight + cappedEv * 0.5 + confidenceRank(pick.confidence) * 0.05 + (pick.isQualityPick ? 0.02 : 0);
 }
 
 function buildWarnings(parlay: {
@@ -317,6 +346,9 @@ function buildWarnings(parlay: {
   }
   if (parlay.riskScore >= 55 || parlay.picks.length >= 4) {
     warnings.push("Combinada de alta varianza; no garantiza resultados.");
+  }
+  if (parlay.picks.some((pick) => isKnockoutStage(pick.match?.stage))) {
+    warnings.push("Eliminatoria: el empate a 90' no es resultado final (hay prórroga/penaltis) y la varianza es mayor; el marcador exacto es especialmente frágil.");
   }
   warnings.push("El análisis es probabilístico y no es asesoría financiera.");
   return warnings;
@@ -366,7 +398,9 @@ export function generateParlaysWithDebug(picks: ParlayPick[], options: GenerateP
   const minEV = options.minEV ?? rules.minEV;
   const maxCorrelation = options.maxCorrelation ?? rules.maxCorrelation;
   const maxResults = options.maxResults ?? 30;
-  const maxTotalOdds = options.maxTotalOdds ?? 10;
+  // Usa el límite del perfil como default en lugar del 10 hardcodeado que
+  // truncaba balanced (18) y aggressive (70) a solo 10.
+  const maxTotalOdds = options.maxTotalOdds ?? rules.maxTotalOdds;
   const { candidates, rejected } = baseCandidates(picks, options, rules);
   const parlays: Parlay[] = [];
 
@@ -566,7 +600,7 @@ export function generateParlaysWithDebug(picks: ParlayPick[], options: GenerateP
         calibrationUsed: options.predictionMetadata?.calibrationUsed,
         configSource: options.predictionMetadata?.configSource,
       };
-      parlay.score = scoreParlay({ ...parlay, profile: options.profile });
+      parlay.score = scoreParlay({ ...parlay, profile: options.profile, targetOdds: options.targetOdds });
       parlays.push(parlay);
     }
   }
@@ -595,7 +629,10 @@ export function generateSuggestedParlays(
       theme: "goals" as const,
       label: "Combo goles",
       description: "2–3 selecciones de más de 2.5 goles con edge superior a 2%.",
-      candidates: picks.filter((pick) => pick.market === "over_under_2_5" && pick.selection === "over" && pick.edge >= 0.02),
+      candidates: picks.filter((pick) =>
+        (pick.market === "over_under_2_5" || pick.market === "over_under_1_5") &&
+        pick.selection === "over" && pick.edge >= 0.02
+      ),
       profile: "balanced" as const,
       minEdge: 0.02,
       minOdds: 1,
@@ -608,6 +645,29 @@ export function generateSuggestedParlays(
       profile: "aggressive" as const,
       minEdge: 0.05,
       minOdds: 5,
+    },
+    {
+      theme: "favorite" as const,
+      label: "Combo doble oportunidad",
+      description: "2–3 picks de doble oportunidad conservadores (prob. alta, edge moderado).",
+      candidates: picks.filter((pick) =>
+        pick.market === "double_chance" && pick.anchoredProb >= 0.55 && pick.edge >= 0.01
+      ),
+      profile: "conservative" as const,
+      minEdge: 0.01,
+      minOdds: 1,
+    },
+    {
+      theme: "goals" as const,
+      label: "Combo defensivo",
+      description: "2–3 selecciones de menos de 2.5 goles con edge positivo.",
+      candidates: picks.filter((pick) =>
+        (pick.market === "over_under_2_5" || pick.market === "over_under_3_5") &&
+        pick.selection === "under" && pick.edge >= 0.02
+      ),
+      profile: "balanced" as const,
+      minEdge: 0.02,
+      minOdds: 1,
     },
   ];
 
@@ -642,4 +702,77 @@ function hasSameMatchScoreMatrix(
   const counts = new Map<string, number>();
   for (const pick of picks) counts.set(pick.matchId, (counts.get(pick.matchId) ?? 0) + 1);
   return Array.from(counts.entries()).some(([matchId, count]) => count > 1 && !!scoreMatricesByMatchId[matchId]);
+}
+
+// ─── Fallback de combinadas (P0.2) ──────────────────────────────
+// Si la generación normal no alcanza un mínimo de opciones, relajamos
+// secuencialmente los filtros MENOS críticos (edge → confianza → EV/prob →
+// cuota máxima) y devolvemos alternativas marcadas como "relajadas", con la
+// regla que se aflojó. Nunca dejamos la pantalla vacía sin explicación.
+
+export interface RelaxedParlay extends Parlay {
+  relaxed: true;
+  relaxedRule: string;
+}
+
+export interface ParlayFallbackResult {
+  parlays: Parlay[];
+  relaxedAlternatives: RelaxedParlay[];
+  rejected: RejectedParlayCandidate[];
+  relaxationsApplied: string[];
+  emptyStateMessage: string | null;
+}
+
+const FALLBACK_EMPTY_MESSAGE =
+  "No se encontraron combinadas con estos filtros. Sugerencias: ampliar el rango de cuota, reducir el número de selecciones, relajar el edge mínimo o incluir mercados más conservadores (doble oportunidad, under/over).";
+
+export function generateParlaysWithFallback(
+  picks: ParlayPick[],
+  options: GenerateParlaysOptions,
+  minResults = 3
+): ParlayFallbackResult {
+  const primary = generateParlaysWithDebug(picks, options);
+  if (primary.parlays.length >= minResults) {
+    return {
+      parlays: primary.parlays,
+      relaxedAlternatives: [],
+      rejected: primary.rejected,
+      relaxationsApplied: [],
+      emptyStateMessage: null,
+    };
+  }
+
+  const steps: Array<{ label: string; mutate: (o: GenerateParlaysOptions) => GenerateParlaysOptions }> = [
+    { label: "edge mínimo reducido a la mitad", mutate: (o) => ({ ...o, minEdge: (o.minEdge ?? 0.02) / 2 }) },
+    { label: "confianza mínima relajada a baja", mutate: (o) => ({ ...o, minConfidence: "low", allowLowConfidence: true }) },
+    { label: "EV y probabilidad mínimos relajados", mutate: (o) => ({ ...o, minEV: 0, minJointProbability: 0 }) },
+    { label: "cuota total máxima ampliada", mutate: (o) => ({ ...o, maxTotalOdds: (o.maxTotalOdds ?? PARLAY_PROFILE_RULES[o.profile].maxTotalOdds) * 1.6 }) },
+  ];
+
+  let current = options;
+  const relaxationsApplied: string[] = [];
+  const seen = new Set(primary.parlays.map((parlay) => parlay.id));
+  const relaxedAlternatives: RelaxedParlay[] = [];
+
+  for (const step of steps) {
+    current = step.mutate(current);
+    relaxationsApplied.push(step.label);
+    const relaxed = generateParlaysWithDebug(picks, current);
+    for (const parlay of relaxed.parlays) {
+      if (!seen.has(parlay.id)) {
+        seen.add(parlay.id);
+        relaxedAlternatives.push({ ...parlay, relaxed: true, relaxedRule: relaxationsApplied.join(" + ") });
+      }
+    }
+    if (primary.parlays.length + relaxedAlternatives.length >= minResults) break;
+  }
+
+  const total = primary.parlays.length + relaxedAlternatives.length;
+  return {
+    parlays: primary.parlays,
+    relaxedAlternatives,
+    rejected: primary.rejected,
+    relaxationsApplied,
+    emptyStateMessage: total === 0 ? FALLBACK_EMPTY_MESSAGE : null,
+  };
 }

@@ -236,7 +236,7 @@ export async function syncOdds(): Promise<SyncResult> {
       matched++;
       return {
         match_id, bookmaker: odd.bookmaker, market: odd.market, outcome: odd.outcome,
-        decimal_odds: odd.decimal_odds, source, fetched_at: now,
+        decimal_odds: odd.decimal_odds, line: odd.line ?? null, source, fetched_at: now,
       };
     }).filter(Boolean);
 
@@ -271,7 +271,13 @@ export async function syncPredictions(): Promise<SyncResult> {
     const sb = getServiceSupabase()!;
     const { data: matches } = await sb.from("matches").select("*").in("status", ["scheduled", "live"]);
     const { data: stats } = await sb.from("team_stats").select("*");
-    const { data: allOdds } = await sb.from("odds").select("*");
+    // IMPORTANTE: filtrar odds solo por los partidos scheduled/live para evitar el
+    // límite de 1000 filas por defecto de PostgREST que trunca la respuesta cuando
+    // la tabla completa supera ese tamaño (e.g. 7000+ odds de partidos finalizados).
+    const scheduledMatchIds = (matches ?? []).map((m: any) => m.id).filter(Boolean);
+    const { data: allOdds } = scheduledMatchIds.length
+      ? await sb.from("odds").select("*").in("match_id", scheduledMatchIds)
+      : { data: [] };
     const statMap = new Map((stats ?? []).map((s: any) => [s.team_id, s]));
 
     const predRows: any[] = [], edgeRows: any[] = [];
@@ -285,9 +291,13 @@ export async function syncPredictions(): Promise<SyncResult> {
     }
     const dbPredRows = predRows.map(({ id, ...row }) => row);
     const dbEdgeRows = edgeRows.map(({ id, ...row }) => row);
-    const matchIds = (matches ?? []).map((m: any) => m.id).filter(Boolean);
 
-    await deleteRowsByMatchIds("edges", matchIds);
+    // Limpia edges de partidos finalizados (evita que se acumulen stale en tabla)
+    const { data: finishedMatches } = await sb.from("matches").select("id").eq("status", "finished");
+    const finishedIds = (finishedMatches ?? []).map((m: any) => m.id).filter(Boolean);
+    if (finishedIds.length) await deleteRowsByMatchIds("edges", finishedIds);
+
+    await deleteRowsByMatchIds("edges", scheduledMatchIds);
     await upsertRows("predictions", dbPredRows, { onConflict: "match_id,market,outcome,model_version" });
     await upsertRows("edges", dbEdgeRows, { onConflict: "match_id,market,outcome" });
     return done("predictions", source, logId, edgeRows.length, "Predicciones recalculadas y edges reemplazados.");

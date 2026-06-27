@@ -51,13 +51,18 @@ export interface MarketProbabilities {
   away: number;
   bttsYes: number;
   bttsNo: number;
+  over1_5: number;
+  under1_5: number;
   over2_5: number;
   under2_5: number;
+  over3_5: number;
+  under3_5: number;
 }
 
 /** Deriva probabilidades de mercado a partir de la matriz de marcadores. */
 export function marketsFromMatrix(sm: ScoreMatrix): MarketProbabilities {
-  let home = 0, draw = 0, away = 0, bttsYes = 0, over = 0;
+  let home = 0, draw = 0, away = 0, bttsYes = 0;
+  let over1 = 0, over2 = 0, over3 = 0;
   const { matrix, maxGoals } = sm;
   for (let h = 0; h <= maxGoals; h++) {
     for (let a = 0; a <= maxGoals; a++) {
@@ -66,18 +71,25 @@ export function marketsFromMatrix(sm: ScoreMatrix): MarketProbabilities {
       else if (h === a) draw += p;
       else away += p;
       if (h > 0 && a > 0) bttsYes += p;
-      if (h + a > 2.5) over += p;
+      const total_goals = h + a;
+      if (total_goals > 1.5) over1 += p;
+      if (total_goals > 2.5) over2 += p;
+      if (total_goals > 3.5) over3 += p;
     }
   }
   // Normaliza por la masa truncada (goles > maxGoals)
-  const total = home + draw + away || 1;
+  const norm = home + draw + away || 1;
   return {
-    home: home / total,
-    draw: draw / total,
-    away: away / total,
+    home: home / norm,
+    draw: draw / norm,
+    away: away / norm,
     bttsYes,
     bttsNo: 1 - bttsYes,
-    over2_5: over,
-    under2_5: 1 - over,
+    over1_5: over1,
+    under1_5: 1 - over1,
+    over2_5: over2,
+    under2_5: 1 - over2,
+    over3_5: over3,
+    under3_5: 1 - over3,
   };
 }

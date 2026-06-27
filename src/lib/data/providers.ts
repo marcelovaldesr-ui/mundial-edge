@@ -1,4 +1,7 @@
 import type { Market, Outcome, MatchStatus } from "@/lib/types";
+import { getServiceSupabase } from "@/lib/supabase/server";
+import { fetchSofascoreOdds } from "./sofascore-provider";
+import { normalizeSofascoreOdds } from "./sofascore-normalizer";
 
 // ============================================================
 //  Adaptadores de proveedores externos (modo live).
@@ -52,6 +55,7 @@ export interface ProviderOdd {
   market: Market;
   outcome: Outcome;
   decimal_odds: number;
+  line?: number | null;           // 1.5 / 2.5 / 3.5 for over_under; null otherwise
 }
 
 // ─── Dispatchers públicos (lo que usa sync.ts) ───────────────
@@ -65,7 +69,76 @@ export async function fetchResults(): Promise<ProviderFixture[]> {
   return (await fetchFromFootballData(true)).fixtures;
 }
 export async function fetchOdds(): Promise<ProviderOdd[]> {
-  return oddsProvider() === "api-football" ? fetchOddsApiFootball() : fetchOddsTheOddsApi();
+  // Capa 1: proveedor principal (The Odds API o API-Football)
+  const primary: ProviderOdd[] =
+    oddsProvider() === "api-football" ? await fetchOddsApiFootball() : await fetchOddsTheOddsApi();
+
+  // Capa 2: Sofascore — mercados adicionales (opt-in, no rompe el flujo si falla)
+  if (process.env.SOFASCORE_ENABLED !== "true") return primary;
+
+  let sfOdds: ProviderOdd[] = [];
+  try {
+    sfOdds = await fetchOddsSofascore();
+  } catch (err) {
+    // Circuit abierto o error total — continúa con cuotas primarias
+    console.error("[providers] Sofascore falló, usando solo proveedor principal:", String(err));
+    return primary;
+  }
+
+  // Dedup: Sofascore no añade mercados ya cubiertos por el proveedor primario
+  const covered = new Set(
+    primary.map((o) => `${o.home_name ?? ""}|${o.away_name ?? ""}|${o.market}|${o.outcome}`)
+  );
+  for (const odd of sfOdds) {
+    const key = `${odd.home_name ?? ""}|${odd.away_name ?? ""}|${odd.market}|${odd.outcome}`;
+    if (!covered.has(key)) {
+      primary.push(odd);
+      covered.add(key);
+    }
+  }
+
+  return primary;
+}
+
+/** Lee matches con sofascore_event_id y obtiene cuotas extendidas de Sofascore. */
+async function fetchOddsSofascore(): Promise<ProviderOdd[]> {
+  const sb = getServiceSupabase();
+  if (!sb) return [];
+
+  const { data: matches } = await sb
+    .from("matches")
+    .select("id, sofascore_event_id, home_team_id, away_team_id")
+    .in("status", ["scheduled", "live"])
+    .not("sofascore_event_id", "is", null)
+    .limit(30);
+
+  if (!matches?.length) return [];
+
+  // Nombres de equipos para el ProviderOdd (emparejar luego en sync.ts por nombre)
+  const teamIds = [...new Set(matches.flatMap((m: any) => [m.home_team_id, m.away_team_id]))];
+  const { data: teams } = await sb.from("teams").select("id, name").in("id", teamIds);
+  const teamName = new Map((teams ?? []).map((t: any) => [t.id, t.name as string]));
+
+  const result: ProviderOdd[] = [];
+  for (const match of matches) {
+    const eventId = String(match.sofascore_event_id);
+    const homeName = teamName.get(match.home_team_id) ?? "";
+    const awayName = teamName.get(match.away_team_id) ?? "";
+
+    let rawOdds;
+    try {
+      rawOdds = await fetchSofascoreOdds(eventId);
+    } catch (err) {
+      // Circuit breaker abierto — propaga para cortar el job
+      throw err;
+    }
+
+    if (!rawOdds.length) continue;
+    const normalized = normalizeSofascoreOdds(match.id, homeName, awayName, rawOdds);
+    result.push(...normalized);
+  }
+
+  return result;
 }
 
 const fixturesProvider = () => env("FIXTURES_PROVIDER") ?? "football-data";

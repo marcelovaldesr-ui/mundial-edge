@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getEdges, getMatches, getTeamStats } from "@/lib/data/repository";
 import {
   buildParlayStatModel,
+  buildCandidatePicks,
   edgeToParlayPick,
-  generateParlaysWithDebug,
+  generateParlaysWithFallback,
   generateSuggestedParlays,
   type GenerateParlaysOptions,
   type ParlayProfile,
@@ -24,7 +25,8 @@ export async function GET(request: NextRequest) {
   const config = riskConfig[selectedRisk] ?? riskConfig.balanced;
   const [edges, matches, teamStats] = await Promise.all([getEdges(), getMatches(), getTeamStats()]);
   const statModel = buildParlayStatModel(matches, teamStats, "recommended");
-  const picks = decorateEdgesWithFinalProbability(edges, statModel.predictions).map(edgeToParlayPick);
+  const decoratedEdges = decorateEdgesWithFinalProbability(edges, statModel.predictions);
+  const picks = buildCandidatePicks(decoratedEdges, statModel.predictions, matches);
   const common = {
     scoreMatricesByMatchId: statModel.scoreMatricesByMatchId,
     predictionMetadata: {
@@ -34,7 +36,7 @@ export async function GET(request: NextRequest) {
       warnings: statModel.warnings,
     },
   };
-  const result = generateParlaysWithDebug(picks, {
+  const result = generateParlaysWithFallback(picks, {
     ...common,
     minEdge: minimumEdgeDefault(),
     minConfidence: minimumConfidenceFilter(),
@@ -47,6 +49,9 @@ export async function GET(request: NextRequest) {
     risk: selectedRisk in riskConfig ? selectedRisk : "balanced",
     count: result.parlays.length,
     parlays: result.parlays,
+    relaxedAlternatives: result.relaxedAlternatives,
+    relaxationsApplied: result.relaxationsApplied,
+    emptyStateMessage: result.emptyStateMessage,
     suggestions,
     rejectionCounts: Object.fromEntries(countBy(result.rejected.map((row) => row.reason))),
   });

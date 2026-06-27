@@ -7,6 +7,8 @@ import { StakeRecommendation } from "@/components/stake-recommendation";
 import type { Parlay, ParlayProfile, ParlayRiskLevel } from "@/lib/parlays";
 import { fmtEv, pct } from "@/lib/utils";
 import { modelConfigurationLabel } from "@/lib/stat-model/model-labels";
+import { CopyButton } from "@/components/copy-button";
+import { formatSelectionName } from "@/lib/markets/market-display";
 
 const profileLabel: Record<ParlayProfile, string> = {
   conservative: "Conservadora",
@@ -60,6 +62,7 @@ export function ParlayCard({ parlay, index }: { parlay: Parlay; index: number })
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="outline">Score {parlay.score.toFixed(1)}</Badge>
+            <CopyButton text={parlayToText(parlay)} label="Copiar" />
           </div>
         </div>
       </CardHeader>
@@ -121,6 +124,17 @@ export function ParlayCard({ parlay, index }: { parlay: Parlay; index: number })
       </CardContent>
     </Card>
   );
+}
+
+function parlayToText(parlay: Parlay): string {
+  const legs = parlay.picks
+    .map((pick, index) => `${index + 1}. ${pick.match?.home_team?.code ?? "LOC"}-${pick.match?.away_team?.code ?? "VIS"} · ${formatSelectionName(pick)} @ ${pick.odds.toFixed(2)}`)
+    .join("\n");
+  return [
+    `Combinada ${profileLabel[parlay.profile]} — cuota ${parlay.totalOdds.toFixed(2)} · prob ${pct(parlay.jointProbabilityAdjusted)} · EV ${fmtEv(parlay.ev)}`,
+    legs,
+    "Análisis probabilístico, no asesoría financiera.",
+  ].join("\n");
 }
 
 function formatMoney(value: number): string {

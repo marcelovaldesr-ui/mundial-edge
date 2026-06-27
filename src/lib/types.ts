@@ -41,11 +41,18 @@ export interface TeamStats {
   ga_per_game: number;
 }
 
-export type Market = "1x2" | "btts" | "over_under_2_5";
+export type Market =
+  | "1x2"
+  | "btts"
+  | "over_under_2_5"
+  | "over_under_1_5"
+  | "over_under_3_5"
+  | "double_chance";
 export type Outcome =
   | "home" | "draw" | "away"            // 1x2
   | "yes" | "no"                        // btts
-  | "over" | "under";                   // over/under
+  | "over" | "under"                    // over/under
+  | "1x" | "x2" | "12";               // double_chance
 
 export interface Odd {
   id: string;
@@ -54,7 +61,8 @@ export interface Odd {
   market: Market;
   outcome: Outcome;
   decimal_odds: number;
-  source: string;          // "the-odds-api" | "mock" | ...
+  line?: number | null;    // 1.5 / 2.5 / 3.5 for over_under; null otherwise
+  source: string;          // "the-odds-api" | "sofascore" | "mock" | ...
   fetched_at: string;      // ISO
 }
 

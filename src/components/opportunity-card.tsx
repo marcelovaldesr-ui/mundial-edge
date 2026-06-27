@@ -5,7 +5,6 @@ import { ExpectedValueIndicator } from "@/components/expected-value-indicator";
 import { marketLabel, outcomeLabel } from "@/components/outcome-label";
 import { ProbabilityBar } from "@/components/probability-bar";
 import { RiskBadge } from "@/components/risk-badge";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import type { StatModelConfidence } from "@/lib/stat-model";
 import type { Edge } from "@/lib/types";
@@ -22,76 +21,93 @@ export function OpportunityCard({
 }) {
   const match = edge.match;
   const matchLabel = match
-    ? `${match.home_team?.code ?? "LOC"}-${match.away_team?.code ?? "VIS"}`
+    ? `${match.home_team?.code ?? "LOC"} vs ${match.away_team?.code ?? "VIS"}`
     : "Partido";
   const finalProbability = edge.final_probability ?? edge.model_probability;
   const finalEv = edge.final_expected_value ?? edge.expected_value;
   const finalEdge = edge.final_edge ?? edge.edge;
-  const potential = edge.decimal_odds * finalProbability;
 
   return (
-    <Card className="overflow-hidden bg-card/90">
-      <CardContent className="p-0">
-        <div className="border-b border-border bg-muted/20 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline">#{rank}</Badge>
-                <Badge variant="outline">{matchLabel}</Badge>
-                <RiskBadge tier={edge.final_tier ?? edge.tier} />
-                {confidence && <ConfidenceBadge confidence={confidence} />}
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold">
-                  {outcomeLabel(edge.market, edge.outcome, match)}
-                </h3>
-                <p className="text-sm text-muted-foreground">{marketLabel(edge.market)} · {edge.bookmaker}</p>
-              </div>
+    <Card className="overflow-hidden border-border bg-card">
+      {/* Header: partido + cuota */}
+      <div className="border-b border-border bg-background/40 px-4 py-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1.5">
+            {/* Rank + match identifier */}
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[10px] text-muted-foreground">#{String(rank).padStart(2, "0")}</span>
+              <span className="section-label">{matchLabel}</span>
+              <RiskBadge tier={edge.final_tier ?? edge.tier} />
+              {confidence && <ConfidenceBadge confidence={confidence} />}
             </div>
-            <div className="text-right">
-              <p className="text-3xl font-bold tabular-nums">{edge.decimal_odds.toFixed(2)}</p>
-              <p className="text-xs text-muted-foreground">cuota mercado</p>
-            </div>
+            {/* Outcome */}
+            <h3 className="text-base font-semibold leading-tight">
+              {outcomeLabel(edge.market, edge.outcome, match)}
+            </h3>
+            <p className="font-mono text-[10px] text-muted-foreground">
+              {marketLabel(edge.market)} · {edge.bookmaker}
+            </p>
+          </div>
+          {/* Odds — dato más importante, máxima jerarquía */}
+          <div className="text-right">
+            <p className="font-mono text-3xl font-bold tabular-nums text-foreground">
+              {edge.decimal_odds.toFixed(2)}
+            </p>
+            <p className="section-label mt-0.5">CUOTA</p>
           </div>
         </div>
+      </div>
 
-        <div className="space-y-4 p-4">
-          <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
-            <ProbabilityBar label="Probabilidad final calibrada" value={finalProbability} tone="success" />
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <Metric label="Mercado devig" value={pct(edge.implied_probability)} />
-              <Metric label="Modelo base persistido" value={pct(edge.model_probability)} />
-              <Metric label="Retorno estimado" value={`${potential.toFixed(2)}x`} />
-            </div>
-          </div>
+      {/* Body: probabilidades + EV */}
+      <CardContent className="p-4 space-y-4">
+        {/* Barra de probabilidad comparativa */}
+        <ProbabilityBar
+          label="Prob. modelo vs. mercado"
+          modelValue={finalProbability}
+          marketValue={edge.implied_probability}
+        />
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <ExpectedValueIndicator ev={finalEv} edge={finalEdge} />
-            {match && (
-              <Link
-                href={`/matches/${match.id}`}
-                className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-              >
-                Ver partido <ArrowUpRight className="h-3.5 w-3.5" />
-              </Link>
-            )}
-          </div>
+        {/* Grid métricas secundarias */}
+        <div className="grid grid-cols-3 gap-2">
+          <Metric label="MODELO BASE" value={pct(edge.model_probability)} />
+          <Metric label="PROB. FINAL" value={pct(finalProbability)} accent />
+          <Metric label="DEVIG" value={pct(edge.implied_probability)} muted />
+        </div>
 
-          <p className="text-sm text-muted-foreground">
-            {edge.final_probability_explanation ??
-              "Aparece destacada porque supera filtros de calidad: EV razonable, cuota utilizable y probabilidad final calibrada."}
+        {/* EV + link */}
+        <div className="flex items-center justify-between border-t border-border pt-3">
+          <ExpectedValueIndicator ev={finalEv} edge={finalEdge} />
+          {match && (
+            <Link
+              href={`/matches/${match.id}`}
+              className="inline-flex items-center gap-1 font-mono text-[10px] text-muted-foreground hover:text-primary"
+            >
+              DETALLE <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+            </Link>
+          )}
+        </div>
+
+        {/* Explicación del modelo */}
+        {edge.final_probability_explanation && (
+          <p className="text-xs text-muted-foreground border-t border-border pt-3">
+            {edge.final_probability_explanation}
           </p>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({ label, value, accent, muted }: { label: string; value: string; accent?: boolean; muted?: boolean }) {
   return (
-    <div className="rounded-md bg-muted/30 p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="font-semibold tabular-nums">{value}</p>
+    <div className="rounded border border-border bg-background/30 p-2.5">
+      <p className="section-label">{label}</p>
+      <p className={[
+        "mt-1.5 font-mono text-sm font-semibold tabular-nums",
+        accent ? "text-accent-foreground" : muted ? "text-muted-foreground" : "text-foreground",
+      ].join(" ")}>
+        {value}
+      </p>
     </div>
   );
 }

@@ -3,36 +3,85 @@
 @tailwind utilities;
 
 :root {
-  /* Tema oscuro tipo dashboard financiero/deportivo */
-  --background: 222 30% 7%;
-  --foreground: 210 20% 96%;
-  --card: 222 28% 10%;
-  --card-foreground: 210 20% 96%;
-  --primary: 199 89% 52%;          /* cian eléctrico */
-  --primary-foreground: 222 47% 8%;
-  --secondary: 217 24% 18%;
-  --secondary-foreground: 210 20% 96%;
-  --muted: 217 20% 16%;
-  --muted-foreground: 215 16% 60%;
-  --accent: 217 24% 18%;
-  --accent-foreground: 210 20% 96%;
-  --border: 217 22% 18%;
-  --input: 217 22% 18%;
-  --ring: 199 89% 52%;
-  --success: 152 62% 45%;
-  --success-foreground: 152 60% 12%;
-  --warning: 38 92% 55%;
-  --warning-foreground: 38 80% 12%;
-  --danger: 0 72% 55%;
-  --danger-foreground: 0 60% 12%;
-  --radius: 0.6rem;
+  /* ── Fondos ────────────────────────────────── */
+  --background:          222 47% 5%;
+  --foreground:          214 32% 91%;
+
+  /* ── Superficies ──────────────────────────── */
+  --card:                220 42% 8%;
+  --card-foreground:     214 32% 91%;
+
+  /* ── Bordes ────────────────────────────────── */
+  --border:              217 35% 14%;
+  --input:               217 35% 14%;
+
+  /* ── Primario: AMBER — reemplaza el cian ───── */
+  --primary:             38 92% 52%;
+  --primary-foreground:  222 47% 5%;
+
+  /* ── Secundario ─────────────────────────────── */
+  --secondary:           217 30% 12%;
+  --secondary-foreground: 214 20% 75%;
+
+  /* ── Muted ──────────────────────────────────── */
+  --muted:               217 25% 11%;
+  --muted-foreground:    215 15% 50%;
+
+  /* ── Acento (azul-acero para datos del modelo) */
+  --accent:              211 55% 18%;
+  --accent-foreground:   211 75% 72%;
+  --ring:                38 92% 52%;
+
+  /* ── Semánticos ─────────────────────────────── */
+  --success:             158 60% 36%;
+  --success-foreground:  158 60% 88%;
+  --warning:             38 80% 52%;
+  --warning-foreground:  222 47% 5%;
+  --danger:              0 62% 46%;
+  --danger-foreground:   0 62% 92%;
+
+  /* ── Geometría ──────────────────────────────── */
+  --radius: 0.25rem;
 }
 
+html { color-scheme: dark; }
+
 * { border-color: hsl(var(--border)); }
+
 body {
-  background:
-    radial-gradient(1200px 600px at 80% -10%, hsl(199 89% 52% / 0.08), transparent),
-    hsl(var(--background));
+  background: hsl(var(--background));
   color: hsl(var(--foreground));
+  font-family: var(--font-sans), system-ui, sans-serif;
   font-feature-settings: "cv02","cv03","cv04","cv11";
+}
+
+/* Tipografía monoespaciada para datos */
+.font-mono,
+td,
+[class*="tabular-nums"] {
+  font-family: var(--font-mono), "JetBrains Mono", "Courier New", monospace;
+}
+
+/* Labels de sección estilo terminal */
+.section-label {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Línea separadora estilo terminal */
+.terminal-divider {
+  border-top: 1px solid hsl(var(--border));
+  position: relative;
+}
+.terminal-divider::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 2rem;
+  height: 1px;
+  background: hsl(var(--primary));
 }

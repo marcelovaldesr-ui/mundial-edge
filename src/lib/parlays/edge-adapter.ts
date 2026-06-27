@@ -16,6 +16,7 @@ export function edgeToParlayPick(edge: Edge): ParlayPick {
     market: edge.market,
     selection: edge.outcome,
     odds: edge.decimal_odds,
+    oddsType: "real",
     marketProb: edge.implied_probability,
     anchoredProb: probability,
     probability,

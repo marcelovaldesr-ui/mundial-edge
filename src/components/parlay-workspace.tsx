@@ -6,25 +6,45 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   generateParlaysWithDebug,
+  generateParlaysWithFallback,
   generateSuggestedParlays,
   PARLAY_PROFILE_RULES,
   sortAndFilterParlays,
   type Parlay,
+  type RelaxedParlay,
   type ParlayFilters,
   type ParlayPick,
   type ParlayProfile,
+  type ParlayConfidence,
   type GenerateParlaysOptions,
   type ParlayRiskLevel,
   type ParlaySortKey,
   type RejectedParlayCandidate,
 } from "@/lib/parlays";
+import type { Market } from "@/lib/types";
 import type { ScoreMatrix, StatModelCoverage } from "@/lib/stat-model";
 import { formatMarketWithLine, formatSelectionName, marketDistributionKey } from "@/lib/markets/market-display";
 import { fmtEv, pct } from "@/lib/utils";
 
 const profiles: ParlayProfile[] = ["conservative", "balanced", "aggressive"];
+
+const ALL_MARKETS: Market[] = ["1x2", "btts", "over_under_2_5"];
+const marketLabels: Record<Market, string> = {
+  "1x2": "1X2 — Local / Empate / Visitante",
+  "btts": "Ambos marcan — Sí / No",
+  "over_under_2_5": "Más/Menos 2.5 goles",
+  "over_under_1_5": "Más/Menos 1.5 goles",
+  "over_under_3_5": "Más/Menos 3.5 goles",
+  "double_chance": "Doble oportunidad",
+};
+const confidenceLabels: Record<ParlayConfidence, string> = {
+  low: "Baja",
+  medium: "Media",
+  high: "Alta",
+};
 const riskGenerationOptions: Record<ParlayProfile, Pick<GenerateParlaysOptions, "minEdge" | "minConfidence" | "allowLowConfidence">> = {
-  conservative: { minEdge: 0.05, minConfidence: "medium", allowLowConfidence: false },
+  // conservative bajado de 5% → 3%: el 5% excluía edges reales en mercado eficiente del Mundial.
+  conservative: { minEdge: 0.03, minConfidence: "medium", allowLowConfidence: false },
   balanced: { minEdge: 0.02, minConfidence: "low", allowLowConfidence: true },
   aggressive: { minEdge: 0, minConfidence: "low", allowLowConfidence: true },
 };
@@ -80,6 +100,14 @@ export function ParlayWorkspace({
   const [bankrollInput, setBankrollInput] = useState("");
   const [sortKey, setSortKey] = useState<ParlaySortKey>("score");
   const [showDebug, setShowDebug] = useState(initialDebug ?? false);
+  const [excludeEstimated, setExcludeEstimated] = useState(false);
+  const [allowSameMatch, setAllowSameMatch] = useState(false);
+  const [maxLegsInput, setMaxLegsInput] = useState("");
+  // Builder manual
+  const [builderMode, setBuilderMode] = useState(false);
+  const [manualMinEdge, setManualMinEdge] = useState("");
+  const [manualMinConfidence, setManualMinConfidence] = useState<ParlayConfidence | "">("");
+  const [manualMarkets, setManualMarkets] = useState<Set<Market>>(new Set(ALL_MARKETS));
   const [filters, setFilters] = useState({
     maxRisk: "",
     minOdds: "",
@@ -90,18 +118,47 @@ export function ParlayWorkspace({
     legs: "",
   });
   const bankroll = parseBankroll(bankrollInput);
+  const maxLegs = parseInteger(maxLegsInput) ?? undefined;
   const rules = PARLAY_PROFILE_RULES[profile];
+  const [targetOdds, setTargetOdds] = useState({ min: "", max: "" });
+  const effectiveTargetOdds = useMemo(() => {
+    const min = parsePositive(targetOdds.min) ?? rules.targetOddsRange[0];
+    const max = parsePositive(targetOdds.max) ?? rules.targetOddsRange[1];
+    return max > min ? { min, max } : { min: rules.targetOddsRange[0], max: rules.targetOddsRange[1] };
+  }, [targetOdds, rules]);
+
+  // Merge builder overrides on top of profile defaults
+  const effectiveGenerationOptions = useMemo(() => {
+    const base = riskGenerationOptions[profile];
+    if (!builderMode) return base;
+    const parsedEdge = parsePercent(manualMinEdge);
+    const effectiveConf = manualMinConfidence || undefined;
+    const marketsArray = Array.from(manualMarkets) as Market[];
+    const allowedMarkets = marketsArray.length > 0 && marketsArray.length < ALL_MARKETS.length
+      ? marketsArray
+      : undefined;
+    return {
+      minEdge: parsedEdge ?? base.minEdge,
+      minConfidence: effectiveConf ?? base.minConfidence,
+      allowLowConfidence: effectiveConf === "low" ? true : effectiveConf ? false : base.allowLowConfidence,
+      allowedMarkets,
+    };
+  }, [builderMode, profile, manualMinEdge, manualMinConfidence, manualMarkets]);
 
   const generated = useMemo(
-    () => generateParlaysWithDebug(picks, {
+    () => generateParlaysWithFallback(picks, {
       profile,
-      ...riskGenerationOptions[profile],
+      ...effectiveGenerationOptions,
       maxResults: 30,
       bankroll,
+      targetOdds: effectiveTargetOdds,
+      excludeEstimated,
+      allowSameMatch,
+      maxLegs,
       scoreMatricesByMatchId,
       predictionMetadata,
     }),
-    [picks, profile, bankroll, scoreMatricesByMatchId, predictionMetadata]
+    [picks, profile, effectiveGenerationOptions, bankroll, effectiveTargetOdds, excludeEstimated, allowSameMatch, maxLegs, scoreMatricesByMatchId, predictionMetadata]
   );
   const profileCounts = useMemo(() => Object.fromEntries(profiles.map((item) => [
     item,
@@ -109,10 +166,13 @@ export function ParlayWorkspace({
       profile: item,
       ...riskGenerationOptions[item],
       maxResults: 30,
+      excludeEstimated,
+      allowSameMatch,
+      maxLegs,
       scoreMatricesByMatchId,
       predictionMetadata,
     }).parlays.length,
-  ])) as Record<ParlayProfile, number>, [picks, scoreMatricesByMatchId, predictionMetadata]);
+  ])) as Record<ParlayProfile, number>, [picks, excludeEstimated, allowSameMatch, maxLegs, scoreMatricesByMatchId, predictionMetadata]);
   const suggestions = useMemo(() => generateSuggestedParlays(picks, {
     scoreMatricesByMatchId,
     predictionMetadata,
@@ -121,6 +181,10 @@ export function ParlayWorkspace({
   const parlays = useMemo(
     () => sortAndFilterParlays(generated.parlays, activeFilters, sortKey).slice(0, 30),
     [generated.parlays, activeFilters, sortKey]
+  );
+  const relaxedAlternatives = useMemo(
+    () => sortAndFilterParlays(generated.relaxedAlternatives, activeFilters, sortKey).slice(0, 10) as RelaxedParlay[],
+    [generated.relaxedAlternatives, activeFilters, sortKey]
   );
   const summary = summarize(parlays);
   const matrixCount = generated.parlays.filter((parlay) => parlay.correlationMethod === "score_matrix").length;
@@ -170,28 +234,213 @@ export function ParlayWorkspace({
                 <Badge variant="outline">EV {(rules.minEV * 100).toFixed(1)}-{(rules.maxEV * 100).toFixed(0)}%</Badge>
               </div>
               <p className="mt-2 text-sm text-muted-foreground">{profileCopy[profile].text}</p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <FilterInput label={`Cuota objetivo mín. (def. ${rules.targetOddsRange[0]})`} value={targetOdds.min} onChange={(value) => setTargetOdds((x) => ({ ...x, min: value }))} />
+                <FilterInput label={`Cuota objetivo máx. (def. ${rules.targetOddsRange[1]})`} value={targetOdds.max} onChange={(value) => setTargetOdds((x) => ({ ...x, max: value }))} />
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                La cuota objetivo guía la construcción: las combinadas cercanas a {effectiveTargetOdds.min.toFixed(2)}–{effectiveTargetOdds.max.toFixed(2)} se priorizan en el ranking.
+              </p>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor="bankroll">Bankroll opcional</label>
-            <input
-              id="bankroll"
-              value={bankrollInput}
-              onChange={(event) => setBankrollInput(event.target.value)}
-              inputMode="decimal"
-              placeholder="Ej. 100000"
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-            <p className="text-xs text-muted-foreground">
-              {bankroll
-                ? `Stake estimado calculado sobre ${formatMoney(bankroll)}.`
-                : "Vacío o inválido: se muestran unidades, sin monto monetario."}
-            </p>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="bankroll">Bankroll opcional</label>
+              <input
+                id="bankroll"
+                value={bankrollInput}
+                onChange={(event) => setBankrollInput(event.target.value)}
+                inputMode="decimal"
+                placeholder="Ej. 100000"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+              <p className="text-xs text-muted-foreground">
+                {bankroll
+                  ? `Stake estimado calculado sobre ${formatMoney(bankroll)}.`
+                  : "Vacío o inválido: se muestran unidades, sin monto monetario."}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Opciones del generador</p>
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground" htmlFor="maxLegs">Máx. selecciones por combinada</label>
+                  <input
+                    id="maxLegs"
+                    value={maxLegsInput}
+                    onChange={(event) => setMaxLegsInput(event.target.value)}
+                    inputMode="numeric"
+                    placeholder={`Def. ${rules.maxLegs} (por perfil)`}
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={excludeEstimated}
+                    onChange={(event) => setExcludeEstimated(event.target.checked)}
+                    className="accent-primary"
+                  />
+                  Excluir cuota estimada
+                  <span className="text-xs">(solo cuota real)</span>
+                </label>
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={allowSameMatch}
+                    onChange={(event) => setAllowSameMatch(event.target.checked)}
+                    className="accent-primary"
+                  />
+                  Permitir picks del mismo partido
+                </label>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
 
+      {/* ── Builder manual ─────────────────────────────────────────── */}
+      <Card>
+        <CardContent className="pt-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-semibold">Configuración manual</h2>
+              <p className="text-sm text-muted-foreground">
+                Sobrescribe el perfil con parámetros específicos de edge, confianza y mercados.
+              </p>
+            </div>
+            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+              <input
+                type="checkbox"
+                checked={builderMode}
+                onChange={(e) => setBuilderMode(e.target.checked)}
+                className="accent-primary h-4 w-4"
+              />
+              Activar
+            </label>
+          </div>
+
+          {builderMode && (
+            <div className="grid gap-5 lg:grid-cols-3 border-t border-border pt-4">
+              {/* Col 1 — Edge mínimo */}
+              <div className="space-y-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Edge mínimo</p>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground" htmlFor="builder-min-edge">
+                    Valor en % (def. perfil: {((riskGenerationOptions[profile].minEdge ?? 0.02) * 100).toFixed(0)}%)
+                  </label>
+                  <input
+                    id="builder-min-edge"
+                    value={manualMinEdge}
+                    onChange={(e) => setManualMinEdge(e.target.value)}
+                    inputMode="decimal"
+                    placeholder={`Ej. ${((riskGenerationOptions[profile].minEdge ?? 0.02) * 100).toFixed(0)}`}
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  0% = acepta picks sin edge positivo.{" "}
+                  {parsePercent(manualMinEdge) != null && (
+                    <span className="text-primary font-medium">
+                      Activo: {manualMinEdge}%
+                    </span>
+                  )}
+                </p>
+              </div>
+
+              {/* Col 2 — Confianza mínima */}
+              <div className="space-y-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Confianza mínima</p>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground" htmlFor="builder-confidence">
+                    Def. perfil: {confidenceLabels[riskGenerationOptions[profile].minConfidence ?? "low"]}
+                  </label>
+                  <select
+                    id="builder-confidence"
+                    value={manualMinConfidence}
+                    onChange={(e) => setManualMinConfidence(e.target.value as ParlayConfidence | "")}
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                  >
+                    <option value="">Usar la del perfil</option>
+                    {(["low", "medium", "high"] as ParlayConfidence[]).map((c) => (
+                      <option key={c} value={c}>{confidenceLabels[c]}</option>
+                    ))}
+                  </select>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Confianza alta → menos picks pero mejor calidad.
+                  {manualMinConfidence && (
+                    <span className="text-primary font-medium"> Activo: {confidenceLabels[manualMinConfidence]}</span>
+                  )}
+                </p>
+              </div>
+
+              {/* Col 3 — Mercados */}
+              <div className="space-y-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Mercados permitidos</p>
+                <div className="space-y-2">
+                  {ALL_MARKETS.map((market) => (
+                    <label key={market} className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={manualMarkets.has(market)}
+                        onChange={(e) => {
+                          const next = new Set(manualMarkets);
+                          if (e.target.checked) next.add(market);
+                          else next.delete(market);
+                          setManualMarkets(next);
+                        }}
+                        className="accent-primary h-4 w-4"
+                      />
+                      {marketLabels[market]}
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {manualMarkets.size === ALL_MARKETS.length
+                    ? "Todos los mercados activos."
+                    : manualMarkets.size === 0
+                    ? "⚠ Sin mercados: el pool quedará vacío."
+                    : `${manualMarkets.size} de ${ALL_MARKETS.length} mercados activos.`}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {builderMode && (
+            <div className="rounded-md bg-muted/30 border border-border px-3 py-2 text-xs text-muted-foreground flex flex-wrap gap-3">
+              <span>
+                Edge mín.:{" "}
+                <span className="font-medium text-foreground">
+                  {parsePercent(manualMinEdge) != null
+                    ? `${manualMinEdge}%`
+                    : `${((riskGenerationOptions[profile].minEdge ?? 0.02) * 100).toFixed(0)}% (perfil)`}
+                </span>
+              </span>
+              <span>
+                Confianza:{" "}
+                <span className="font-medium text-foreground">
+                  {manualMinConfidence ? confidenceLabels[manualMinConfidence] : `${confidenceLabels[riskGenerationOptions[profile].minConfidence ?? "low"]} (perfil)`}
+                </span>
+              </span>
+              <span>
+                Mercados:{" "}
+                <span className="font-medium text-foreground">
+                  {manualMarkets.size === ALL_MARKETS.length
+                    ? "Todos"
+                    : manualMarkets.size === 0
+                    ? "Ninguno"
+                    : Array.from(manualMarkets).join(", ")}
+                </span>
+              </span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Filtros de display ──────────────────────────────────────── */}
       <Card>
         <CardContent className="grid gap-4 pt-5 lg:grid-cols-[1fr_2fr]">
           <div className="space-y-2">
@@ -303,10 +552,43 @@ export function ParlayWorkspace({
           <ParlayCard key={parlay.id} parlay={parlay} index={index} />
         ))}
         {parlays.length === 0 && (
-          <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
-            No hay combinadas recomendadas para este perfil con los filtros actuales. Es una salida válida:
-            el motor prefiere no forzar combinadas cuando la probabilidad, EV o correlación no compensan.
+          <div className="space-y-3 rounded-lg border border-border bg-card p-6">
+            <p className="text-sm font-medium text-foreground">
+              {generated.emptyStateMessage ?? "No hay combinadas que cumplan los filtros actuales."}
+            </p>
+            {generated.relaxationsApplied.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Relajamos automáticamente: {generated.relaxationsApplied.join(" · ")}.
+              </p>
+            )}
+            {rejectionSummary(generated.rejected).length > 0 && (
+              <div className="text-xs text-muted-foreground">
+                <p className="font-medium text-foreground">Por qué se descartaron candidatas:</p>
+                <ul className="mt-1 list-inside list-disc">
+                  {rejectionSummary(generated.rejected).map((row) => (
+                    <li key={row.reason}>{rejectionLabel(row.reason)} · {row.count}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
+        )}
+
+        {parlays.length === 0 && relaxedAlternatives.length > 0 && (
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="warning">Alternativas relajadas</Badge>
+              <p className="text-xs text-muted-foreground">Opciones subóptimas pero válidas, con restricciones aflojadas.</p>
+            </div>
+            <div className="grid gap-4">
+              {relaxedAlternatives.map((parlay, index) => (
+                <div key={parlay.id} className="space-y-1">
+                  <p className="text-xs text-warning">Alternativa relajada — {parlay.relaxedRule}.</p>
+                  <ParlayCard parlay={parlay} index={index} />
+                </div>
+              ))}
+            </div>
+          </section>
         )}
       </div>
 
@@ -614,4 +896,34 @@ function DistributionList({ title, rows }: { title: string; rows: Array<{ label:
       </div>
     </div>
   );
+}
+
+
+const rejectionLabels: Record<string, string> = {
+  pick_duplicated: "Pick duplicado",
+  pick_expired: "Pick no pre-partido",
+  pick_invalid: "Pick fuera de rango",
+  edge_below_minimum: "Edge por debajo del mínimo",
+  confidence_below_minimum: "Confianza insuficiente",
+  candidate_limit: "Límite de candidatos por partido",
+  joint_probability_too_low: "Probabilidad conjunta baja",
+  ev_out_of_range: "EV fuera de rango",
+  risk_too_high: "Riesgo demasiado alto",
+  total_odds_too_high: "Cuota total demasiado alta",
+  invalid_correlation: "Correlación inválida",
+  same_match_overload: "Demasiados picks del mismo partido",
+  same_market_contradiction: "Selecciones contradictorias",
+};
+
+function rejectionLabel(reason: string): string {
+  return rejectionLabels[reason] ?? reason;
+}
+
+function rejectionSummary(rejected: RejectedParlayCandidate[]): Array<{ reason: string; count: number }> {
+  const counts = new Map<string, number>();
+  for (const item of rejected) counts.set(item.reason, (counts.get(item.reason) ?? 0) + 1);
+  return Array.from(counts.entries())
+    .map(([reason, count]) => ({ reason, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
 }

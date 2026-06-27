@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-19T02:30:48.393Z",
+  "generatedAt": "2026-06-26T04:22:50.116Z",
   "corpus": {
     "firstWorldCup": 1998,
     "lastWorldCup": 2022,
@@ -88,7 +88,7 @@
       "metrics": {
         "count": 64,
         "brierScore": 0.6166179609270445,
-        "logLoss": 1.041595850631953,
+        "logLoss": 1.0415958506319527,
         "rankedProbabilityScore": 0.20001291240098773,
         "accuracy": 0.515625
       }
@@ -99,7 +99,7 @@
         "count": 64,
         "brierScore": 0.5477992972330025,
         "logLoss": 0.9463400085800038,
-        "rankedProbabilityScore": 0.17551399836559162,
+        "rankedProbabilityScore": 0.17551399836559164,
         "accuracy": 0.625
       }
     },
@@ -119,7 +119,7 @@
         "count": 64,
         "brierScore": 0.5989216067143781,
         "logLoss": 1.0120499978869173,
-        "rankedProbabilityScore": 0.19900423279334117,
+        "rankedProbabilityScore": 0.1990042327933412,
         "accuracy": 0.578125
       }
     },
@@ -127,7 +127,7 @@
       "tournament": 2018,
       "metrics": {
         "count": 64,
-        "brierScore": 0.5769633801962413,
+        "brierScore": 0.5769633801962414,
         "logLoss": 0.976098435159263,
         "rankedProbabilityScore": 0.20297593562869126,
         "accuracy": 0.609375
@@ -198,7 +198,7 @@
       "label": "Ambos marcan",
       "metrics": {
         "count": 448,
-        "brierScore": 0.3312780164750199,
+        "brierScore": 0.33127801647502003,
         "logLoss": 0.8805698790595535,
         "rankedProbabilityScore": null,
         "accuracy": 0.46875
@@ -210,7 +210,7 @@
     {
       "market": "home_win",
       "label": "Victoria local",
-      "expectedCalibrationError": 0.09989582911203729,
+      "expectedCalibrationError": 0.09989582911203732,
       "bins": [
         {
           "bin": 0,
@@ -256,7 +256,7 @@
           "bin": 5,
           "lower": 0.5,
           "upper": 0.6,
-          "meanPredicted": 0.5392560240310266,
+          "meanPredicted": 0.5392560240310265,
           "actualFrequency": 0.6354166666666666,
           "count": 96
         },
@@ -297,7 +297,7 @@
     {
       "market": "over_2_5",
       "label": "Más de 2.5",
-      "expectedCalibrationError": 0.3304819262373538,
+      "expectedCalibrationError": 0.33048192623735395,
       "bins": [
         {
           "bin": 0,
@@ -359,7 +359,7 @@
           "bin": 7,
           "lower": 0.7,
           "upper": 0.8,
-          "meanPredicted": 0.78217983940921,
+          "meanPredicted": 0.7821798394092102,
           "actualFrequency": 0.4340175953079179,
           "count": 341
         },

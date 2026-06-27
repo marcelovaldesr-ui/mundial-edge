@@ -275,7 +275,8 @@ function matchPrediction() {
   assert("scoreMatrix" in matrixCalibrated && matrixCalibrated.lambdas.calibrated.away === matrixCalibrated.scoreMatrix.awayExpectedGoals, "Calibrated away lambda must build the returned matrix.");
   assert("scoreMatrix" in matrixCalibrated && matrixCalibrated.markets === matrixCalibrated.marketProbabilities, "Markets alias must expose the matrix-derived probabilities.");
 
-  const matrices = buildScoreMatricesByMatchId([match], [homeStats, awayStats]);
+  const matrixOptions = { generatedAt: "2026-06-17T00:00:00Z" };
+  const matrices = buildScoreMatricesByMatchId([match], [homeStats, awayStats], matrixOptions);
   assert(matrices.scoreMatricesByMatchId.m1, "Expected score matrix keyed by match id");
   assert(matrices.coverage.totalPreMatch === 1 && matrices.coverage.withScoreMatrix === 1, "Expected coverage counts");
 
@@ -287,7 +288,7 @@ function matchPrediction() {
     home_team: match.away_team,
     away_team: match.home_team,
   };
-  const twoMatches = buildScoreMatricesByMatchId([match, secondMatch], [homeStats, awayStats]);
+  const twoMatches = buildScoreMatricesByMatchId([match, secondMatch], [homeStats, awayStats], matrixOptions);
   const firstMatrix = twoMatches.scoreMatricesByMatchId.m1;
   const secondMatrix = twoMatches.scoreMatricesByMatchId.m2;
   assert(firstMatrix !== secondMatrix, "Each match must own a distinct score matrix object.");

@@ -29,6 +29,7 @@ function pick(id: string, market: ParlayPick["market"], selection: ParlayPick["s
     market,
     selection,
     odds: 1.8,
+    oddsType: "real",
     marketProb: 0.52,
     anchoredProb: 0.58,
     probability: 0.58,

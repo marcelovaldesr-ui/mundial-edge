@@ -6,3 +6,5 @@ node_modules
 .tmp
 *.tsbuildinfo
 next-env.d.ts
+
+.vercel

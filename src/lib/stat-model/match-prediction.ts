@@ -84,6 +84,12 @@ export interface StatModelCoverage {
   issues: MatrixBuildIssue[];
 }
 
+export interface EnvironmentModifier {
+  homeMultiplier: number;
+  awayMultiplier: number;
+  notes?: string[];
+}
+
 export interface BuildScoreMatrixOptions {
   maxGoals?: number;
   leagueAvgGoals?: number;
@@ -100,6 +106,10 @@ export interface BuildScoreMatrixOptions {
   predictionConfig?: PredictionConfigInput;
   /** Explicit override for CALIBRATION_TEMPERATURE when temperature scaling is active. */
   calibrationTemperature?: number;
+  /** Per-match lambda multipliers from altitude, weather, and fatigue. */
+  environmentModifier?: EnvironmentModifier;
+  /** Per-match modifiers indexed by match ID, for buildScoreMatricesByMatchId. */
+  environmentModifiersByMatchId?: Map<string, EnvironmentModifier>;
 }
 
 export interface BuildScoreMatricesResult {
@@ -147,18 +157,26 @@ export function buildScoreMatrixForMatch(
   });
   const xg = xgWithComponents.details;
   const warnings = [...config.warnings, ...confidenceWarnings(homeStats, awayStats, xg.homeRating, xg.awayRating, groupContext)];
+  const envMod = options.environmentModifier;
+  const homeXg = envMod
+    ? Math.max(0.1, Math.min(4.5, xg.homeExpectedGoals * envMod.homeMultiplier))
+    : xg.homeExpectedGoals;
+  const awayXg = envMod
+    ? Math.max(0.1, Math.min(4.5, xg.awayExpectedGoals * envMod.awayMultiplier))
+    : xg.awayExpectedGoals;
+
   const temperature = variant.temperatureScaling
     ? resolveCalibrationTemperature(options.calibrationTemperature)
     : null;
   const temperatureResult = temperature == null ? null : createCalibratedScoreMatrix(
-    xg.homeExpectedGoals,
-    xg.awayExpectedGoals,
+    homeXg,
+    awayXg,
     temperature,
     options.maxGoals ?? 12
   );
   const poissonMatrix = temperatureResult?.scoreMatrix ?? createScoreMatrix({
-    homeExpectedGoals: xg.homeExpectedGoals,
-    awayExpectedGoals: xg.awayExpectedGoals,
+    homeExpectedGoals: homeXg,
+    awayExpectedGoals: awayXg,
     maxGoals: options.maxGoals ?? 12,
   });
   const scoreMatrix = variant.dixonColesRho == null
@@ -203,8 +221,8 @@ export function buildScoreMatrixForMatch(
     groupContext,
   });
   const probabilityIntervals = calculateMarketProbabilityIntervals({
-    lambdaHome: temperatureResult?.lambdaHomeCal ?? xg.homeExpectedGoals,
-    lambdaAway: temperatureResult?.lambdaAwayCal ?? xg.awayExpectedGoals,
+    lambdaHome: temperatureResult?.lambdaHomeCal ?? homeXg,
+    lambdaAway: temperatureResult?.lambdaAwayCal ?? awayXg,
     homeGamesPlayed: homeStats.matches_played,
     awayGamesPlayed: awayStats.matches_played,
     priorWeight,
@@ -229,8 +247,8 @@ export function buildScoreMatrixForMatch(
     matchId: match.id,
     homeTeam: { id: match.home_team.id, name: match.home_team.name, code: match.home_team.code },
     awayTeam: { id: match.away_team.id, name: match.away_team.name, code: match.away_team.code },
-    homeExpectedGoals: xg.homeExpectedGoals,
-    awayExpectedGoals: xg.awayExpectedGoals,
+    homeExpectedGoals: homeXg,
+    awayExpectedGoals: awayXg,
     scoreMatrix,
     marketProbabilities,
     markets: marketProbabilities,
@@ -261,8 +279,8 @@ export function buildScoreMatrixForMatch(
     lambdas: {
       original: { home: xg.homeExpectedGoals, away: xg.awayExpectedGoals },
       calibrated: {
-        home: temperatureResult?.lambdaHomeCal ?? xg.homeExpectedGoals,
-        away: temperatureResult?.lambdaAwayCal ?? xg.awayExpectedGoals,
+        home: temperatureResult?.lambdaHomeCal ?? homeXg,
+        away: temperatureResult?.lambdaAwayCal ?? awayXg,
       },
     },
     temperature,
@@ -281,11 +299,12 @@ export function buildScoreMatricesByMatchId(
   const issues: MatrixBuildIssue[] = [];
 
   for (const match of preMatch) {
+    const environmentModifier = options.environmentModifiersByMatchId?.get(match.id);
     const result = buildScoreMatrixForMatch(
       match,
       statMap.get(match.home_team_id),
       statMap.get(match.away_team_id),
-      { ...options, allMatches: matches, groupContext: getWorldCupGroupContext(match, matches) }
+      { ...options, allMatches: matches, groupContext: getWorldCupGroupContext(match, matches), environmentModifier }
     );
     if ("scoreMatrix" in result) predictions.push(result);
     else issues.push(result);

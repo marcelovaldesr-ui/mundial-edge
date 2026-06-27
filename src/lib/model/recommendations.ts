@@ -1,5 +1,5 @@
 import type { Edge } from "../types";
-import { realismLabel } from "./edge";
+import { realismLabel, passesRealismProfile } from "./edge";
 
 export type RecommendationMode = "realistic" | "conservative" | "value";
 
@@ -24,7 +24,8 @@ export function getTopRecommendations(edges: Edge[]): TopRecommendation[] {
   const eligible = edges.filter((e) => {
     const prob = e.final_probability ?? e.model_probability;
     const ev = e.final_edge ?? e.edge;
-    return realismLabel(prob, ev) !== "artificial" && prob >= 0.15;
+    // Descarta artefactos del modelo y picks por debajo del umbral agresivo (15%)
+    return realismLabel(prob, ev) !== "artificial" && passesRealismProfile(prob, "aggressive");
   });
 
   const picks: TopRecommendation[] = [];
@@ -48,12 +49,12 @@ export function getTopRecommendations(edges: Edge[]): TopRecommendation[] {
     });
   }
 
-  // --- Conservadora: máx probabilidad, edge ≥ 2%, prob ≥ 50% ---
+  // --- Conservadora: máx probabilidad, edge ≥ 2%, prob ≥ 50% (perfil conservative) ---
   const conservative = [...eligible]
     .filter((e) => {
       const prob = e.final_probability ?? e.model_probability;
       const ev = e.final_edge ?? e.edge;
-      return prob >= 0.50 && ev >= 0.02;
+      return passesRealismProfile(prob, "conservative") && ev >= 0.02;
     })
     .sort((a, b) => {
       const pa = a.final_probability ?? a.model_probability;
@@ -72,12 +73,12 @@ export function getTopRecommendations(edges: Edge[]): TopRecommendation[] {
     });
   }
 
-  // --- Valor: máx edge, prob ≥ 20%, edge ≥ 3% ---
+  // --- Valor: máx edge, prob ≥ 30% (perfil balanced), edge ≥ 3% ---
   const value = [...eligible]
     .filter((e) => {
       const prob = e.final_probability ?? e.model_probability;
       const ev = e.final_edge ?? e.edge;
-      return prob >= 0.20 && ev >= 0.03;
+      return passesRealismProfile(prob, "balanced") && ev >= 0.03;
     })
     .sort((a, b) => {
       const ea = a.final_edge ?? a.edge;

@@ -2,6 +2,7 @@ import type { Edge, Market, Outcome } from "../types";
 import type { MatchStatModelPrediction, StatSelectionKey } from "../stat-model";
 import { isPreMatchEligible } from "../matches/pre-match-eligibility";
 import { classifyEv, expectedValue, isQualityPick } from "./edge";
+import { applyBiasCorrection } from "./bias-corrections";
 
 export type FinalProbabilityConfidence = "low" | "medium" | "high";
 
@@ -164,7 +165,10 @@ export function decorateEdgesWithFinalProbability(
   const predictionByMatch = new Map(predictions.map((prediction) => [prediction.matchId, prediction]));
   return edges.map((edge) => {
     const prediction = predictionByMatch.get(edge.match_id);
-    const poissonProbability = prediction ? probabilityForEdge(prediction, edge.market, edge.outcome) : null;
+    const rawPoissonProbability = prediction ? probabilityForEdge(prediction, edge.market, edge.outcome) : null;
+    const poissonProbability = rawPoissonProbability != null
+      ? applyBiasCorrection(rawPoissonProbability, edge.market, edge.outcome) ?? rawPoissonProbability
+      : null;
     const hasRatings = prediction?.homeRating || prediction?.awayRating;
     const hasContext = prediction?.groupContext && Object.values(prediction.groupContext.modifiers).some((value) => value !== 0);
     const realStatsMatches = prediction
@@ -217,7 +221,14 @@ function selectionForEdge(market: Market, outcome: Outcome): StatSelectionKey | 
     if (outcome === "draw") return "draw";
   }
   if (market === "btts") return outcome === "yes" ? "btts_yes" : "btts_no";
+  if (market === "over_under_1_5") return outcome === "over" ? "over_1_5" : "under_1_5";
   if (market === "over_under_2_5") return outcome === "over" ? "over_2_5" : "under_2_5";
+  if (market === "over_under_3_5") return outcome === "over" ? "over_3_5" : "under_3_5";
+  if (market === "double_chance") {
+    if (outcome === "1x") return "double_chance_1x";
+    if (outcome === "x2") return "double_chance_x2";
+    if (outcome === "12") return "double_chance_12";
+  }
   return null;
 }
 

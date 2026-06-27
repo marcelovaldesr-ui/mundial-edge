@@ -170,8 +170,11 @@ export async function syncResults(): Promise<SyncResult> {
       }).eq("external_id", r.external_id);
       if (!error) n++;
     }
-    await recomputeStats(); // refresca stats con los nuevos resultados
-    return done("results", source, logId, n, "Resultados actualizados.");
+    await recomputeStats();
+    // Pilar 1: recalibracion automatica — edges se recalculan con stats frescas
+    // inmediatamente despues de cada resultado. El error es no-fatal.
+    syncPredictions().catch((e) => console.error("[auto-recalibration] predictions sync failed:", e));
+    return done("results", source, logId, n, "Resultados actualizados; predicciones en recalibración.");
   } catch (e) {
     return fail("results", source, logId, e);
   }

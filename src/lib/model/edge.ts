@@ -51,18 +51,22 @@ export const PICK_RULES = {
 };
 
 // ─── Filtro de realismo ──────────────────────────────────────────
-// Un edge matemático grande en un pick con probabilidad bajísima suele ser
-// un artefacto: el modelo sobre-estima equipos débiles o longshots en mercados
-// con poca liquidez. Este filtro lo detecta y lo marca para excluirlo de las
-// recomendaciones destacadas.
-export const MIN_REALISTIC_PROB = 0.15;
-
 export type RealismLabel = "ok" | "low_prob" | "artificial";
+export type RealismProfile = "aggressive" | "balanced" | "conservative";
+
+/** Probabilidad mínima recomendada por perfil de apuesta. */
+export const REALISM_THRESHOLDS: Record<RealismProfile, number> = {
+  aggressive:   0.15,
+  balanced:     0.30,
+  conservative: 0.50,
+};
+
+export const MIN_REALISTIC_PROB = REALISM_THRESHOLDS.aggressive;
 
 /**
  * Etiqueta de realismo de un pick.
- * - "artificial": edge grande pero probabilidad ínfima → casi siempre artefacto del modelo.
- * - "low_prob": probabilidad baja pero edge no salva la situación.
+ * - "artificial": edge grande pero probabilidad ínfima → artefacto del modelo.
+ * - "low_prob": probabilidad baja sin edge que lo justifique.
  * - "ok": pick con probabilidad razonable.
  */
 export function realismLabel(probability: number, edgeValue: number): RealismLabel {
@@ -71,13 +75,17 @@ export function realismLabel(probability: number, edgeValue: number): RealismLab
   return "ok";
 }
 
+/** ¿Pasa el umbral para un perfil concreto? */
+export function passesRealismProfile(probability: number, profile: RealismProfile): boolean {
+  return probability >= REALISM_THRESHOLDS[profile];
+}
+
 /**
  * Score combinado edge + probabilidad para ranking de recomendaciones.
- * Devuelve -1 si la probabilidad no supera el umbral mínimo realista.
+ * Devuelve -1 si la probabilidad no supera el umbral mínimo (agresivo).
  */
 export function realismScore(probability: number, edgeValue: number): number {
   if (probability < MIN_REALISTIC_PROB) return -1;
-  // Ponderación: 60% probabilidad, 40% edge (normalizado al rango típico 2-15%)
   return probability * 0.6 + Math.min(edgeValue, 0.15) / 0.15 * 0.4;
 }
 

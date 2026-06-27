@@ -9,13 +9,27 @@ import { ModelMetadata } from "@/components/model-metadata";
 import { getRecommendedPredictionConfig } from "@/lib/stat-model";
 import { getTopRecommendations } from "@/lib/model/recommendations";
 import { TopRecommendations } from "@/components/top-recommendations";
+import { getMatchEnvironmentMap } from "@/lib/context/match-environment";
+import { computeEnvironmentModifier } from "@/lib/context/environment-modifiers";
+import { filterPreMatchMatches } from "@/lib/matches/pre-match-eligibility";
 
 export const dynamic = "force-dynamic";
 
 export default async function EdgesPage() {
   const [edges, sync, matches, teamStats] = await Promise.all([getEdges(), getLastSync(), getMatches(), getTeamStats()]);
   const config = getRecommendedPredictionConfig();
-  const statModel = buildScoreMatricesByMatchId(matches, teamStats, { predictionConfig: config });
+
+  // Pilar 3: fatiga, altitud, clima → modificadores de lambda por partido
+  const preMatchEdges = filterPreMatchMatches(matches);
+  const envDataMap = await getMatchEnvironmentMap(preMatchEdges, matches).catch(() => new Map());
+  const environmentModifiersByMatchId = new Map(
+    [...envDataMap.entries()].map(([id, env]) => [id, computeEnvironmentModifier(env)])
+  );
+
+  const statModel = buildScoreMatricesByMatchId(matches, teamStats, {
+    predictionConfig: config,
+    environmentModifiersByMatchId,
+  });
   const calibratedEdges = decorateEdgesWithFinalProbability(edges, statModel.predictions);
   const recommendations = getTopRecommendations(calibratedEdges);
   return (

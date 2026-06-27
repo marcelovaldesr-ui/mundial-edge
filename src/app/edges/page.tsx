@@ -14,6 +14,7 @@ import { computeEnvironmentModifier } from "@/lib/context/environment-modifiers"
 import { filterPreMatchMatches } from "@/lib/matches/pre-match-eligibility";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 export default async function EdgesPage() {
   const [edges, sync, matches, teamStats] = await Promise.all([getEdges(), getLastSync(), getMatches(), getTeamStats()]);

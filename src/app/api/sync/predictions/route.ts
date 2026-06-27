@@ -3,6 +3,7 @@ import { runJob } from "@/lib/data/sync";
 import { isAuthorized } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 export async function POST(req: NextRequest) {
   if (!isAuthorized(req)) {

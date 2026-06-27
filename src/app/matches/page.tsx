@@ -11,6 +11,7 @@ import { getWorldCupGroupContext, type WorldCupGroupContext } from "@/lib/world-
 import { Badge } from "@/components/ui/badge";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 export default async function MatchesPage() {
   const [matches, edges, sync] = await Promise.all([getMatches(), getEdges(), getLastSync()]);

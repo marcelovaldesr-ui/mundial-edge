@@ -18,6 +18,7 @@ import { decorateEdgesWithFinalProbability } from "@/lib/model/final-probability
 import { ModelMetadata } from "@/components/model-metadata";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 export default async function MatchDetail({ params }: { params: { id: string } }) {
   const [allMatches, allEdges, odds, sync, teamStats] = await Promise.all([

@@ -18,6 +18,7 @@ import Link from "next/link";
 import { ModelMetadata } from "@/components/model-metadata";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 export default async function DashboardPage() {
   const [matches, edges, sync, teamStats] = await Promise.all([getMatches(), getEdges(), getLastSync(), getTeamStats()]);

@@ -8,6 +8,7 @@ import { decorateEdgesWithFinalProbability } from "@/lib/model/final-probability
 import { ModelMetadata } from "@/components/model-metadata";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 function parseProfile(value: string | string[] | undefined): ParlayProfile {
   const raw = Array.isArray(value) ? value[0] : value;

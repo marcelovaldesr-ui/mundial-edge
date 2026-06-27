@@ -24,6 +24,8 @@ const WC_2026_VENUES: (VenueInfo & { keywords: string[] })[] = [
   { name: "Lincoln Financial Field", city: "Philadelphia", lat: 39.901, lon: -75.168,  altitudeM: 4,    country: "USA", keywords: ["lincoln", "philadelphia"] },
   { name: "BC Place",                city: "Vancouver",    lat: 49.278, lon: -123.112, altitudeM: 20,   country: "CAN", keywords: ["bc place", "vancouver"] },
   { name: "BMO Field",               city: "Toronto",      lat: 43.633, lon: -79.419,  altitudeM: 76,   country: "CAN", keywords: ["bmo", "toronto"] },
+  { name: "NRG Stadium",             city: "Houston",      lat: 29.685, lon: -95.411,  altitudeM: 15,   country: "USA", keywords: ["nrg", "houston"] },
+  { name: "Estadio Banorte",         city: "Culiacán",     lat: 24.791, lon: -107.394, altitudeM: 60,   country: "MEX", keywords: ["banorte", "culiacan", "culiacán"] },
 ];
 
 const DEFAULT_VENUE: VenueInfo = {

@@ -3,6 +3,7 @@ import { runAll, runJob, type SyncJob } from "@/lib/data/sync";
 import { isAuthorized } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 export const maxDuration = 60;
 
 const JOBS: SyncJob[] = ["fixtures", "results", "odds", "predictions"];

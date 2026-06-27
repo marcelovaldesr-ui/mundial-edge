@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { timeAgo } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 export default async function AdminPage() {
   const [logs, sync] = await Promise.all([getSyncLogs(), getLastSync()]);

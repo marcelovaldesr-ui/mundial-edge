@@ -13,6 +13,7 @@ import { maxParlaysPerRequest, minimumConfidenceFilter, minimumEdgeDefault } fro
 import { decorateEdgesWithFinalProbability } from "@/lib/model/final-probability";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 const riskConfig: Record<string, { profile: ParlayProfile } & Pick<GenerateParlaysOptions, "minEdge" | "minConfidence" | "allowLowConfidence">> = {
   conservative: { profile: "conservative", minEdge: 0.05, minConfidence: "medium", allowLowConfidence: false },

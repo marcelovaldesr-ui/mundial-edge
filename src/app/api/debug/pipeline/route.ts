@@ -3,6 +3,7 @@ import { getServiceSupabase } from "@/lib/supabase/server";
 import { getAllEdges, getEdges } from "@/lib/data/repository";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 export async function GET() {
   const sb = getServiceSupabase();

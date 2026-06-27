@@ -24,8 +24,13 @@ export function getTopRecommendations(edges: Edge[]): TopRecommendation[] {
   const eligible = edges.filter((e) => {
     const prob = e.final_probability ?? e.model_probability;
     const ev = e.final_edge ?? e.edge;
-    // Descarta artefactos del modelo y picks por debajo del umbral agresivo (15%)
-    return realismLabel(prob, ev) !== "artificial" && passesRealismProfile(prob, "aggressive");
+    // Descarta artefactos del modelo, picks por debajo del umbral agresivo (15%),
+    // y edges que no pasan los filtros de calidad (odds range, EV máximo, etc.)
+    return (
+      e.qualifies !== false &&
+      realismLabel(prob, ev) !== "artificial" &&
+      passesRealismProfile(prob, "aggressive")
+    );
   });
 
   const picks: TopRecommendation[] = [];

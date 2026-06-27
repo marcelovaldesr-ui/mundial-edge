@@ -231,8 +231,8 @@ async function fetchFromFootballData(onlyFinished: boolean): Promise<FixturesBun
 //  The Odds API  (v4)  — cuotas
 //  Docs: https://the-odds-api.com/liveapi/guides/v4/
 // ============================================================
-// The Odds API soporta h2h (1x2) y totals (over/under) para fútbol.
-// btts no está disponible en este endpoint, así que no se solicita.
+// The Odds API soporta h2h (1x2) y totals (over/under multi-línea) para la WC.
+// btts no está disponible en el endpoint soccer_fifa_world_cup.
 const AF_MARKET_KEYS = "h2h,totals";
 
 async function fetchOddsTheOddsApi(): Promise<ProviderOdd[]> {
@@ -247,29 +247,39 @@ async function fetchOddsTheOddsApi(): Promise<ProviderOdd[]> {
   if (!res.ok) throw new Error(`The Odds API ${res.status}: ${await res.text()}`);
   const raw = (await res.json()) as any[];
 
+  // Mapeo de líneas de totales a mercados tipados.
+  const TOTAL_LINE_MARKET: Record<number, Market> = {
+    1.5: "over_under_1_5",
+    2.5: "over_under_2_5",
+    3.5: "over_under_3_5",
+  };
+
   const out: ProviderOdd[] = [];
   for (const game of raw) {
     const home = game.home_team, away = game.away_team;
     for (const bk of game.bookmakers ?? []) {
       for (const market of bk.markets ?? []) {
-        const m: Market | null =
-          market.key === "h2h" ? "1x2"
-          : market.key === "totals" ? "over_under_2_5"
-          : market.key === "btts" ? "btts" : null;
-        if (!m) continue;
+        if (market.key !== "h2h" && market.key !== "totals" && market.key !== "btts") continue;
         for (const oc of market.outcomes ?? []) {
+          let m: Market | null = null;
           let outcome: Outcome | null = null;
-          if (m === "1x2") {
+
+          if (market.key === "h2h") {
+            m = "1x2";
             if (oc.name === home) outcome = "home";
             else if (oc.name === away) outcome = "away";
             else if (oc.name === "Draw") outcome = "draw";
-          } else if (m === "over_under_2_5") {
-            if (oc.point !== 2.5) continue;
+          } else if (market.key === "totals") {
+            const point = Number(oc.point);
+            m = TOTAL_LINE_MARKET[point] ?? null;
+            if (!m) continue;
             outcome = String(oc.name).toLowerCase().includes("over") ? "over" : "under";
-          } else if (m === "btts") {
+          } else if (market.key === "btts") {
+            m = "btts";
             outcome = String(oc.name).toLowerCase() === "yes" ? "yes" : "no";
           }
-          if (!outcome) continue;
+
+          if (!m || !outcome) continue;
           const dec = Number(oc.price);
           if (!dec || dec <= 1) continue;
           out.push({

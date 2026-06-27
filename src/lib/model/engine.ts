@@ -67,8 +67,13 @@ export function buildPredictions(
 /**
  * Consenso de mercado de-vig por outcome: promedia las cuotas entre casas
  * y elimina el margen (overround) normalizando sobre los outcomes del mercado.
+ *
+ * Excepción: double_chance tiene selecciones que se solapan (1x, x2, 12 comparten
+ * "draw" y "home"/"away"). Normalizar sobre los 3 destroza la probabilidad implícita
+ * (el bookmaker cotiza cada una independientemente). En ese caso se devuelve la
+ * probabilidad implícita de cada outcome sin normalizar.
  */
-function marketConsensus(marketOdds: Odd[]): Record<string, number> {
+function marketConsensus(marketOdds: Odd[], market: string): Record<string, number> {
   const byOutcome: Record<string, number[]> = {};
   for (const o of marketOdds) (byOutcome[o.outcome] ??= []).push(o.decimal_odds);
   const raw: Record<string, number> = {};
@@ -80,6 +85,8 @@ function marketConsensus(marketOdds: Odd[]): Record<string, number> {
     raw[oc] = p;
     sum += p;
   }
+  // double_chance: selecciones superpuestas → no normalizar, usar implied directa.
+  if (market === "double_chance") return raw;
   const out: Record<string, number> = {};
   for (const oc of Object.keys(raw)) out[oc] = sum > 0 ? raw[oc] / sum : 0;
   return out;
@@ -108,7 +115,7 @@ export function buildEdges(
     if (!candidates.length) continue;
     const best = candidates.reduce((a, b) => (b.decimal_odds > a.decimal_odds ? b : a));
 
-    const consensus = marketConsensus(marketOdds);
+    const consensus = marketConsensus(marketOdds, pred.market);
     const pMarket = consensus[pred.outcome] || impliedProbability(best.decimal_odds);
     const pFair = blendedProbability(pMarket, pred.model_probability);
     const ev = pFair * best.decimal_odds - 1;

@@ -11,6 +11,7 @@ import { ArrowUpDown, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { signalBadgesForEdge } from "@/lib/markets/signal-badges";
 import { CopyButton } from "@/components/copy-button";
+import { realismLabel } from "@/lib/model/edge";
 
 type SortKey = "expected_value" | "edge" | "model_probability" | "decimal_odds" | "final_probability";
 
@@ -76,6 +77,11 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <RiskBadge tier={e.final_tier ?? e.tier} />
               {e.qualifies ? <Badge variant="success">Pick calidad</Badge> : <Badge variant="muted">Atípico</Badge>}
+              {realismLabel(e.final_probability ?? e.model_probability, e.final_edge ?? e.edge) === "artificial" && (
+                <Badge variant="warning" title="Edge grande pero probabilidad muy baja. Posible artefacto del modelo — no recomendado.">
+                  ⚠ edge artificial
+                </Badge>
+              )}
               {signalBadgesForEdge(e).map((badge) => (
                 <Badge key={badge.label} variant={badge.variant} title={badge.title}>{badge.label}</Badge>
               ))}
@@ -138,6 +144,14 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
                       className="rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground"
                     >
                       atípico
+                    </span>
+                  )}
+                  {realismLabel(e.final_probability ?? e.model_probability, e.final_edge ?? e.edge) === "artificial" && (
+                    <span
+                      title="Edge grande pero probabilidad muy baja (&lt;15%). Posible artefacto del modelo — excluido de recomendaciones."
+                      className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-warning-foreground cursor-help"
+                    >
+                      ⚠ artificial
                     </span>
                   )}
                   {signalBadgesForEdge(e).map((badge) => (

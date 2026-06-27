@@ -85,22 +85,38 @@ export const odds: Odd[] = buildMockOdds();
 function buildMockOdds(): Odd[] {
   const now = new Date().toISOString();
   const rows: Odd[] = [];
-  const table: Record<string, { h: number; d: number; a: number; over: number; under: number; yes: number; no: number }> = {
-    m1: { h: 2.45, d: 3.30, a: 2.95, over: 2.05, under: 1.78, yes: 1.85, no: 1.95 },
-    m2: { h: 2.20, d: 3.25, a: 3.40, over: 2.10, under: 1.72, yes: 1.80, no: 2.00 },
-    m3: { h: 2.05, d: 3.40, a: 3.70, over: 2.00, under: 1.80, yes: 1.90, no: 1.90 },
-    m4: { h: 1.55, d: 4.00, a: 6.00, over: 1.95, under: 1.85, yes: 2.05, no: 1.75 },
+  type MockOdds = {
+    h: number; d: number; a: number;
+    over15: number; under15: number;
+    over: number; under: number;
+    over35: number; under35: number;
+    yes: number; no: number;
+    dc1x: number; dcX2: number; dc12: number;
+  };
+  const table: Record<string, MockOdds> = {
+    //              1x2              over1.5  under1.5   over2.5  under2.5   over3.5  under3.5  btts      double_chance
+    m1: { h: 2.45, d: 3.30, a: 2.95, over15: 1.32, under15: 3.35, over: 2.05, under: 1.78, over35: 2.95, under35: 1.40, yes: 1.85, no: 1.95, dc1x: 1.42, dcX2: 1.60, dc12: 1.33 },
+    m2: { h: 2.20, d: 3.25, a: 3.40, over15: 1.40, under15: 2.95, over: 2.10, under: 1.72, over35: 3.05, under35: 1.38, yes: 1.80, no: 2.00, dc1x: 1.38, dcX2: 1.68, dc12: 1.30 },
+    m3: { h: 2.05, d: 3.40, a: 3.70, over15: 1.38, under15: 3.05, over: 2.00, under: 1.80, over35: 3.10, under35: 1.38, yes: 1.90, no: 1.90, dc1x: 1.35, dcX2: 1.72, dc12: 1.28 },
+    m4: { h: 1.55, d: 4.00, a: 6.00, over15: 1.45, under15: 2.80, over: 1.95, under: 1.85, over35: 3.20, under35: 1.37, yes: 2.05, no: 1.75, dc1x: 1.22, dcX2: 1.95, dc12: 1.18 },
   };
   for (const [matchId, o] of Object.entries(table)) {
     for (const bk of ["BetMock", "OddsLab"]) {
-      const jitter = bk === "OddsLab" ? 1.02 : 1; // segunda casa ligeramente distinta
+      const jitter = bk === "OddsLab" ? 1.02 : 1;
       push(rows, matchId, bk, "1x2", "home", o.h * jitter, now);
       push(rows, matchId, bk, "1x2", "draw", o.d, now);
       push(rows, matchId, bk, "1x2", "away", o.a * (2 - jitter), now);
+      push(rows, matchId, bk, "over_under_1_5", "over", o.over15, now);
+      push(rows, matchId, bk, "over_under_1_5", "under", o.under15, now);
       push(rows, matchId, bk, "over_under_2_5", "over", o.over, now);
       push(rows, matchId, bk, "over_under_2_5", "under", o.under, now);
+      push(rows, matchId, bk, "over_under_3_5", "over", o.over35, now);
+      push(rows, matchId, bk, "over_under_3_5", "under", o.under35, now);
       push(rows, matchId, bk, "btts", "yes", o.yes, now);
       push(rows, matchId, bk, "btts", "no", o.no, now);
+      push(rows, matchId, bk, "double_chance", "1x", o.dc1x, now);
+      push(rows, matchId, bk, "double_chance", "x2", o.dcX2, now);
+      push(rows, matchId, bk, "double_chance", "12", o.dc12, now);
     }
   }
   return rows;

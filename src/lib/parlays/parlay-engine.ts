@@ -44,6 +44,12 @@ const MARKET_EDGE_TRUST: Partial<Record<ParlayMarket, number>> = {
 
 /** Máximo de picks del mismo partido admitidos en el pool de candidatos. */
 const MAX_PICKS_PER_MATCH = 2;
+/**
+ * Fracción del candidateLimit del perfil que puede ocupar un solo tipo de mercado.
+ * Ej: perfil balanceado con límite 30 → máx 10 picks de over_under_2_5.
+ * Evita que el pool se sature de un mercado pero escala con la amplitud del perfil.
+ */
+const MARKET_TYPE_POOL_FRACTION = 1 / 3;
 
 export const PARLAY_PROFILE_RULES: Record<ParlayProfile, ProfileRules> = {
   conservative: {
@@ -285,7 +291,30 @@ function baseCandidates(
     diversified.push(pick);
   }
 
-  for (const pick of diversified.slice(rules.candidateLimit)) {
+  // Diversificación por tipo de mercado: limita cuántos picks del mismo mercado
+  // entran al pool para forzar variedad (over2.5, btts, 1x2, double_chance, etc.).
+  // El límite es proporcional al candidateLimit del perfil para no romper perfiles
+  // laxos con muchos picks del mismo mercado.
+  const maxPerMarketType = Math.max(3, Math.floor(rules.candidateLimit * MARKET_TYPE_POOL_FRACTION));
+  const perMarketTypeCount = new Map<string, number>();
+  const marketDiversified: ParlayPick[] = [];
+  for (const pick of diversified) {
+    const mKey = marketDistributionKey(pick);
+    const used = perMarketTypeCount.get(mKey) ?? 0;
+    if (used >= maxPerMarketType) {
+      rejected.push(reject({
+        profile: options.profile,
+        picks: [pick],
+        reason: "candidate_limit",
+        message: `Excede el máximo de ${maxPerMarketType} picks del mercado "${mKey}" en el pool de candidatos.`,
+      }));
+      continue;
+    }
+    perMarketTypeCount.set(mKey, used + 1);
+    marketDiversified.push(pick);
+  }
+
+  for (const pick of marketDiversified.slice(rules.candidateLimit)) {
     rejected.push(reject({
       profile: options.profile,
       picks: [pick],
@@ -293,7 +322,7 @@ function baseCandidates(
       message: `Fuera del top ${rules.candidateLimit} de candidatos por score.`,
     }));
   }
-  const candidates = diversified.slice(0, rules.candidateLimit);
+  const candidates = marketDiversified.slice(0, rules.candidateLimit);
   return { candidates, rejected };
 }
 
@@ -628,11 +657,20 @@ export function generateSuggestedParlays(
     {
       theme: "goals" as const,
       label: "Combo goles",
-      description: "2–3 selecciones de más de 2.5 goles con edge superior a 2%.",
+      description: "2–3 partidos con goles (over 1.5 o over 2.5) con edge positivo.",
       candidates: picks.filter((pick) =>
         (pick.market === "over_under_2_5" || pick.market === "over_under_1_5") &&
         pick.selection === "over" && pick.edge >= 0.02
       ),
+      profile: "balanced" as const,
+      minEdge: 0.02,
+      minOdds: 1,
+    },
+    {
+      theme: "goals" as const,
+      label: "Combo BTTS",
+      description: "2–3 partidos con ambos equipos anotando (BTTS Sí) y edge positivo.",
+      candidates: picks.filter((pick) => pick.market === "btts" && pick.selection === "yes" && pick.edge >= 0.02),
       profile: "balanced" as const,
       minEdge: 0.02,
       minOdds: 1,
@@ -660,10 +698,33 @@ export function generateSuggestedParlays(
     {
       theme: "goals" as const,
       label: "Combo defensivo",
-      description: "2–3 selecciones de menos de 2.5 goles con edge positivo.",
+      description: "2–3 partidos con menos de 2.5 goles y edge positivo.",
       candidates: picks.filter((pick) =>
         (pick.market === "over_under_2_5" || pick.market === "over_under_3_5") &&
         pick.selection === "under" && pick.edge >= 0.02
+      ),
+      profile: "balanced" as const,
+      minEdge: 0.02,
+      minOdds: 1,
+    },
+    {
+      theme: "goals" as const,
+      label: "Combo over 1.5",
+      description: "2–3 partidos con más de 1.5 goles (alta probabilidad, cuota moderada).",
+      candidates: picks.filter((pick) =>
+        pick.market === "over_under_1_5" && pick.selection === "over" && pick.edge >= 0.01
+      ),
+      profile: "conservative" as const,
+      minEdge: 0.01,
+      minOdds: 1,
+    },
+    {
+      theme: "favorite" as const,
+      label: "Combo mixto",
+      description: "Combinada de mercados variados: 1X2 + BTTS + over/under.",
+      candidates: picks.filter((pick) =>
+        (pick.market === "1x2" || pick.market === "btts" || pick.market === "over_under_2_5") &&
+        pick.edge >= 0.02 && pick.anchoredProb >= 0.35
       ),
       profile: "balanced" as const,
       minEdge: 0.02,

@@ -50,6 +50,37 @@ export const PICK_RULES = {
   minMarketProb: 0.08, // descarta probabilidades implícitas ínfimas
 };
 
+// ─── Filtro de realismo ──────────────────────────────────────────
+// Un edge matemático grande en un pick con probabilidad bajísima suele ser
+// un artefacto: el modelo sobre-estima equipos débiles o longshots en mercados
+// con poca liquidez. Este filtro lo detecta y lo marca para excluirlo de las
+// recomendaciones destacadas.
+export const MIN_REALISTIC_PROB = 0.15;
+
+export type RealismLabel = "ok" | "low_prob" | "artificial";
+
+/**
+ * Etiqueta de realismo de un pick.
+ * - "artificial": edge grande pero probabilidad ínfima → casi siempre artefacto del modelo.
+ * - "low_prob": probabilidad baja pero edge no salva la situación.
+ * - "ok": pick con probabilidad razonable.
+ */
+export function realismLabel(probability: number, edgeValue: number): RealismLabel {
+  if (probability < MIN_REALISTIC_PROB && edgeValue > 0.03) return "artificial";
+  if (probability < MIN_REALISTIC_PROB) return "low_prob";
+  return "ok";
+}
+
+/**
+ * Score combinado edge + probabilidad para ranking de recomendaciones.
+ * Devuelve -1 si la probabilidad no supera el umbral mínimo realista.
+ */
+export function realismScore(probability: number, edgeValue: number): number {
+  if (probability < MIN_REALISTIC_PROB) return -1;
+  // Ponderación: 60% probabilidad, 40% edge (normalizado al rango típico 2-15%)
+  return probability * 0.6 + Math.min(edgeValue, 0.15) / 0.15 * 0.4;
+}
+
 /** ¿Es un pick de calidad y no un artefacto del modelo? */
 export function isQualityPick(e: {
   decimal_odds: number;

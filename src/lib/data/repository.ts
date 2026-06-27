@@ -81,10 +81,12 @@ export async function getAllEdges(): Promise<Edge[]> {
       // Leemos la tabla `edges` directamente (no la vista v_top_edges) para no
       // depender de la caché de esquema de PostgREST, y traemos el partido +
       // equipos anidados para mostrar nombres en la tabla.
+      // Use column-name hints (not FK constraint names) for team joins — constraint names
+      // cause PostgREST to traverse the FK in reverse, multiplying rows (~190 instead of 57).
       const { data, error } = await sb
         .from("edges")
         .select(
-          "*, match:matches!inner(*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*))"
+          "*, match:matches!inner(*, home_team:teams!home_team_id(*), away_team:teams!away_team_id(*))"
         )
         .order("expected_value", { ascending: false });
       if (error) {

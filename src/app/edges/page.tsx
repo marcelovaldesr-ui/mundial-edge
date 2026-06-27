@@ -7,6 +7,8 @@ import { buildScoreMatricesByMatchId } from "@/lib/stat-model";
 import { decorateEdgesWithFinalProbability } from "@/lib/model/final-probability";
 import { ModelMetadata } from "@/components/model-metadata";
 import { getRecommendedPredictionConfig } from "@/lib/stat-model";
+import { getTopRecommendations } from "@/lib/model/recommendations";
+import { TopRecommendations } from "@/components/top-recommendations";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +17,7 @@ export default async function EdgesPage() {
   const config = getRecommendedPredictionConfig();
   const statModel = buildScoreMatricesByMatchId(matches, teamStats, { predictionConfig: config });
   const calibratedEdges = decorateEdgesWithFinalProbability(edges, statModel.predictions);
+  const recommendations = getTopRecommendations(calibratedEdges);
   return (
     <div className="space-y-5">
       <div className="flex items-end justify-between">
@@ -26,6 +29,7 @@ export default async function EdgesPage() {
         </div>
         <LastUpdated at={sync.at} source={sync.source} mode={dataMode()} />
       </div>
+      <TopRecommendations recommendations={recommendations} />
       <ModelMetadata
         modelVariantUsed={config.modelVariant}
         calibrationUsed={config.calibration}

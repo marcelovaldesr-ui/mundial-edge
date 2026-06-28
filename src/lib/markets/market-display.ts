@@ -62,7 +62,14 @@ export function formatSelectionName(input: DisplayInput | ParlayPick | { market:
     if (selection === "away_adv") return "Visitante clasifica";
   }
 
-  if (market.includes("double_chance")) return `Doble oportunidad: ${selection.toUpperCase()}`;
+  if (market.includes("double_chance")) {
+    const home = match?.home_team?.code ?? match?.home_team?.name ?? "Local";
+    const away = match?.away_team?.code ?? match?.away_team?.name ?? "Visita";
+    if (selection === "1x") return `${home} gana o empata`;
+    if (selection === "x2") return `${away} gana o empata`;
+    if (selection === "12") return `${home} o ${away} gana (sin empate)`;
+    return `Doble oportunidad: ${selection.toUpperCase()}`;
+  }
   if (market.includes("handicap")) return `Hándicap ${selection.replace(/^handicap_?/, "")}`;
 
   if (selection === "over" || selection === "under") {

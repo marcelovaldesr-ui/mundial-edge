@@ -1,9 +1,10 @@
 import { getServiceSupabase, isLiveMode } from "@/lib/supabase/server";
-import { fetchFixtures, fetchResults, fetchOdds, type ProviderOdd } from "./providers";
+import { fetchFixtures, fetchResults, fetchOdds, fetchLineups, type ProviderOdd } from "./providers";
 import { buildPredictions, buildEdges, MODEL_VERSION } from "@/lib/model/engine";
+import { computeDynamicMarketWeight } from "@/lib/model/calibration";
 import * as mock from "./mock";
 
-export type SyncJob = "fixtures" | "results" | "odds" | "predictions";
+export type SyncJob = "fixtures" | "results" | "odds" | "predictions" | "lineups";
 
 export interface SyncResult {
   job: SyncJob;
@@ -286,6 +287,10 @@ export async function syncPredictions(): Promise<SyncResult> {
     const statMap = new Map((stats ?? []).map((s: any) => [s.team_id, s]));
     console.log(`[syncPredictions] stats cargadas: ${statMap.size}, cuotas: ${(allOdds ?? []).length}`);
 
+    // B.2: Dynamic MARKET_WEIGHT based on live Brier Score of WC 2026 data.
+    const calibration = await computeDynamicMarketWeight(sb);
+    console.log(`[syncPredictions] calibration: ${calibration.note} (weight=${calibration.effectiveMarketWeight})`);
+
     const predRows: any[] = [], edgeRows: any[] = [];
     let skipped = 0;
     for (const m of matches ?? []) {
@@ -293,7 +298,7 @@ export async function syncPredictions(): Promise<SyncResult> {
       if (!hs || !as) { skipped++; continue; }
       const preds = buildPredictions(m as any, hs as any, as as any);
       const o = (allOdds ?? []).filter((x: any) => x.match_id === m.id);
-      const edges = buildEdges(m as any, preds, o as any);
+      const edges = buildEdges(m as any, preds, o as any, calibration.effectiveMarketWeight);
       predRows.push(...preds);
       edgeRows.push(...edges);
       console.log(`[syncPredictions] ${m.id}: ${preds.length} preds, ${edges.length} edges, ${o.length} odds`);
@@ -320,16 +325,64 @@ export async function syncPredictions(): Promise<SyncResult> {
   }
 }
 
+export async function syncLineups(): Promise<SyncResult> {
+  const source = "api-football";
+  const logId = await logStart("lineups", source);
+  try {
+    if (!process.env.API_FOOTBALL_KEY) {
+      return done("lineups", source, logId, 0, "API_FOOTBALL_KEY not configured — skipping lineups.");
+    }
+    if (!isLiveMode()) {
+      return done("lineups", source, logId, 0, "Mock: lineups no aplican en modo mock.");
+    }
+    const sb = getServiceSupabase()!;
+    const now = new Date();
+    const window = new Date(now.getTime() + 36 * 60 * 60 * 1000).toISOString();
+    const { data: upcoming } = await sb
+      .from("matches")
+      .select("id, external_id")
+      .eq("status", "scheduled")
+      .gte("kickoff", now.toISOString())
+      .lte("kickoff", window);
+
+    let saved = 0;
+    for (const m of upcoming ?? []) {
+      if (!m.external_id) continue;
+      const lineups = await fetchLineups(String(m.external_id));
+      if (!lineups) continue;
+      const { error } = await sb.from("lineups").upsert({
+        match_id: m.id,
+        home_xi: lineups.home,
+        away_xi: lineups.away,
+        source,
+        fetched_at: new Date().toISOString(),
+      }, { onConflict: "match_id" });
+      if (!error) saved++;
+      else console.error(`[syncLineups] upsert error for ${m.id}:`, error.message);
+    }
+    return done("lineups", source, logId, saved, `Alineaciones guardadas: ${saved}/${(upcoming ?? []).length} partidos.`);
+  } catch (e) {
+    return fail("lineups", source, logId, e);
+  }
+}
+
 export async function runJob(job: SyncJob): Promise<SyncResult> {
   switch (job) {
     case "fixtures": return syncFixtures();
     case "results": return syncResults();
     case "odds": return syncOdds();
     case "predictions": return syncPredictions();
+    case "lineups": return syncLineups();
   }
 }
 export async function runAll(): Promise<SyncResult[]> {
-  return [await syncFixtures(), await syncResults(), await syncOdds(), await syncPredictions()];
+  return [
+    await syncFixtures(),
+    await syncResults(),
+    await syncOdds(),
+    await syncPredictions(),
+    await syncLineups(),
+  ];
 }
 
 async function done(job: SyncJob, source: string, logId: string | null, records: number, message: string): Promise<SyncResult> {

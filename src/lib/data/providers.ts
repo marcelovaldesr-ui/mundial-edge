@@ -234,6 +234,43 @@ async function fetchFromFootballData(onlyFinished: boolean): Promise<FixturesBun
 // The Odds API soporta h2h, totals y btts para la WC (btts disponible en algunas regiones).
 const AF_MARKET_KEYS = "h2h,totals,btts";
 
+// D.2: shared rate-limit state (per-instance; logs WARNING/CRITICAL to console)
+let oddsApiRequestsRemaining: number | null = null;
+
+async function fetchWithRetry(url: string, opts: RequestInit, maxAttempts = 3): Promise<Response> {
+  let lastError: Error = new Error("Unknown fetch error");
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const res = await fetch(url, opts);
+      // D.2: Read rate-limit headers
+      const remaining = res.headers.get("x-requests-remaining");
+      if (remaining != null) {
+        oddsApiRequestsRemaining = Number(remaining);
+        if (oddsApiRequestsRemaining < 10) {
+          console.error(`[odds-api] CRITICAL: solo ${oddsApiRequestsRemaining} requests restantes — saltando sync`);
+          throw new Error(`ODDS_API_RATE_CRITICAL: ${oddsApiRequestsRemaining} remaining`);
+        }
+        if (oddsApiRequestsRemaining < 50) {
+          console.warn(`[odds-api] WARNING: ${oddsApiRequestsRemaining} requests restantes`);
+        }
+      }
+      if (res.ok) return res;
+      // D.1: Only retry on 5xx; 4xx are permanent failures
+      if (res.status < 500) throw new Error(`The Odds API ${res.status}: ${await res.text()}`);
+      lastError = new Error(`The Odds API ${res.status} (attempt ${attempt + 1})`);
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith("ODDS_API_RATE_CRITICAL")) throw err;
+      lastError = err instanceof Error ? err : new Error(String(err));
+    }
+    if (attempt < maxAttempts - 1) {
+      const waitMs = 1000 * Math.pow(2, attempt); // 1s, 2s, 4s
+      console.warn(`[odds-api] Retry ${attempt + 1}/${maxAttempts - 1} in ${waitMs}ms`);
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
+  }
+  throw lastError;
+}
+
 async function fetchOddsTheOddsApi(): Promise<ProviderOdd[]> {
   const key = env("ODDS_API_KEY");
   const baseUrl = env("ODDS_API_BASE") ?? "https://api.the-odds-api.com/v4";
@@ -242,8 +279,8 @@ async function fetchOddsTheOddsApi(): Promise<ProviderOdd[]> {
   if (!key) throw new Error("ODDS_API_KEY no configurada");
 
   const url = `${baseUrl}/sports/${sport}/odds?regions=${regions}&markets=${AF_MARKET_KEYS}&oddsFormat=decimal&apiKey=${key}`;
-  const res = await fetch(url, { next: { revalidate: 0 } });
-  if (!res.ok) throw new Error(`The Odds API ${res.status}: ${await res.text()}`);
+  const res = await fetchWithRetry(url, { next: { revalidate: 0 } });
+  if (!res.ok) throw new Error(`The Odds API ${res.status}`);
   const raw = (await res.json()) as any[];
 
   // Mapeo de líneas de totales a mercados tipados.
@@ -374,4 +411,95 @@ function afMapOutcome(market: Market, value: string): Outcome | null {
   if (market === "btts") return v === "yes" ? "yes" : v === "no" ? "no" : null;
   if (market === "over_under_2_5") return v === "over 2.5" ? "over" : v === "under 2.5" ? "under" : null;
   return null;
+}
+
+// ============================================================
+//  API-Football Pro — Lineups & Injuries (scaffold)
+//  Activado solo cuando API_FOOTBALL_KEY está configurado.
+//  Degrada elegantemente si la key no existe o la llamada falla.
+// ============================================================
+
+export interface LineupData {
+  home: string[];   // nombres de titulares del equipo local
+  away: string[];   // nombres de titulares del equipo visitante
+}
+
+export interface InjuryPlayer {
+  name: string;
+  type: string;     // "Injured" | "Suspended" | "Questionable"
+  reason: string;
+  teamSide: "home" | "away";
+}
+
+export async function fetchLineups(fixtureExternalId: string): Promise<LineupData | null> {
+  const key = env("API_FOOTBALL_KEY");
+  if (!key) return null;
+  try {
+    const res = await fetch(
+      `${afBase()}/fixtures/lineups?fixture=${fixtureExternalId}`,
+      { headers: afHeaders(), next: { revalidate: 0 } }
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    const responses: any[] = json.response ?? [];
+    if (responses.length < 2) return null;
+    const toNames = (r: any): string[] =>
+      (r.startXI ?? []).map((p: any) => p.player?.name ?? "").filter(Boolean);
+    return { home: toNames(responses[0]), away: toNames(responses[1]) };
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchInjuries(fixtureExternalId: string): Promise<InjuryPlayer[]> {
+  const key = env("API_FOOTBALL_KEY");
+  if (!key) return [];
+  try {
+    const res = await fetch(
+      `${afBase()}/injuries?fixture=${fixtureExternalId}`,
+      { headers: afHeaders(), next: { revalidate: 900 } }  // 15 min cache
+    );
+    if (!res.ok) return [];
+    const json = await res.json();
+    const responses: any[] = json.response ?? [];
+    // responses[0..n] each have player + team info
+    // We need to determine home/away based on team position
+    const out: InjuryPlayer[] = [];
+    for (const r of responses) {
+      const name = r.player?.name ?? "";
+      const type = r.player?.type ?? "Injured";
+      const reason = r.player?.reason ?? type;
+      // team id — we don't know home/away here, caller must enrich
+      out.push({ name, type, reason, teamSide: "home" });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchInjuriesForMatch(
+  fixtureExternalId: string,
+  homeTeamAfId: string,
+  awayTeamAfId: string,
+): Promise<InjuryPlayer[]> {
+  const key = env("API_FOOTBALL_KEY");
+  if (!key) return [];
+  try {
+    const res = await fetch(
+      `${afBase()}/injuries?fixture=${fixtureExternalId}`,
+      { headers: afHeaders(), next: { revalidate: 900 } }
+    );
+    if (!res.ok) return [];
+    const json = await res.json();
+    const responses: any[] = json.response ?? [];
+    return responses.map((r: any) => ({
+      name: r.player?.name ?? "Desconocido",
+      type: r.player?.type ?? "Injured",
+      reason: r.player?.reason ?? r.player?.type ?? "Baja",
+      teamSide: String(r.team?.id) === homeTeamAfId ? "home" as const : "away" as const,
+    }));
+  } catch {
+    return [];
+  }
 }

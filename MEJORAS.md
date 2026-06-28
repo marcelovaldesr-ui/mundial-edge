@@ -120,17 +120,67 @@ Visible en logs de Vercel (runtime) y en la consola del servidor Next.js.
 
 ---
 
-## Commits
+## Commits Sprint 2
 
 | Hash | Descripción |
 |------|-------------|
 | `0605aba` | feat(model/parlays): decay exponencial 0.7^i en forma, btts+regiones odds, reglas combinadas |
-| *(P4/P5)* | feat(ux/admin): estado modelo, goles 1.5/3.5, filtros edge-table, logging sync |
+| `0c2d3cc` | feat(ux/admin): estado modelo, goles 1.5/3.5, filtros edge-table, logging sync |
+
+---
+
+# Sprint 3 — 2026-06-28 (Bloques A–E)
+
+## Block A — API-Football Pro (alineaciones)
+
+- `fetchLineups(fixtureExternalId)` y `fetchInjuries()` en `providers.ts` — degradación elegante si `API_FOOTBALL_KEY` no existe.
+- `syncLineups()` en `sync.ts` — busca partidos en las próximas 36h, upsert en tabla `lineups`.
+- Migración `supabase/migrations/20260628_lineups.sql` — tabla `lineups` con PK `match_id`.
+- Cron `/api/cron?job=lineups` cada 6h en `vercel.json`.
+
+## Block B — Modelo knockout mejorado
+
+- `LEAGUE_AVG_KNOCKOUT = 1.05` (vs 1.35 grupos) — knockout → menor ritmo de goles.
+- `drawBoost ×1.12` + renormalización para fases eliminatorias.
+- `lineupAdjustmentFactor()`: 0–1 bajas → 1.0; 2–3 → 0.93; 4+ → 0.85.
+- `calibration.ts`: `computeDynamicMarketWeight()` — calcula MARKET_WEIGHT dinámico según Brier Score en vivo (min 15 partidos). Umbrales: >0.65 → 0.83; 0.58–0.65 → 0.78; <0.58 → 0.70.
+- `syncPredictions` usa el peso calibrado para `buildEdges`.
+- `scripts/validate-poisson.ts`: genera `reports/poisson-validation.md` con Brier + Accuracy.
+
+## Block C — UI Premium
+
+- **C.2** badge de confianza de datos en MatchCard (verde/amarillo/gris según `matches_played`).
+- **C.3** `MatchCountdown` integrado para el partido más próximo en `/matches`.
+- **C.4** `EvDistributionChart` encima de EdgeTable en `/edges` — 5 buckets de EV.
+- **C.1** Sección "Ajustes WC 2026" en `/metodologia` (decay, knockout model, calibración dinámica, factor alineación).
+
+## Block D — Resiliencia
+
+- `fetchWithRetry()` — 3 intentos con backoff 1s/2s/4s en llamadas a The Odds API.
+- Tracking de `x-requests-remaining`: CRÍTICO (<10) → skip sync; WARNING (<50) → log.
+- TTLs de caché agresivos: matches 60s, edges 60s, team_stats 120s.
+- `/api/health` — endpoint de monitoreo con estado Supabase, oddsApi, lastSync por job.
+
+## Block E — Historial de valor
+
+- `getFinishedPickHistory()` en `repository.ts` — picks de partidos finalizados con win/loss.
+- Sección "Historial de picks del torneo" en `/transparencia` con tasa acierto, ROI, tabla detalle.
+- Fallback "Datos insuficientes" si <5 partidos finalizados con picks.
+- Disclaimer explícito (no predicen resultados futuros).
+
+## Commits Sprint 3
+
+| Hash | Descripción |
+|------|-------------|
+| `3bc4b9c` | feat(api-football): scaffold lineups + injuries integration (Bloques A + B) |
+| `da5e089` | feat(infra): health endpoint + pick history repo + cache agresiva (Bloque D) |
+| `91781e1` | feat(ui): countdown, EV chart, confidence badges, picks history (Bloques C + E) |
 
 ## Constraints respetados
 - No se modificaron variables de entorno ni keys de API.
-- No se modificó el schema de Supabase sin migración.
+- No se modificó el schema de Supabase sin migración (tabla lineups con migration SQL).
 - No se agregaron dependencias npm externas.
 - No se usa lenguaje de "apuesta segura" o "garantizado" en ninguna UI.
-- Modo mock funcionando sin cambios.
-- MARKET_WEIGHT 0.78 mantenido (Brier histórico no justifica ajuste sin datos 2026).
+- Modo mock funcionando sin cambios — toda lógica live tiene guard `isLiveMode()`.
+- API-Football Key ausente → sistema funciona exactamente igual que antes.
+- `schemaVersion: 1` mantenido en calibration-report.json.

@@ -32,7 +32,7 @@ export function formFactor(form: ("W" | "D" | "L")[]): number {
   // ponderación decreciente: el partido más reciente pesa más
   let num = 0, den = 0;
   pts.forEach((p, i) => {
-    const w = 1 / (i + 1);
+    const w = Math.pow(0.7, i);
     num += p * w;
     den += 3 * w;
   });

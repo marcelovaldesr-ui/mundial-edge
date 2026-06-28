@@ -1,4 +1,5 @@
 import type { CorrelationEvaluation, CorrelationLevel, ParlayPick } from "./parlay-types";
+import { isKnockoutStage } from "../matches/stage";
 
 const PENALTY: Record<CorrelationLevel, number> = {
   low: 1,
@@ -104,6 +105,15 @@ export function evaluateCorrelation(picks: ParlayPick[]): CorrelationEvaluation 
 
   if (!reasons.length) {
     reasons.push("Picks de partidos distintos; correlación baja asumida.");
+  }
+
+  // Knockout floor: any pick from a knockout-stage match → minimum "medium".
+  // Eliminatories have higher variance (extra time, penalties, tight setups)
+  // not captured by the 90-min Poisson model.
+  const hasKnockoutPick = picks.some((p) => isKnockoutStage(p.match?.stage));
+  if (hasKnockoutPick && rank[level] < rank["medium"]) {
+    level = "medium";
+    reasons.push("Parlay con partido eliminatorio: correlación mínima media por mayor varianza en 90 min.");
   }
 
   return {

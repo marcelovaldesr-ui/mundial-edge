@@ -51,7 +51,9 @@ export function scoreParlay(input: {
   correlationLevel: CorrelationLevel;
   targetOdds?: { min: number; max: number };
 }): number {
-  const avgPickEv = input.picks.reduce((sum, pick) => sum + pick.ev, 0) / input.picks.length;
+  // Estimated-odds picks contribute 70% of their EV (no bookmaker confirmation of edge).
+  const avgPickEv = input.picks.reduce((sum, pick) =>
+    sum + pick.ev * (pick.oddsType === "estimated" ? 0.7 : 1), 0) / input.picks.length;
   const avgPickProb = input.picks.reduce((sum, pick) => sum + pick.anchoredProb, 0) / input.picks.length;
   const cappedEv = Math.min(Math.max(input.ev, 0), 0.25);
   // Penalización de cuota total más firme: mantiene el ranking en rangos

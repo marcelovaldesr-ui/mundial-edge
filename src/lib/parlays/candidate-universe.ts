@@ -54,8 +54,14 @@ export function buildCandidatePicks(
         homeRating: prediction.homeRating?.overallRating,
         awayRating: prediction.awayRating?.overallRating,
       });
-      pushEstimated(estimated, covered, match, "clasifica", "home_adv", advance.homeAdvance, prediction.confidence, minProb);
-      pushEstimated(estimated, covered, match, "clasifica", "away_adv", advance.awayAdvance, prediction.confidence, minProb);
+      // Top-8 FIFA-rank teams receive a +5% probability boost (elite squads historically
+      // outperform Poisson baseline in knockout rounds via superior depth and experience).
+      const homeRank = match.home_team?.fifa_rank ?? 999;
+      const awayRank = match.away_team?.fifa_rank ?? 999;
+      const homeBoost = homeRank <= 8 ? 0.05 : 0;
+      const awayBoost = awayRank <= 8 ? 0.05 : 0;
+      pushEstimated(estimated, covered, match, "clasifica", "home_adv", Math.min(advance.homeAdvance + homeBoost, 0.97), prediction.confidence, minProb);
+      pushEstimated(estimated, covered, match, "clasifica", "away_adv", Math.min(advance.awayAdvance + awayBoost, 0.97), prediction.confidence, minProb);
     }
   }
 

@@ -231,15 +231,14 @@ async function fetchFromFootballData(onlyFinished: boolean): Promise<FixturesBun
 //  The Odds API  (v4)  — cuotas
 //  Docs: https://the-odds-api.com/liveapi/guides/v4/
 // ============================================================
-// The Odds API soporta h2h (1x2) y totals (over/under multi-línea) para la WC.
-// btts no está disponible en el endpoint soccer_fifa_world_cup.
-const AF_MARKET_KEYS = "h2h,totals";
+// The Odds API soporta h2h, totals y btts para la WC (btts disponible en algunas regiones).
+const AF_MARKET_KEYS = "h2h,totals,btts";
 
 async function fetchOddsTheOddsApi(): Promise<ProviderOdd[]> {
   const key = env("ODDS_API_KEY");
   const baseUrl = env("ODDS_API_BASE") ?? "https://api.the-odds-api.com/v4";
   const sport = env("ODDS_SPORT_KEY") ?? "soccer_fifa_world_cup";
-  const regions = env("ODDS_API_REGIONS") ?? "eu,uk";
+  const regions = env("ODDS_API_REGIONS") ?? "eu,us,uk,au";
   if (!key) throw new Error("ODDS_API_KEY no configurada");
 
   const url = `${baseUrl}/sports/${sport}/odds?regions=${regions}&markets=${AF_MARKET_KEYS}&oddsFormat=decimal&apiKey=${key}`;

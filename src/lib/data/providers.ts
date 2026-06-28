@@ -231,8 +231,8 @@ async function fetchFromFootballData(onlyFinished: boolean): Promise<FixturesBun
 //  The Odds API  (v4)  — cuotas
 //  Docs: https://the-odds-api.com/liveapi/guides/v4/
 // ============================================================
-// The Odds API soporta h2h, totals y btts para la WC (btts disponible en algunas regiones).
-const AF_MARKET_KEYS = "h2h,totals,btts";
+// The Odds API soporta h2h y totals para soccer_fifa_world_cup. btts no está disponible en este endpoint.
+const AF_MARKET_KEYS = "h2h,totals";
 
 // D.2: shared rate-limit state (per-instance; logs WARNING/CRITICAL to console)
 let oddsApiRequestsRemaining: number | null = null;

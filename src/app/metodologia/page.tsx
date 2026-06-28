@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, BarChart3, BrainCircuit, Database, Grid3X3, ShieldCheck, SlidersHorizontal, Trophy } from "lucide-react";
+import { AlertTriangle, BarChart3, BrainCircuit, Database, Grid3X3, ShieldCheck, SlidersHorizontal, Trophy, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -67,6 +67,40 @@ export default function MethodologyPage() {
             <p className="border-t pt-4 text-xs text-muted-foreground">Esto demuestra valor predictivo histórico; no garantiza resultados futuros ni rentabilidad.</p>
           </CardContent>
         </Card>
+      </section>
+
+      <section aria-labelledby="sprint3-title" className="space-y-4">
+        <Heading eyebrow="Mejoras activas · WC 2026" title="Ajustes del modelo en tiempo real" id="sprint3-title" />
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="p-4">
+              <Zap className="mb-3 h-5 w-5 text-primary" />
+              <h3 className="font-semibold">Decaimiento de forma</h3>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">Cada resultado anterior pesa un 30% menos que el inmediatamente anterior (factor 0.7<sup>i</sup>). Los partidos del propio torneo cuentan el doble.</p>
+            </CardContent>
+          </Card>
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="p-4">
+              <Trophy className="mb-3 h-5 w-5 text-primary" />
+              <h3 className="font-semibold">Modelo fase eliminatoria</h3>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">En octavos, cuartos, semis y final se usa un promedio de goles de 1.05 (vs. 1.35 en grupos) y la probabilidad de empate se amplía ×1.12 para reflejar mayor equilibrio.</p>
+            </CardContent>
+          </Card>
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="p-4">
+              <SlidersHorizontal className="mb-3 h-5 w-5 text-primary" />
+              <h3 className="font-semibold">Calibración dinámica</h3>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">El peso de mercado (MARKET_WEIGHT) se recalibra automáticamente según el Brier Score de los partidos ya disputados del Mundial 2026. Se necesitan mínimo 15 partidos.</p>
+            </CardContent>
+          </Card>
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="p-4">
+              <BrainCircuit className="mb-3 h-5 w-5 text-primary" />
+              <h3 className="font-semibold">Factor alineación</h3>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">Si se detectan bajas relevantes vía API de alineaciones, el lambda del equipo se reduce: 2–3 bajas → ×0.93; 4+ bajas → ×0.85. Sin información, no hay penalización.</p>
+            </CardContent>
+          </Card>
+        </div>
       </section>
 
       <section aria-labelledby="limits-title" className="space-y-4">

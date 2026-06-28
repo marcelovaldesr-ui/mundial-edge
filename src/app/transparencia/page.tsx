@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowDownRight, CheckCircle2, Database, ExternalLink, ShieldCheck } from "lucide-react";
+import { ArrowDownRight, CheckCircle2, Database, ExternalLink, ShieldCheck, TrendingUp } from "lucide-react";
 import rawReport from "../../../data/calibration-report.json";
 import { ReliabilityChart } from "@/components/reliability-chart";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { assertTransparencyReport, type PublicMetrics, type TransparencyReport } from "@/lib/transparency/report";
 import { pct } from "@/lib/utils";
+import { getFinishedPickHistory } from "@/lib/data/repository";
 
 export const metadata: Metadata = {
   title: "Transparencia del modelo — Mundial Edge",
@@ -17,7 +18,11 @@ export const metadata: Metadata = {
 const report = rawReport as unknown as TransparencyReport;
 assertTransparencyReport(report);
 
-export default function TransparencyPage() {
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
+export default async function TransparencyPage() {
+  const [picks] = await Promise.all([getFinishedPickHistory(50)]);
   const average = report.global;
   return (
     <div className="space-y-8">
@@ -118,6 +123,80 @@ export default function TransparencyPage() {
           </CardContent>
         </Card>
       </section>
+
+      <section aria-labelledby="picks-title" className="space-y-4">
+        <SectionHeading
+          id="picks-title"
+          eyebrow="Mundial 2026 · Seguimiento en vivo"
+          title="Historial de picks del torneo"
+          description="Oportunidades identificadas por el modelo en partidos ya finalizados del Mundial 2026. P = Ganada · G = Perdida. Los resultados estadísticos no predicen rendimiento futuro."
+        />
+        {picks.length < 5 ? (
+          <Card>
+            <CardContent className="p-6 text-center text-sm text-muted-foreground">
+              <TrendingUp className="mx-auto mb-2 h-8 w-8 opacity-30" />
+              <p className="font-medium text-foreground">Datos insuficientes</p>
+              <p className="mt-1">Se necesitan al menos 5 partidos finalizados con picks para mostrar esta sección.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <PicksHistoryTable picks={picks} />
+        )}
+        <p className="text-xs text-muted-foreground">
+          Estos resultados corresponden a análisis estadístico previo al partido. No representan una recomendación de apuesta ni garantía de rentabilidad futura. El fútbol contiene azar inherente.
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function PicksHistoryTable({ picks }: { picks: Awaited<ReturnType<typeof getFinishedPickHistory>> }) {
+  const won = picks.filter((p) => p.won).length;
+  const total = picks.length;
+  const winRate = won / total;
+  const roi = picks.reduce((acc, p) => {
+    return acc + (p.won ? (p.decimalOdds - 1) : -1);
+  }, 0) / total;
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-3">
+        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Tasa de acierto</p><p className="mt-1 text-2xl font-bold tabular-nums">{pct(winRate, 1)}</p><p className="mt-1 text-xs text-muted-foreground">{won}P / {total - won}G de {total}</p></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">ROI medio</p><p className={`mt-1 text-2xl font-bold tabular-nums ${roi >= 0 ? "text-success" : "text-danger"}`}>{roi >= 0 ? "+" : ""}{pct(roi, 1)}</p><p className="mt-1 text-xs text-muted-foreground">por unidad apostada</p></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">EV medio</p><p className="mt-1 text-2xl font-bold tabular-nums text-primary">{pct(picks.reduce((a, p) => a + p.ev, 0) / total, 1)}</p><p className="mt-1 text-xs text-muted-foreground">valor esperado modelo</p></CardContent></Card>
+      </div>
+      <Card><CardContent className="pt-4 overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Partido</TableHead>
+              <TableHead>Score</TableHead>
+              <TableHead>Mercado</TableHead>
+              <TableHead>Pick</TableHead>
+              <TableHead>Cuota</TableHead>
+              <TableHead>EV</TableHead>
+              <TableHead className="text-right">Resultado</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {picks.map((p, i) => (
+              <TableRow key={i}>
+                <TableCell className="font-medium">{p.home} vs {p.away}</TableCell>
+                <TableCell className="font-mono tabular-nums">{p.homeScore}–{p.awayScore}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{p.market}</TableCell>
+                <TableCell className="text-xs">{p.outcome}</TableCell>
+                <TableCell className="font-mono tabular-nums">{p.decimalOdds.toFixed(2)}</TableCell>
+                <TableCell className="font-mono tabular-nums text-primary">{pct(p.ev, 1)}</TableCell>
+                <TableCell className="text-right">
+                  <span className={`font-mono text-xs font-semibold ${p.won ? "text-success" : "text-danger"}`}>
+                    {p.won ? "P" : "G"}
+                  </span>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent></Card>
     </div>
   );
 }

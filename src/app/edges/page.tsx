@@ -3,6 +3,7 @@ import { EdgeTable } from "@/components/edge-table";
 import { LastUpdated } from "@/components/last-updated";
 import { Disclaimer } from "@/components/disclaimer";
 import { Card, CardContent } from "@/components/ui/card";
+import { EvDistributionChart } from "@/components/ev-distribution-chart";
 import { buildScoreMatricesByMatchId } from "@/lib/stat-model";
 import { decorateEdgesWithFinalProbability } from "@/lib/model/final-probability";
 import { ModelMetadata } from "@/components/model-metadata";
@@ -52,6 +53,7 @@ export default async function EdgesPage() {
         warnings={statModel.coverage.issues.map((issue) => `${issue.matchId}: ${issue.reason}`)}
       />
       <Disclaimer compact />
+      <EvDistributionChart edges={calibratedEdges} />
       <Card><CardContent className="pt-5"><EdgeTable edges={calibratedEdges} /></CardContent></Card>
     </div>
   );

@@ -7,8 +7,31 @@ import { fmtKickoff, fmtEv } from "@/lib/utils";
 import { TeamMark } from "@/components/team-mark";
 import { isPreMatchEligible, matchStatusLabel } from "@/lib/matches/pre-match-eligibility";
 import type { WorldCupGroupContext } from "@/lib/world-cup";
+import { MatchCountdown } from "@/components/match-countdown";
 
-export function MatchCard({ match, best, groupContext }: { match: Match; best?: Edge; groupContext?: WorldCupGroupContext }) {
+export type DataConfidence = "complete" | "partial" | "minimal";
+
+function ConfidenceBadge({ level }: { level: DataConfidence }) {
+  const map: Record<DataConfidence, { label: string; cls: string }> = {
+    complete: { label: "Datos completos", cls: "text-success-foreground bg-success/10 border-success/30" },
+    partial:  { label: "Datos parciales",  cls: "text-warning bg-warning/10 border-warning/30" },
+    minimal:  { label: "Datos mínimos",    cls: "text-muted-foreground bg-muted/30 border-border" },
+  };
+  const { label, cls } = map[level];
+  return (
+    <span className={`inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-[9px] ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
+export function MatchCard({ match, best, groupContext, isNext, confidence }: {
+  match: Match;
+  best?: Edge;
+  groupContext?: WorldCupGroupContext;
+  isNext?: boolean;
+  confidence?: DataConfidence;
+}) {
   const preMatchEligible = isPreMatchEligible(match);
   const showScore = !preMatchEligible && match.home_score != null && match.away_score != null;
   const activeBest = preMatchEligible ? best : undefined;
@@ -19,7 +42,10 @@ export function MatchCard({ match, best, groupContext }: { match: Match; best?: 
         <CardContent className="p-0">
           {/* Header: stage + status + kickoff */}
           <div className="flex items-center justify-between border-b border-border bg-background/30 px-3 py-2">
-            <span className="section-label">{match.stage}</span>
+            <div className="flex items-center gap-2">
+              <span className="section-label">{match.stage}</span>
+              {confidence && <ConfidenceBadge level={confidence} />}
+            </div>
             <div className="flex items-center gap-2">
               {groupContext?.group && (
                 <span className="font-mono text-[9px] text-muted-foreground">{groupContext.group}</span>
@@ -67,6 +93,13 @@ export function MatchCard({ match, best, groupContext }: { match: Match; best?: 
                 </span>
                 <RiskBadge tier={activeBest.tier} />
               </div>
+            </div>
+          )}
+
+          {isNext && preMatchEligible && (
+            <div className="border-t border-border px-3 py-2 flex items-center gap-2 bg-primary/5">
+              <MatchCountdown kickoff={match.kickoff} />
+              <span className="font-mono text-[9px] text-primary/70 uppercase tracking-wide">Próximo partido</span>
             </div>
           )}
 

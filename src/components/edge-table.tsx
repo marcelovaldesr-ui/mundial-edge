@@ -12,24 +12,35 @@ import { Badge } from "@/components/ui/badge";
 import { signalBadgesForEdge } from "@/lib/markets/signal-badges";
 import { CopyButton } from "@/components/copy-button";
 import { realismLabel } from "@/lib/model/edge";
+import { getMarketCategory, type MarketDisplayCategory } from "@/lib/markets/market-display";
 
 type SortKey = "expected_value" | "edge" | "model_probability" | "decimal_odds" | "final_probability";
+
+const MARKET_FILTERS: { key: MarketDisplayCategory | "all"; label: string }[] = [
+  { key: "all", label: "Todos" },
+  { key: "winner", label: "Ganador" },
+  { key: "goals_total", label: "Goles" },
+  { key: "btts", label: "BTTS" },
+  { key: "double_chance", label: "D. oport." },
+];
 
 export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatch?: boolean }) {
   const [sortKey, setSortKey] = useState<SortKey>("expected_value");
   const [asc, setAsc] = useState(false);
   const [onlyValue, setOnlyValue] = useState(false);
+  const [marketFilter, setMarketFilter] = useState<MarketDisplayCategory | "all">("all");
 
   const rows = useMemo(() => {
     let r = [...edges];
     if (onlyValue) r = r.filter((e) => e.qualifies);
+    if (marketFilter !== "all") r = r.filter((e) => getMarketCategory(e.market) === marketFilter);
     r.sort((a, b) => {
       const av = sortValue(a, sortKey);
       const bv = sortValue(b, sortKey);
       return asc ? av - bv : bv - av;
     });
     return r;
-  }, [edges, sortKey, asc, onlyValue]);
+  }, [edges, sortKey, asc, onlyValue, marketFilter]);
 
   const sortBtn = (key: SortKey, label: string) => (
     <button
@@ -45,6 +56,21 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
 
   return (
     <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {MARKET_FILTERS.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setMarketFilter(f.key)}
+            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+              marketFilter === f.key
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
       <label className="flex items-center gap-2 text-xs text-muted-foreground">
         <input type="checkbox" checked={onlyValue} onChange={(e) => setOnlyValue(e.target.checked)} />
         Mostrar solo picks de calidad (filtros de tipster)

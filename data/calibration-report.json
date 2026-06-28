@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 1,
-  "generatedAt": "2026-06-26T04:22:50.116Z",
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-27T12:00:00.000Z",
   "corpus": {
     "firstWorldCup": 1998,
     "lastWorldCup": 2022,
@@ -16,10 +16,26 @@
     "matches": 448,
     "evaluation": "Predicciones secuenciales sin usar partidos futuros; resultados de eliminatorias a 90 minutos."
   },
+  "wc2026_live": {
+    "note": "Benchmark en vivo del Mundial 2026. Las predicciones se recalibran automáticamente tras cada resultado.",
+    "lastUpdated": "2026-06-27T12:00:00.000Z",
+    "matchesFinished": "en curso — ver admin/sync_logs para estado actual",
+    "brierScore1x2": null,
+    "brierScoreOver2_5": null,
+    "modelChanges": [
+      {
+        "date": "2026-06-27",
+        "change": "formFactor: cambio de decay 1/(i+1) a 0.7^i — mayor énfasis en partido más reciente",
+        "version": "xg-v2.3-exp-decay"
+      }
+    ]
+  },
   "model": {
-    "id": "xg-v2.2-mismatch-spread-calibrated-matrix",
-    "label": "xG v2.2 mismatch-spread + calibrated-matrix T=0.65",
-    "temperature": 0.65
+    "id": "xg-v2.3-exp-decay-calibrated-matrix",
+    "label": "xG v2.3 mismatch-spread + calibrated-matrix T=0.65 + exponential form decay 0.7^i",
+    "temperature": 0.65,
+    "formDecay": 0.7,
+    "marketWeight": 0.78
   },
   "global": {
     "count": 448,

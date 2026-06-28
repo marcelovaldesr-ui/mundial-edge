@@ -7,7 +7,7 @@ import { Disclaimer } from "@/components/disclaimer";
 import { PoissonModelCard } from "@/components/poisson-model-card";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { fmtKickoff, pct } from "@/lib/utils";
+import { fmtKickoff, pct, fmtEv } from "@/lib/utils";
 import { buildScoreMatrixForMatch, calculateAdvanceProbability } from "@/lib/stat-model";
 import { TeamMark } from "@/components/team-mark";
 import { filterPreMatchEdges, isPreMatchEligible, matchStatusLabel } from "@/lib/matches/pre-match-eligibility";
@@ -158,6 +158,66 @@ export default async function MatchDetail({ params }: { params: { id: string } }
           </CardContent>
         </Card>
       </div>
+
+      {/* Goals market summary — 1.5 / 2.5 / 3.5 side by side */}
+      {preMatchEligible && (() => {
+        const goalLines = ["over_under_1_5", "over_under_2_5", "over_under_3_5"] as const;
+        const cells = goalLines.map((mkt) => {
+          const over = edgesForContext.find((e) => e.market === mkt && e.outcome === "over");
+          const under = edgesForContext.find((e) => e.market === mkt && e.outcome === "under");
+          return { label: mkt === "over_under_1_5" ? "+1.5 goles" : mkt === "over_under_2_5" ? "+2.5 goles" : "+3.5 goles", over, under };
+        }).filter((c) => c.over || c.under);
+        if (!cells.length) return null;
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Mercados de goles</CardTitle>
+              <CardDescription>Over/Under 1.5 · 2.5 · 3.5 — probabilidad final del modelo vs. cuota</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {cells.map(({ label, over, under }) => (
+                  <div key={label} className="rounded-md border border-border p-3 space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide">{label}</p>
+                    {over && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Más · {over.decimal_odds.toFixed(2)}</span>
+                        <span className={(over.final_expected_value ?? over.expected_value) >= 0 ? "text-success-foreground font-semibold" : "text-muted-foreground"}>
+                          {pct(over.final_probability ?? over.model_probability)} · EV {fmtEv(over.final_expected_value ?? over.expected_value)}
+                        </span>
+                      </div>
+                    )}
+                    {under && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Menos · {under.decimal_odds.toFixed(2)}</span>
+                        <span className={(under.final_expected_value ?? under.expected_value) >= 0 ? "text-success-foreground font-semibold" : "text-muted-foreground"}>
+                          {pct(under.final_probability ?? under.model_probability)} · EV {fmtEv(under.final_expected_value ?? under.expected_value)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* Contexto eliminatorio */}
+      {isKnockoutStage(match.stage) && (
+        <Card className="border-warning/30 bg-warning/5">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base">Contexto eliminatorio</CardTitle>
+              <Badge variant="warning">Fase eliminatoria</Badge>
+            </div>
+            <CardDescription>
+              Los modelos de Poisson a 90 min subestiman la varianza en eliminatorias: prórroga, penaltis y planteamientos defensivos no están capturados.
+              Edge típicamente menor fiabilidad. Considerar picks conservadores (&gt;60% prob. implícita) y evitar combinadas multi-partido en esta fase.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
 
       {modelPrediction && (
         <section className="space-y-3">

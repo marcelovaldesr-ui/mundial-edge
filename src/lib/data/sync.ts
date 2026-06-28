@@ -278,32 +278,43 @@ export async function syncPredictions(): Promise<SyncResult> {
     // límite de 1000 filas por defecto de PostgREST que trunca la respuesta cuando
     // la tabla completa supera ese tamaño (e.g. 7000+ odds de partidos finalizados).
     const scheduledMatchIds = (matches ?? []).map((m: any) => m.id).filter(Boolean);
+    console.log(`[syncPredictions] partidos scheduled/live: ${scheduledMatchIds.length}`);
+
     const { data: allOdds } = scheduledMatchIds.length
       ? await sb.from("odds").select("*").in("match_id", scheduledMatchIds)
       : { data: [] };
     const statMap = new Map((stats ?? []).map((s: any) => [s.team_id, s]));
+    console.log(`[syncPredictions] stats cargadas: ${statMap.size}, cuotas: ${(allOdds ?? []).length}`);
 
     const predRows: any[] = [], edgeRows: any[] = [];
+    let skipped = 0;
     for (const m of matches ?? []) {
       const hs = statMap.get(m.home_team_id), as = statMap.get(m.away_team_id);
-      if (!hs || !as) continue;
+      if (!hs || !as) { skipped++; continue; }
       const preds = buildPredictions(m as any, hs as any, as as any);
       const o = (allOdds ?? []).filter((x: any) => x.match_id === m.id);
+      const edges = buildEdges(m as any, preds, o as any);
       predRows.push(...preds);
-      edgeRows.push(...buildEdges(m as any, preds, o as any));
+      edgeRows.push(...edges);
+      console.log(`[syncPredictions] ${m.id}: ${preds.length} preds, ${edges.length} edges, ${o.length} odds`);
     }
+    if (skipped) console.warn(`[syncPredictions] ${skipped} partidos sin stats — omitidos`);
     const dbPredRows = predRows.map(({ id, ...row }) => row);
     const dbEdgeRows = edgeRows.map(({ id, ...row }) => row);
 
     // Limpia edges de partidos finalizados (evita que se acumulen stale en tabla)
     const { data: finishedMatches } = await sb.from("matches").select("id").eq("status", "finished");
     const finishedIds = (finishedMatches ?? []).map((m: any) => m.id).filter(Boolean);
-    if (finishedIds.length) await deleteRowsByMatchIds("edges", finishedIds);
+    if (finishedIds.length) {
+      console.log(`[syncPredictions] limpiando edges de ${finishedIds.length} partidos finalizados`);
+      await deleteRowsByMatchIds("edges", finishedIds);
+    }
 
     await deleteRowsByMatchIds("edges", scheduledMatchIds);
     await upsertRows("predictions", dbPredRows, { onConflict: "match_id,market,outcome,model_version" });
     await upsertRows("edges", dbEdgeRows, { onConflict: "match_id,market,outcome" });
-    return done("predictions", source, logId, edgeRows.length, "Predicciones recalculadas y edges reemplazados.");
+    console.log(`[syncPredictions] completado: ${dbPredRows.length} predicciones, ${dbEdgeRows.length} edges`);
+    return done("predictions", source, logId, edgeRows.length, `Predicciones: ${dbPredRows.length}, edges: ${dbEdgeRows.length}, sin stats: ${skipped}`);
   } catch (e) {
     return fail("predictions", source, logId, e);
   }

@@ -1,4 +1,5 @@
 import type { Match, Edge, TeamStats, Odd, SyncLog } from "@/lib/types";
+import { MARKET_WEIGHT } from "@/lib/model/edge";
 import { getServiceSupabase, isLiveMode } from "@/lib/supabase/server";
 import * as mock from "./mock";
 import { buildPredictions, buildEdges } from "@/lib/model/engine";
@@ -177,3 +178,63 @@ export async function getSyncLogs(limit = 20): Promise<SyncLog[]> {
 }
 
 export const dataMode = () => (isLiveMode() ? "live" : "mock");
+
+export interface ModelStatus {
+  marketWeight: number;
+  tableCounts: { matches: number; edges: number; odds: number; team_stats: number };
+  lastSyncByJob: Partial<Record<SyncLog["job"], { at: string | null; status: string; records: number }>>;
+  edgesByMarket: { market: string; count: number; qualifiedCount: number }[];
+}
+
+export async function getModelStatus(): Promise<ModelStatus> {
+  if (!isLiveMode()) {
+    const edges = annotate(mockEdges());
+    const byMarket = new Map<string, { count: number; qualifiedCount: number }>();
+    for (const e of edges) {
+      const m = byMarket.get(e.market) ?? { count: 0, qualifiedCount: 0 };
+      m.count++;
+      if (e.qualifies) m.qualifiedCount++;
+      byMarket.set(e.market, m);
+    }
+    return {
+      marketWeight: MARKET_WEIGHT,
+      tableCounts: { matches: mock.matches.length, edges: edges.length, odds: mock.odds.length, team_stats: mock.teamStats.length },
+      lastSyncByJob: {},
+      edgesByMarket: Array.from(byMarket.entries()).map(([market, v]) => ({ market, ...v })),
+    };
+  }
+
+  const sb = getServiceSupabase()!;
+  const [{ count: matchCount }, { count: edgeCount }, { count: oddsCount }, { count: statsCount }, { data: logs }, { data: edgeRows }] =
+    await Promise.all([
+      sb.from("matches").select("*", { count: "exact", head: true }),
+      sb.from("edges").select("*", { count: "exact", head: true }),
+      sb.from("odds").select("*", { count: "exact", head: true }),
+      sb.from("team_stats").select("*", { count: "exact", head: true }),
+      sb.from("sync_logs").select("job, status, records_affected, finished_at")
+        .eq("status", "success").order("finished_at", { ascending: false }).limit(40),
+      sb.from("edges").select("market, expected_value, implied_probability, decimal_odds"),
+    ]);
+
+  const lastSyncByJob: ModelStatus["lastSyncByJob"] = {};
+  for (const log of (logs ?? []) as any[]) {
+    if (!lastSyncByJob[log.job as SyncLog["job"]]) {
+      lastSyncByJob[log.job as SyncLog["job"]] = { at: log.finished_at, status: log.status, records: log.records_affected };
+    }
+  }
+
+  const byMarket = new Map<string, { count: number; qualifiedCount: number }>();
+  for (const e of (edgeRows ?? []) as any[]) {
+    const m = byMarket.get(e.market) ?? { count: 0, qualifiedCount: 0 };
+    m.count++;
+    if (isQualityPick(e)) m.qualifiedCount++;
+    byMarket.set(e.market, m);
+  }
+
+  return {
+    marketWeight: MARKET_WEIGHT,
+    tableCounts: { matches: matchCount ?? 0, edges: edgeCount ?? 0, odds: oddsCount ?? 0, team_stats: statsCount ?? 0 },
+    lastSyncByJob,
+    edgesByMarket: Array.from(byMarket.entries()).map(([market, v]) => ({ market, ...v })),
+  };
+}

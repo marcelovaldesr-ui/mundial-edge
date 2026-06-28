@@ -50,7 +50,7 @@ function mockEdges(): Edge[] {
 
 export async function getMatches(): Promise<Match[]> {
   if (isLiveMode()) {
-    return cachedLiveRead("matches", 30_000, async () => {
+    return cachedLiveRead("matches", 60_000, async () => {
       const sb = getServiceSupabase()!;
       const { data, error } = await sb
         .from("matches")
@@ -77,7 +77,7 @@ export async function getEdges(): Promise<Edge[]> {
 
 export async function getAllEdges(): Promise<Edge[]> {
   if (isLiveMode()) {
-    return cachedLiveRead("edges", 15_000, async () => {
+    return cachedLiveRead("edges", 60_000, async () => {
       const sb = getServiceSupabase()!;
       // Leemos la tabla `edges` directamente (no la vista v_top_edges) para no
       // depender de la caché de esquema de PostgREST, y traemos el partido +
@@ -132,7 +132,7 @@ export async function getOddsForMatch(matchId: string): Promise<Odd[]> {
 
 export async function getTeamStats(): Promise<TeamStats[]> {
   if (isLiveMode()) {
-    return cachedLiveRead("team-stats", 30_000, async () => {
+    return cachedLiveRead("team-stats", 120_000, async () => {
       const sb = getServiceSupabase()!;
       const { data, error } = await sb.from("team_stats").select("*");
       if (error) {
@@ -178,6 +178,86 @@ export async function getSyncLogs(limit = 20): Promise<SyncLog[]> {
 }
 
 export const dataMode = () => (isLiveMode() ? "live" : "mock");
+
+/** Finished matches with their best edges for pick history (E.1). */
+export interface FinishedPickRow {
+  matchId: string;
+  home: string;
+  away: string;
+  homeScore: number;
+  awayScore: number;
+  kickoff: string;
+  market: string;
+  outcome: string;
+  decimalOdds: number;
+  modelProb: number;
+  ev: number;
+  won: boolean;
+}
+
+export async function getFinishedPickHistory(limit = 50): Promise<FinishedPickRow[]> {
+  if (!isLiveMode()) return [];
+  const sb = getServiceSupabase()!;
+  const { data: matches } = await sb
+    .from("matches")
+    .select("id, home_team:teams!home_team_id(name, code), away_team:teams!away_team_id(name, code), home_score, away_score, kickoff")
+    .eq("status", "finished")
+    .not("home_score", "is", null)
+    .order("kickoff", { ascending: false })
+    .limit(30);
+
+  if (!matches?.length) return [];
+  const matchIds = (matches as any[]).map((m) => m.id);
+
+  const { data: edges } = await sb
+    .from("edges")
+    .select("match_id, market, outcome, decimal_odds, model_probability, expected_value")
+    .in("match_id", matchIds)
+    .gte("expected_value", 0.02)
+    .order("expected_value", { ascending: false })
+    .limit(limit);
+
+  if (!edges?.length) return [];
+
+  const matchMap = new Map((matches as any[]).map((m) => [m.id, m]));
+  const rows: FinishedPickRow[] = [];
+
+  for (const e of edges as any[]) {
+    const m = matchMap.get(e.match_id);
+    if (!m || m.home_score == null || m.away_score == null) continue;
+
+    // Determine if the pick won
+    let won = false;
+    if (e.market === "1x2") {
+      if (e.outcome === "home") won = m.home_score > m.away_score;
+      else if (e.outcome === "away") won = m.home_score < m.away_score;
+      else if (e.outcome === "draw") won = m.home_score === m.away_score;
+    } else if (e.market === "btts") {
+      const scored = m.home_score > 0 && m.away_score > 0;
+      won = e.outcome === "yes" ? scored : !scored;
+    } else if (e.market === "over_under_1_5" || e.market === "over_under_2_5" || e.market === "over_under_3_5") {
+      const total = m.home_score + m.away_score;
+      const line = e.market === "over_under_1_5" ? 1.5 : e.market === "over_under_2_5" ? 2.5 : 3.5;
+      won = e.outcome === "over" ? total > line : total < line;
+    }
+
+    rows.push({
+      matchId: m.id,
+      home: m.home_team?.code ?? m.home_team?.name ?? "?",
+      away: m.away_team?.code ?? m.away_team?.name ?? "?",
+      homeScore: m.home_score,
+      awayScore: m.away_score,
+      kickoff: m.kickoff,
+      market: e.market,
+      outcome: e.outcome,
+      decimalOdds: e.decimal_odds,
+      modelProb: e.model_probability,
+      ev: e.expected_value,
+      won,
+    });
+  }
+  return rows;
+}
 
 export interface ModelStatus {
   marketWeight: number;

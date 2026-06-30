@@ -35,7 +35,9 @@ export function classifyEv(ev: number): ValueTier {
 // muestra, así que la probabilidad "justa" se ancla fuerte al mercado
 // (de-vig) y solo se desvía un poco según el modelo. Esto evita el
 // clásico falso "valor" en longshots (p. ej. Argelia vs Argentina).
-export const MARKET_WEIGHT = 0.78; // peso del mercado; (1 - peso) = modelo
+// MARKET_WEIGHT subido temporalmente a 0.88 mientras se acumulan datos del torneo.
+// Bajar a 0.78 cuando haya ≥ 20 partidos finalizados con Brier Score < 0.22.
+export const MARKET_WEIGHT = 0.88;
 
 /** Probabilidad "justa" = mezcla de mercado (de-vig) y modelo. */
 export const blendedProbability = (marketProb: number, modelProb: number): number =>
@@ -43,11 +45,12 @@ export const blendedProbability = (marketProb: number, modelProb: number): numbe
 
 // Guardarraíles de un pick "publicable" (lo que mostraría un tipster).
 export const PICK_RULES = {
-  minOdds: 1.4,        // evita favoritos sin recorrido
-  maxOdds: 6.0,        // evita longshots donde el modelo es poco fiable
-  minEv: 0.02,         // 2% mínimo para considerar valor
-  maxEv: 0.2,          // > 20% casi siempre es error de modelo, no valor real
-  minMarketProb: 0.08, // descarta probabilidades implícitas ínfimas
+  minOdds: 1.4,              // evita favoritos sin recorrido
+  maxOdds: 6.0,              // evita longshots donde el modelo es poco fiable
+  minEv: 0.02,               // 2% mínimo para considerar valor
+  maxEv: 0.15,               // > 15% en mercados eficientes casi siempre es artefacto del modelo
+  minMarketProb: 0.08,       // descarta probabilidades implícitas ínfimas
+  maxModelMarketRatio: 2.0,  // si modelo/mercado > 2x → el prior domina, no hay edge real
 };
 
 // ─── Filtro de realismo ──────────────────────────────────────────

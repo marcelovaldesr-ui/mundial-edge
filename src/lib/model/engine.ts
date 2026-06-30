@@ -2,7 +2,7 @@ import type { Match, TeamStats, Odd, Prediction, Edge, Market, Outcome } from ".
 import { buildScoreMatrix, marketsFromMatrix } from "./poisson";
 import { expectedGoals } from "./expected-goals";
 import { groupByMarket } from "./odds";
-import { impliedProbability, classifyEv, blendedProbability, MARKET_WEIGHT } from "./edge";
+import { impliedProbability, classifyEv, blendedProbability, MARKET_WEIGHT, PICK_RULES } from "./edge";
 import { isKnockoutStage } from "../matches/stage";
 import type { LineupData } from "../data/providers";
 
@@ -173,6 +173,24 @@ export function buildEdges(
 
     const consensus = marketConsensus(marketOdds, pred.market);
     const pMarket = consensus[pred.outcome] || impliedProbability(best.decimal_odds);
+
+    // ── SANITY CHECK: ratio modelo vs mercado ────────────────────────────────
+    // Ratio > 2x significa que el prior del modelo domina sobre la señal real
+    // del mercado (equipo con pocos partidos o distribución de Poisson distorsionada).
+    // No es edge real: es el modelo confundiendo incertidumbre con valor.
+    const modelMarketRatio = pMarket > 0 ? pred.model_probability / pMarket : 0;
+    if (modelMarketRatio > PICK_RULES.maxModelMarketRatio) {
+      console.warn(
+        `[buildEdges] FALSO EDGE descartado — ${pred.market}/${pred.outcome}` +
+        ` match=${match.id}` +
+        ` modelo=${(pred.model_probability * 100).toFixed(1)}%` +
+        ` mercado=${(pMarket * 100).toFixed(1)}%` +
+        ` ratio=${modelMarketRatio.toFixed(2)}x`
+      );
+      continue;
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const weight = marketWeight ?? MARKET_WEIGHT;
     const pFair = weight * pMarket + (1 - weight) * pred.model_probability;
     const ev = pFair * best.decimal_odds - 1;

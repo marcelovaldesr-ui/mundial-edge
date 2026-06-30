@@ -4,7 +4,7 @@ import { buildPredictions, buildEdges, MODEL_VERSION } from "@/lib/model/engine"
 import { computeDynamicMarketWeight } from "@/lib/model/calibration";
 import * as mock from "./mock";
 
-export type SyncJob = "fixtures" | "results" | "odds" | "predictions" | "lineups";
+export type SyncJob = "fixtures" | "results" | "odds" | "predictions" | "lineups" | "settle";
 
 export interface SyncResult {
   job: SyncJob;
@@ -172,9 +172,10 @@ export async function syncResults(): Promise<SyncResult> {
       if (!error) n++;
     }
     await recomputeStats();
-    // Pilar 1: recalibracion automatica — edges se recalculan con stats frescas
-    // inmediatamente despues de cada resultado. El error es no-fatal.
+    // Pilar 1: recalibración automática tras cada resultado.
     syncPredictions().catch((e) => console.error("[auto-recalibration] predictions sync failed:", e));
+    // Liquidar picks cuyo partido ya finalizó.
+    settlePicksLog().catch((e) => console.error("[auto-settle] picks settlement failed:", e));
     return done("results", source, logId, n, "Resultados actualizados; predicciones en recalibración.");
   } catch (e) {
     return fail("results", source, logId, e);
@@ -366,6 +367,74 @@ export async function syncLineups(): Promise<SyncResult> {
   }
 }
 
+export async function settlePicksLog(): Promise<SyncResult> {
+  const source = "picks-settlement";
+  // Log under "predictions" job to avoid breaking SyncLog type constraints.
+  const logId = await logStart("predictions", source);
+  try {
+    if (!isLiveMode()) return done("predictions", source, logId, 0, "Mock: skip settle.");
+    const sb = getServiceSupabase()!;
+
+    const { data: pending } = await sb
+      .from("picks_log")
+      .select("*")
+      .is("result", null);
+
+    if (!pending?.length) {
+      return done("predictions", source, logId, 0, "Sin picks pendientes de liquidar.");
+    }
+
+    const matchIds = [...new Set((pending as any[]).map((p: any) => p.match_id))];
+    const { data: finishedMatches } = await sb
+      .from("matches")
+      .select("id, home_score, away_score, status")
+      .in("id", matchIds)
+      .eq("status", "finished");
+
+    const matchMap = new Map((finishedMatches ?? []).map((m: any) => [m.id, m]));
+
+    let settled = 0;
+    for (const pick of pending as any[]) {
+      const match = matchMap.get(pick.match_id);
+      if (!match || match.home_score == null || match.away_score == null) continue;
+
+      const hs = Number(match.home_score);
+      const as_ = Number(match.away_score);
+      const total = hs + as_;
+      let won: boolean | null = null;
+
+      if (pick.market === "1x2") {
+        if (pick.outcome === "home") won = hs > as_;
+        else if (pick.outcome === "away") won = as_ > hs;
+        else if (pick.outcome === "draw") won = hs === as_;
+      } else if (pick.market === "over_under_2_5") {
+        won = pick.outcome === "over" ? total > 2.5 : total < 2.5;
+      } else if (pick.market === "over_under_1_5") {
+        won = pick.outcome === "over" ? total > 1.5 : total < 1.5;
+      } else if (pick.market === "over_under_3_5") {
+        won = pick.outcome === "over" ? total > 3.5 : total < 3.5;
+      } else if (pick.market === "btts") {
+        const bttsYes = hs > 0 && as_ > 0;
+        won = pick.outcome === "yes" ? bttsYes : !bttsYes;
+      }
+
+      if (won === null) continue;
+      const pnl = won ? Number(pick.decimal_odds) - 1 : -1.0;
+
+      await sb.from("picks_log").update({
+        result: won ? "win" : "loss",
+        settled_at: new Date().toISOString(),
+        pnl,
+      }).eq("id", pick.id);
+      settled++;
+    }
+
+    return done("predictions", source, logId, settled, `${settled} picks liquidados.`);
+  } catch (e) {
+    return fail("predictions", source, logId, e);
+  }
+}
+
 export async function runJob(job: SyncJob): Promise<SyncResult> {
   switch (job) {
     case "fixtures": return syncFixtures();
@@ -373,6 +442,7 @@ export async function runJob(job: SyncJob): Promise<SyncResult> {
     case "odds": return syncOdds();
     case "predictions": return syncPredictions();
     case "lineups": return syncLineups();
+    case "settle": return settlePicksLog();
   }
 }
 export async function runAll(): Promise<SyncResult[]> {

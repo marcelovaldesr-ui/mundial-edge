@@ -1,5 +1,6 @@
 import type { Match, Edge, TeamStats, Odd, SyncLog } from "@/lib/types";
 import { MARKET_WEIGHT } from "@/lib/model/edge";
+import { computeKelly } from "@/lib/model/kelly";
 import { getServiceSupabase, isLiveMode } from "@/lib/supabase/server";
 import * as mock from "./mock";
 import { buildPredictions, buildEdges } from "@/lib/model/engine";
@@ -200,6 +201,7 @@ export async function logPicksShown(edges: Edge[]): Promise<void> {
   if (!isLiveMode() || !edges.length) return;
   const sb = getServiceSupabase()!;
   for (const e of edges) {
+    const kelly = computeKelly(e.expected_value, e.decimal_odds);
     await sb.from("picks_log").upsert(
       {
         match_id: e.match_id,
@@ -209,6 +211,8 @@ export async function logPicksShown(edges: Edge[]): Promise<void> {
         model_prob: e.model_probability,
         implied_prob: e.implied_probability,
         ev: e.expected_value,
+        kelly_pct: kelly.isNoStake ? null : kelly.kellyPct,
+        stake_pct: kelly.isNoStake ? null : kelly.stakePct,
         shown_at: new Date().toISOString(),
       },
       { onConflict: "match_id,market,outcome", ignoreDuplicates: true }

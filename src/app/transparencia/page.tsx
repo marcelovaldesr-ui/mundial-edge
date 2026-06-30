@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { assertTransparencyReport, type PublicMetrics, type TransparencyReport } from "@/lib/transparency/report";
 import { pct } from "@/lib/utils";
-import { getFinishedPickHistory } from "@/lib/data/repository";
+import { getFinishedPickHistory, getRoiStats, type RoiStats } from "@/lib/data/repository";
 
 export const metadata: Metadata = {
   title: "Transparencia del modelo — Mundial Edge",
@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export default async function TransparencyPage() {
-  const [picks] = await Promise.all([getFinishedPickHistory(50)]);
+  const [picks, roiStats] = await Promise.all([getFinishedPickHistory(50), getRoiStats()]);
   const average = report.global;
   return (
     <div className="space-y-8">
@@ -124,6 +124,29 @@ export default async function TransparencyPage() {
         </Card>
       </section>
 
+      <section aria-labelledby="roi-title" className="space-y-4">
+        <SectionHeading
+          id="roi-title"
+          eyebrow="Rendimiento real del sistema · WC 2026"
+          title="ROI en tiempo real"
+          description="Resultados verificados de los picks mostrados en /edges, liquidados con el resultado oficial del partido."
+        />
+        {roiStats ? (
+          <RoiDashboard stats={roiStats} />
+        ) : (
+          <Card>
+            <CardContent className="p-6 text-center text-sm text-muted-foreground">
+              <TrendingUp className="mx-auto mb-2 h-8 w-8 opacity-30" />
+              <p className="font-medium text-foreground">Sin datos liquidados aún</p>
+              <p className="mt-1">El sistema lleva registrando picks desde el {new Date().toLocaleDateString("es-CL", { dateStyle: "long" })}. Los resultados reales aparecerán aquí conforme los partidos finalicen.</p>
+            </CardContent>
+          </Card>
+        )}
+        <p className="text-xs text-muted-foreground">
+          ROI calculado con stake flat de 1 unidad por pick. Los resultados pasados no garantizan rendimiento futuro. Este sistema es experimental.
+        </p>
+      </section>
+
       <section aria-labelledby="picks-title" className="space-y-4">
         <SectionHeading
           id="picks-title"
@@ -223,3 +246,78 @@ function MetricTable({ title, rows }: { title: string; rows: Array<{ label: stri
 }
 
 function num(value: number): string { return value.toFixed(3); }
+
+function RoiDashboard({ stats }: { stats: RoiStats }) {
+  const roiPositive = stats.roi >= 0;
+  const winRateGood = stats.winRate >= 0.5;
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <Card><CardContent className="p-4">
+          <p className="text-xs text-muted-foreground">Picks mostrados</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums">{stats.totalPicks}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{stats.settled} liquidados</p>
+        </CardContent></Card>
+        <Card><CardContent className="p-4">
+          <p className="text-xs text-muted-foreground">Aciertos</p>
+          <p className="mt-1 text-2xl font-bold tabular-nums">{stats.wins}W / {stats.losses}L</p>
+          <p className="mt-1 text-xs text-muted-foreground">de {stats.settled} picks</p>
+        </CardContent></Card>
+        <Card><CardContent className="p-4">
+          <p className="text-xs text-muted-foreground">Win rate</p>
+          <p className={`mt-1 text-2xl font-bold tabular-nums ${winRateGood ? "text-success" : "text-danger"}`}>
+            {pct(stats.winRate, 1)}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">umbral referencia 50%</p>
+        </CardContent></Card>
+        <Card><CardContent className="p-4">
+          <p className="text-xs text-muted-foreground">ROI medio</p>
+          <p className={`mt-1 text-2xl font-bold tabular-nums ${roiPositive ? "text-success" : "text-danger"}`}>
+            {roiPositive ? "+" : ""}{pct(stats.roi, 1)}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">por unidad apostada</p>
+        </CardContent></Card>
+        <Card><CardContent className="p-4">
+          <p className="text-xs text-muted-foreground">P&L total</p>
+          <p className={`mt-1 text-2xl font-bold tabular-nums ${stats.totalPnl >= 0 ? "text-success" : "text-danger"}`}>
+            {stats.totalPnl >= 0 ? "+" : ""}{stats.totalPnl.toFixed(2)}u
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">stake flat 1u/pick</p>
+        </CardContent></Card>
+      </div>
+      {Object.keys(stats.byMarket).length > 0 && (
+        <Card><CardContent className="pt-4 overflow-x-auto">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">Por mercado</p>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Mercado</TableHead>
+                <TableHead>Picks</TableHead>
+                <TableHead>Win rate</TableHead>
+                <TableHead>ROI</TableHead>
+                <TableHead className="text-right">P&L</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Object.entries(stats.byMarket).map(([market, m]) => (
+                <TableRow key={market}>
+                  <TableCell className="font-medium">{market}</TableCell>
+                  <TableCell className="tabular-nums">{m.picks}</TableCell>
+                  <TableCell className={`font-mono tabular-nums ${m.wins / m.picks >= 0.5 ? "text-success" : "text-danger"}`}>
+                    {pct(m.wins / m.picks, 1)}
+                  </TableCell>
+                  <TableCell className={`font-mono tabular-nums ${m.roi >= 0 ? "text-success" : "text-danger"}`}>
+                    {m.roi >= 0 ? "+" : ""}{pct(m.roi, 1)}
+                  </TableCell>
+                  <TableCell className={`text-right font-mono tabular-nums ${m.pnl >= 0 ? "text-success" : "text-danger"}`}>
+                    {m.pnl >= 0 ? "+" : ""}{m.pnl.toFixed(2)}u
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent></Card>
+      )}
+    </div>
+  );
+}

@@ -296,6 +296,61 @@ export async function getFinishedPickHistory(limit = 50): Promise<FinishedPickRo
   return rows;
 }
 
+export interface RoiStats {
+  totalPicks: number;
+  settled: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  totalPnl: number;
+  roi: number;
+  sinceDate: string | null;
+  byMarket: Record<string, { picks: number; wins: number; pnl: number; roi: number }>;
+}
+
+export async function getRoiStats(): Promise<RoiStats | null> {
+  if (!isLiveMode()) return null;
+  const sb = getServiceSupabase()!;
+  const { data } = await sb
+    .from("picks_log")
+    .select("*")
+    .order("shown_at", { ascending: true });
+
+  if (!(data as any[])?.length) return null;
+
+  const all = data as any[];
+  const settled = all.filter((p) => p.result === "win" || p.result === "loss");
+  if (!settled.length) return null;
+
+  const wins = settled.filter((p) => p.result === "win").length;
+  const totalPnl = settled.reduce((s: number, p: any) => s + Number(p.pnl ?? 0), 0);
+  const roi = totalPnl / settled.length;
+
+  const byMarket: RoiStats["byMarket"] = {};
+  for (const p of settled) {
+    const m = (p.market as string) ?? "unknown";
+    if (!byMarket[m]) byMarket[m] = { picks: 0, wins: 0, pnl: 0, roi: 0 };
+    byMarket[m].picks++;
+    if (p.result === "win") byMarket[m].wins++;
+    byMarket[m].pnl += Number(p.pnl ?? 0);
+  }
+  for (const m of Object.keys(byMarket)) {
+    byMarket[m].roi = byMarket[m].pnl / byMarket[m].picks;
+  }
+
+  return {
+    totalPicks: all.length,
+    settled: settled.length,
+    wins,
+    losses: settled.length - wins,
+    winRate: wins / settled.length,
+    totalPnl,
+    roi,
+    sinceDate: all[0]?.shown_at ?? null,
+    byMarket,
+  };
+}
+
 export interface ModelStatus {
   marketWeight: number;
   tableCounts: { matches: number; edges: number; odds: number; team_stats: number };

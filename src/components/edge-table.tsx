@@ -13,6 +13,7 @@ import { signalBadgesForEdge } from "@/lib/markets/signal-badges";
 import { CopyButton } from "@/components/copy-button";
 import { realismLabel } from "@/lib/model/edge";
 import { getMarketCategory, type MarketDisplayCategory } from "@/lib/markets/market-display";
+import { computeKelly, formatStake } from "@/lib/model/kelly";
 
 type SortKey = "expected_value" | "edge" | "model_probability" | "decimal_odds" | "final_probability";
 
@@ -24,7 +25,7 @@ const MARKET_FILTERS: { key: MarketDisplayCategory | "all"; label: string }[] = 
   { key: "double_chance", label: "D. oport." },
 ];
 
-export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatch?: boolean }) {
+export function EdgeTable({ edges, showMatch = true, bankroll = 0 }: { edges: Edge[]; showMatch?: boolean; bankroll?: number }) {
   const [sortKey, setSortKey] = useState<SortKey>("expected_value");
   const [asc, setAsc] = useState(false);
   const [onlyValue, setOnlyValue] = useState(false);
@@ -100,6 +101,11 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
               <MobileMetric label="Prob. final" value={pct(e.final_probability ?? e.model_probability)} />
               <MobileMetric label="EV final" value={fmtEv(e.final_expected_value ?? e.expected_value)} accent={(e.final_expected_value ?? e.expected_value) >= 0} />
             </div>
+            {bankroll > 0 && (
+              <div className="mt-2">
+                <KellyCell ev={e.final_expected_value ?? e.expected_value} odds={e.decimal_odds} bankroll={bankroll} mobile />
+              </div>
+            )}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <RiskBadge tier={e.final_tier ?? e.tier} />
               {e.qualifies ? <Badge variant="success">Pick calidad</Badge> : <Badge variant="muted">Atípico</Badge>}
@@ -135,6 +141,7 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
             <TableHead className="text-right">{sortBtn("final_probability", "Prob. final")}</TableHead>
             <TableHead className="text-right">{sortBtn("edge", "Edge final")}</TableHead>
             <TableHead className="text-right">{sortBtn("expected_value", "EV final")}</TableHead>
+            <TableHead className="text-right">Stake Kelly</TableHead>
             <TableHead>Riesgo</TableHead>
           </TableRow>
         </TableHeader>
@@ -160,6 +167,9 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
               </TableCell>
               <TableCell className={"text-right font-semibold tabular-nums " + ((e.final_expected_value ?? e.expected_value) >= 0 ? "text-success-foreground" : "text-danger-foreground")}>
                 {fmtEv(e.final_expected_value ?? e.expected_value)}
+              </TableCell>
+              <TableCell className="text-right">
+                <KellyCell ev={e.final_expected_value ?? e.expected_value} odds={e.decimal_odds} bankroll={bankroll} />
               </TableCell>
               <TableCell>
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -189,7 +199,7 @@ export function EdgeTable({ edges, showMatch = true }: { edges: Edge[]; showMatc
             </TableRow>
           ))}
           {rows.length === 0 && (
-            <TableRow><TableCell colSpan={showMatch ? 10 : 9} className="py-10 text-center">
+            <TableRow><TableCell colSpan={showMatch ? 11 : 10} className="py-10 text-center">
               <span className="font-mono text-xs tracking-wide text-muted-foreground">NO SE ENCONTRARON OPORTUNIDADES CON ESOS FILTROS</span>
             </TableCell></TableRow>
           )}
@@ -216,6 +226,41 @@ function MobileMetric({ label, value, accent }: { label: string; value: string; 
     <div className="rounded-md bg-muted/30 p-2">
       <p className="text-muted-foreground">{label}</p>
       <p className={"font-semibold tabular-nums " + (accent ? "text-success-foreground" : "")}>{value}</p>
+    </div>
+  );
+}
+
+function KellyCell({ ev, odds, bankroll, mobile = false }: { ev: number; odds: number; bankroll: number; mobile?: boolean }) {
+  const kelly = computeKelly(ev, odds, bankroll);
+  if (kelly.isNoStake) {
+    return <span className="font-mono text-xs text-muted-foreground">–</span>;
+  }
+  const label = formatStake(kelly, bankroll);
+  const kellyLabel = `Kelly: ${(kelly.kellyPct * 100).toFixed(1)}%`;
+
+  if (mobile) {
+    return (
+      <div className="flex items-center gap-2 rounded-md bg-primary/5 px-2 py-1 text-xs">
+        <span className="font-semibold text-primary">{label}</span>
+        <span className="text-muted-foreground">{kellyLabel}</span>
+        {kelly.isHighKelly && <span title={kelly.reasoning} className="text-warning cursor-help">⚠</span>}
+        {kelly.isCapped && <span title={kelly.reasoning} className="text-primary cursor-help">↓</span>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-0.5">
+      <span className={`font-mono text-sm font-semibold tabular-nums ${kelly.isHighKelly ? "text-warning" : "text-success-foreground"}`}>
+        {label}
+        {kelly.isHighKelly && (
+          <span title={kelly.reasoning} className="ml-1 cursor-help">⚠</span>
+        )}
+        {kelly.isCapped && !kelly.isHighKelly && (
+          <span title={kelly.reasoning} className="ml-1 cursor-help text-primary">↓</span>
+        )}
+      </span>
+      <span className="font-mono text-[10px] text-muted-foreground">{kellyLabel}</span>
     </div>
   );
 }

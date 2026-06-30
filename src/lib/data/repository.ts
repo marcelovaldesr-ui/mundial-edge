@@ -179,6 +179,43 @@ export async function getSyncLogs(limit = 20): Promise<SyncLog[]> {
 
 export const dataMode = () => (isLiveMode() ? "live" : "mock");
 
+/**
+ * Top picks estrictos: EV ≥ 5%, máximo 5 edges, ordenados por EV DESC.
+ * Registra los picks mostrados en picks_log (side-effect silencioso).
+ */
+export async function getTopEdges(): Promise<Edge[]> {
+  const all = await getEdges();
+  const top = all
+    .filter((e) => e.expected_value >= 0.05)
+    .slice(0, 5);
+  try {
+    await logPicksShown(top);
+  } catch (e) {
+    console.error("[getTopEdges] logPicksShown failed:", e);
+  }
+  return top;
+}
+
+export async function logPicksShown(edges: Edge[]): Promise<void> {
+  if (!isLiveMode() || !edges.length) return;
+  const sb = getServiceSupabase()!;
+  for (const e of edges) {
+    await sb.from("picks_log").upsert(
+      {
+        match_id: e.match_id,
+        market: e.market,
+        outcome: e.outcome,
+        decimal_odds: e.decimal_odds,
+        model_prob: e.model_probability,
+        implied_prob: e.implied_probability,
+        ev: e.expected_value,
+        shown_at: new Date().toISOString(),
+      },
+      { onConflict: "match_id,market,outcome", ignoreDuplicates: true }
+    );
+  }
+}
+
 /** Finished matches with their best edges for pick history (E.1). */
 export interface FinishedPickRow {
   matchId: string;

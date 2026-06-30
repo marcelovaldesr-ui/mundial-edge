@@ -1,4 +1,4 @@
-import { getEdges, getLastSync, dataMode, getMatches, getTeamStats } from "@/lib/data/repository";
+import { getTopEdges, getLastSync, dataMode, getMatches, getTeamStats } from "@/lib/data/repository";
 import { EdgeTable } from "@/components/edge-table";
 import { LastUpdated } from "@/components/last-updated";
 import { Disclaimer } from "@/components/disclaimer";
@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export default async function EdgesPage() {
-  const [edges, sync, matches, teamStats] = await Promise.all([getEdges(), getLastSync(), getMatches(), getTeamStats()]);
+  const [edges, sync, matches, teamStats] = await Promise.all([getTopEdges(), getLastSync(), getMatches(), getTeamStats()]);
   const config = getRecommendedPredictionConfig();
 
   // Pilar 3: fatiga, altitud, clima → modificadores de lambda por partido
@@ -53,8 +53,24 @@ export default async function EdgesPage() {
         warnings={statModel.coverage.issues.map((issue) => `${issue.matchId}: ${issue.reason}`)}
       />
       <Disclaimer compact />
-      <EvDistributionChart edges={calibratedEdges} />
-      <Card><CardContent className="pt-5"><EdgeTable edges={calibratedEdges} /></CardContent></Card>
+      {calibratedEdges.length === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center space-y-2">
+            <p className="font-semibold text-foreground">No hay oportunidades que pasen los filtros de calidad en este momento.</p>
+            <p className="text-sm text-muted-foreground">Esto es correcto: un sistema riguroso muestra pocos picks, no muchos.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {calibratedEdges.length < 3 && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-primary">
+              Solo {calibratedEdges.length} oportunidad{calibratedEdges.length === 1 ? "" : "es"} pasan el filtro de calidad hoy. Menos picks, más rigor.
+            </div>
+          )}
+          <EvDistributionChart edges={calibratedEdges} />
+          <Card><CardContent className="pt-5"><EdgeTable edges={calibratedEdges} /></CardContent></Card>
+        </>
+      )}
     </div>
   );
 }

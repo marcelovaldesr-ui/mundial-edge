@@ -355,6 +355,47 @@ export async function getRoiStats(): Promise<RoiStats | null> {
   };
 }
 
+const KELLY_BUCKETS = [
+  { bucket: "0–2%", min: 0,    max: 0.02 },
+  { bucket: "2–4%", min: 0.02, max: 0.04 },
+  { bucket: "4–6%", min: 0.04, max: 0.06 },
+  { bucket: "6–8%", min: 0.06, max: 0.08 },
+  { bucket: ">8%",  min: 0.08, max: Infinity },
+];
+
+export async function getKellyDistribution(): Promise<{
+  bucket: string; picks: number; wins: number; winRate: number; roi: number;
+}[] | null> {
+  if (!isLiveMode()) return null;
+  const sb = getServiceSupabase()!;
+  const { data } = await sb
+    .from("picks_log")
+    .select("kelly_pct, result, pnl")
+    .not("result", "is", null)
+    .not("kelly_pct", "is", null);
+
+  if (!(data as any[])?.length) return null;
+  const rows = data as any[];
+
+  const result = KELLY_BUCKETS.map(({ bucket, min, max }) => {
+    const inBucket = rows.filter(
+      (p) => Number(p.kelly_pct) >= min && Number(p.kelly_pct) < max
+        && (p.result === "win" || p.result === "loss")
+    );
+    const wins = inBucket.filter((p) => p.result === "win").length;
+    const pnl = inBucket.reduce((s: number, p: any) => s + Number(p.pnl ?? 0), 0);
+    return {
+      bucket,
+      picks: inBucket.length,
+      wins,
+      winRate: inBucket.length > 0 ? wins / inBucket.length : 0,
+      roi: inBucket.length > 0 ? pnl / inBucket.length : 0,
+    };
+  }).filter((b) => b.picks > 0);
+
+  return result.length > 0 ? result : null;
+}
+
 export interface ModelStatus {
   marketWeight: number;
   tableCounts: { matches: number; edges: number; odds: number; team_stats: number };

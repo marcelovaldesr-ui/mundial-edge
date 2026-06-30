@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { assertTransparencyReport, type PublicMetrics, type TransparencyReport } from "@/lib/transparency/report";
 import { pct } from "@/lib/utils";
-import { getFinishedPickHistory, getRoiStats, type RoiStats } from "@/lib/data/repository";
+import { getFinishedPickHistory, getRoiStats, getKellyDistribution, type RoiStats } from "@/lib/data/repository";
 
 export const metadata: Metadata = {
   title: "Transparencia del modelo — Mundial Edge",
@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export default async function TransparencyPage() {
-  const [picks, roiStats] = await Promise.all([getFinishedPickHistory(50), getRoiStats()]);
+  const [picks, roiStats, kellyDist] = await Promise.all([getFinishedPickHistory(50), getRoiStats(), getKellyDistribution()]);
   const average = report.global;
   return (
     <div className="space-y-8">
@@ -147,6 +147,24 @@ export default async function TransparencyPage() {
         </p>
       </section>
 
+      <section aria-labelledby="kelly-dist-title" className="space-y-4">
+        <SectionHeading
+          id="kelly-dist-title"
+          eyebrow="Kelly Criterion · Análisis histórico"
+          title="ROI por rango de stake"
+          description="Hipótesis a validar: picks con Kelly 2–4% (bien calibrados) deberían tener mejor ROI que picks con Kelly >8% (señal de edge inflado)."
+        />
+        {kellyDist ? (
+          <KellyDistributionSection data={kellyDist} />
+        ) : (
+          <Card>
+            <CardContent className="p-5 text-sm text-muted-foreground">
+              Sin datos suficientes aún. La sección se completará conforme los picks se liquiden.
+            </CardContent>
+          </Card>
+        )}
+      </section>
+
       <section aria-labelledby="picks-title" className="space-y-4">
         <SectionHeading
           id="picks-title"
@@ -246,6 +264,66 @@ function MetricTable({ title, rows }: { title: string; rows: Array<{ label: stri
 }
 
 function num(value: number): string { return value.toFixed(3); }
+
+function KellyDistributionSection({ data }: { data: { bucket: string; picks: number; wins: number; winRate: number; roi: number }[] }) {
+  const maxPicks = Math.max(...data.map((d) => d.picks), 1);
+  return (
+    <div className="space-y-3">
+      <Card><CardContent className="p-4">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+          Picks por rango de Kelly%
+        </p>
+        <div className="flex items-end gap-3 h-16">
+          {data.map((d) => (
+            <div key={d.bucket} className="flex flex-1 flex-col items-center gap-1">
+              <span className="font-mono text-[10px] text-muted-foreground">{d.picks}</span>
+              <div
+                className={`w-full rounded-t ${d.bucket === ">8%" ? "bg-warning/60" : "bg-primary/60"}`}
+                style={{ height: `${Math.max(4, (d.picks / maxPicks) * 44)}px` }}
+              />
+            </div>
+          ))}
+        </div>
+        <div className="mt-1 flex gap-3">
+          {data.map((d) => (
+            <div key={d.bucket} className="flex-1 text-center font-mono text-[9px] text-muted-foreground">{d.bucket}</div>
+          ))}
+        </div>
+      </CardContent></Card>
+      <Card><CardContent className="pt-4 overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Rango Kelly</TableHead>
+              <TableHead>Picks</TableHead>
+              <TableHead>Win rate</TableHead>
+              <TableHead className="text-right">ROI</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.map((d) => (
+              <TableRow key={d.bucket}>
+                <TableCell className={`font-mono font-medium ${d.bucket === ">8%" ? "text-warning" : ""}`}>
+                  {d.bucket}
+                  {d.bucket === ">8%" && <span className="ml-1 text-[10px] text-muted-foreground">(edge inflado?)</span>}
+                </TableCell>
+                <TableCell className="tabular-nums">
+                  {d.picks < 10 ? <span className="text-muted-foreground">{d.picks} (datos insuficientes)</span> : d.picks}
+                </TableCell>
+                <TableCell className={`font-mono tabular-nums ${d.winRate >= 0.5 ? "text-success" : "text-danger"}`}>
+                  {d.picks >= 10 ? pct(d.winRate, 1) : "–"}
+                </TableCell>
+                <TableCell className={`text-right font-mono tabular-nums ${d.roi >= 0 ? "text-success" : "text-danger"}`}>
+                  {d.picks >= 10 ? (d.roi >= 0 ? "+" : "") + pct(d.roi, 1) : "–"}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent></Card>
+    </div>
+  );
+}
 
 function RoiDashboard({ stats }: { stats: RoiStats }) {
   const roiPositive = stats.roi >= 0;
